@@ -1,0 +1,216 @@
+package uniswapv2
+
+import (
+	"context"
+	"fmt"
+	"math/big"
+	"strings"
+
+	"exchange/internal/adapters/venues/evm/multicall"
+	"exchange/internal/adapters/venues/evm/rpc"
+	"exchange/internal/core/chain"
+	"exchange/internal/core/venue"
+
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+)
+
+const factoryABI = `[
+  {"inputs":[],"name":"allPairsLength","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"allPairs","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"}
+]`
+
+const pairABI = `[
+  {"inputs":[],"name":"token0","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"token1","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"getReserves","outputs":[
+    {"internalType":"uint112","name":"_reserve0","type":"uint112"},
+    {"internalType":"uint112","name":"_reserve1","type":"uint112"},
+    {"internalType":"uint32","name":"_blockTimestampLast","type":"uint32"}
+  ],"stateMutability":"view","type":"function"}
+]`
+
+const defaultBatchSize = 300
+
+type Scanner struct {
+	rpc        *rpc.Pool
+	multicall  *multicall.Client
+	factory    common.Address
+	chainKey   chain.ChainKey
+	venueKey   venue.VenueKey
+	factoryABI abi.ABI
+	pairABI    abi.ABI
+	batchSize  int
+}
+
+func NewScanner(
+	rpcPool *rpc.Pool,
+	multicallClient *multicall.Client,
+	factory common.Address,
+	chainKey chain.ChainKey,
+	venueKey venue.VenueKey,
+) (*Scanner, error) {
+	parsedFactory, err := abi.JSON(strings.NewReader(factoryABI))
+	if err != nil {
+		return nil, err
+	}
+	parsedPair, err := abi.JSON(strings.NewReader(pairABI))
+	if err != nil {
+		return nil, err
+	}
+
+	return &Scanner{
+		rpc:        rpcPool,
+		multicall:  multicallClient,
+		factory:    factory,
+		chainKey:   chainKey,
+		venueKey:   venueKey,
+		factoryABI: parsedFactory,
+		pairABI:    parsedPair,
+		batchSize:  defaultBatchSize,
+	}, nil
+}
+
+func (s *Scanner) AllPairsLength(ctx context.Context) (*big.Int, error) {
+	data, err := s.factoryABI.Pack("allPairsLength")
+	if err != nil {
+		return nil, err
+	}
+
+	out, err := s.rpc.CallContract(ctx, ethereum.CallMsg{To: &s.factory, Data: data})
+	if err != nil {
+		return nil, err
+	}
+
+	values, err := s.factoryABI.Unpack("allPairsLength", out)
+	if err != nil {
+		return nil, err
+	}
+
+	return values[0].(*big.Int), nil
+}
+
+func (s *Scanner) LoadPool(ctx context.Context, id venue.PoolID) (*venue.Pool, error) {
+	pools, err := s.loadPairs(ctx, []common.Address{common.HexToAddress(string(id))})
+	if err != nil {
+		return nil, err
+	}
+	if len(pools) == 0 {
+		return nil, fmt.Errorf("pool %s not found", id)
+	}
+	return &pools[0], nil
+}
+
+func (s *Scanner) ScanPools(ctx context.Context) ([]venue.Pool, error) {
+	total, err := s.AllPairsLength(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("allPairsLength: %w", err)
+	}
+
+	totalInt := total.Int64()
+	if totalInt == 0 {
+		return []venue.Pool{}, nil
+	}
+
+	addresses, err := s.loadPairAddresses(ctx, totalInt)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.loadPairs(ctx, addresses)
+}
+
+func (s *Scanner) loadPairAddresses(ctx context.Context, total int64) ([]common.Address, error) {
+	addresses := make([]common.Address, 0, total)
+
+	for start := int64(0); start < total; start += int64(s.batchSize) {
+		end := min(start+int64(s.batchSize), total)
+		calls := make([]multicall.Call3, 0, end-start)
+
+		for i := start; i < end; i++ {
+			data, err := s.factoryABI.Pack("allPairs", big.NewInt(i))
+			if err != nil {
+				return nil, err
+			}
+			calls = append(calls, multicall.Call3{Target: s.factory, AllowFailure: false, CallData: data})
+		}
+
+		results, err := s.multicall.Aggregate3(ctx, calls)
+		if err != nil {
+			return nil, fmt.Errorf("multicall allPairs %d-%d: %w", start, end-1, err)
+		}
+
+		for offset, result := range results {
+			if !result.Success {
+				return nil, fmt.Errorf("allPairs(%d) failed", start+int64(offset))
+			}
+			values, err := s.factoryABI.Unpack("allPairs", result.ReturnData)
+			if err != nil {
+				return nil, err
+			}
+			addresses = append(addresses, values[0].(common.Address))
+		}
+	}
+
+	return addresses, nil
+}
+
+func (s *Scanner) loadPairs(ctx context.Context, addresses []common.Address) ([]venue.Pool, error) {
+	pools := make([]venue.Pool, 0, len(addresses))
+
+	for start := 0; start < len(addresses); start += s.batchSize {
+		end := min(start+s.batchSize, len(addresses))
+		batch := addresses[start:end]
+		calls := make([]multicall.Call3, 0, len(batch)*3)
+
+		for _, pair := range batch {
+			for _, method := range []string{"token0", "token1", "getReserves"} {
+				data, err := s.pairABI.Pack(method)
+				if err != nil {
+					return nil, err
+				}
+				calls = append(calls, multicall.Call3{Target: pair, AllowFailure: false, CallData: data})
+			}
+		}
+
+		results, err := s.multicall.Aggregate3(ctx, calls)
+		if err != nil {
+			return nil, fmt.Errorf("multicall pair details %d-%d: %w", start, end-1, err)
+		}
+
+		for i, pair := range batch {
+			base := i * 3
+			if !results[base].Success || !results[base+1].Success || !results[base+2].Success {
+				return nil, fmt.Errorf("pair detail call failed for %s", pair.Hex())
+			}
+
+			token0Values, err := s.pairABI.Unpack("token0", results[base].ReturnData)
+			if err != nil {
+				return nil, err
+			}
+			token1Values, err := s.pairABI.Unpack("token1", results[base+1].ReturnData)
+			if err != nil {
+				return nil, err
+			}
+			reserveValues, err := s.pairABI.Unpack("getReserves", results[base+2].ReturnData)
+			if err != nil {
+				return nil, err
+			}
+
+			pools = append(pools, venue.Pool{
+				ID:       venue.PoolID(pair.Hex()),
+				ChainKey: s.chainKey,
+				VenueKey: s.venueKey,
+				Kind:     venue.PoolKindV2,
+				Token0:   venue.AssetID(token0Values[0].(common.Address).Hex()),
+				Token1:   venue.AssetID(token1Values[0].(common.Address).Hex()),
+				Reserve0: reserveValues[0].(*big.Int),
+				Reserve1: reserveValues[1].(*big.Int),
+				Enabled:  true,
+			})
+		}
+	}
+
+	return pools, nil
+}
