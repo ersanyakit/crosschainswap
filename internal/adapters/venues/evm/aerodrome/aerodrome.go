@@ -135,13 +135,21 @@ func (s *Scanner) loadPool(ctx context.Context, poolAddress common.Address) (*ve
 	if err != nil {
 		return nil, fmt.Errorf("getReserves: %w", err)
 	}
+	stable, err := callBool(ctx, s.client, poolAddress, "stable")
+	if err != nil {
+		return nil, fmt.Errorf("stable: %w", err)
+	}
+	poolKind := venue.PoolKindV2
+	if stable {
+		poolKind = venue.PoolKindStable
+	}
 
 	return &venue.Pool{
 		ID:       venue.PoolID(poolAddress.Hex()),
 		Address:  poolAddress.Hex(),
 		ChainKey: s.chainKey,
 		VenueKey: s.venueKey,
-		Kind:     venue.PoolKindV2,
+		Kind:     poolKind,
 
 		Token0: venue.AssetID(token0.Hex()),
 		Token1: venue.AssetID(token1.Hex()),
@@ -343,10 +351,10 @@ func (s *Scanner) loadPoolsMulticall(ctx context.Context, addresses []common.Add
 
 func (s *Scanner) loadPoolBatchMulticall(ctx context.Context, addresses []common.Address) ([]venue.Pool, error) {
 	pools := make([]venue.Pool, 0, len(addresses))
-	calls := make([]multicall.Call3, 0, len(addresses)*3)
+	calls := make([]multicall.Call3, 0, len(addresses)*4)
 
 	for _, pool := range addresses {
-		for _, method := range []string{"token0", "token1", "getReserves"} {
+		for _, method := range []string{"token0", "token1", "stable", "getReserves"} {
 			data, err := s.pairABI.Pack(method)
 			if err != nil {
 				return nil, err
@@ -361,8 +369,8 @@ func (s *Scanner) loadPoolBatchMulticall(ctx context.Context, addresses []common
 	}
 
 	for i, pool := range addresses {
-		base := i * 3
-		if !results[base].Success || !results[base+1].Success || !results[base+2].Success {
+		base := i * 4
+		if !results[base].Success || !results[base+1].Success || !results[base+2].Success || !results[base+3].Success {
 			return nil, fmt.Errorf("pool detail call failed for %s", pool.Hex())
 		}
 
@@ -374,9 +382,17 @@ func (s *Scanner) loadPoolBatchMulticall(ctx context.Context, addresses []common
 		if err != nil {
 			return nil, err
 		}
-		reserveValues, err := s.pairABI.Unpack("getReserves", results[base+2].ReturnData)
+		stableValues, err := s.pairABI.Unpack("stable", results[base+2].ReturnData)
 		if err != nil {
 			return nil, err
+		}
+		reserveValues, err := s.pairABI.Unpack("getReserves", results[base+3].ReturnData)
+		if err != nil {
+			return nil, err
+		}
+		poolKind := venue.PoolKindV2
+		if stableValues[0].(bool) {
+			poolKind = venue.PoolKindStable
 		}
 
 		pools = append(pools, venue.Pool{
@@ -384,7 +400,7 @@ func (s *Scanner) loadPoolBatchMulticall(ctx context.Context, addresses []common
 			Address:  pool.Hex(),
 			ChainKey: s.chainKey,
 			VenueKey: s.venueKey,
-			Kind:     venue.PoolKindV2,
+			Kind:     poolKind,
 			Token0:   venue.AssetID(token0Values[0].(common.Address).Hex()),
 			Token1:   venue.AssetID(token1Values[0].(common.Address).Hex()),
 			Reserve0: reserveValues[0].(*big.Int),

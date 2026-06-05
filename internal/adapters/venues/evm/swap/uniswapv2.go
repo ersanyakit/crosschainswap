@@ -35,7 +35,9 @@ type PoolProvider interface {
 
 type UniswapV2Executor struct {
 	RouterAddress string
+	RouterByVenue map[venue.VenueKey]string
 	FeeBps        uint32
+	FeeBpsByVenue map[venue.VenueKey]uint32
 	Pools         PoolProvider
 	routerABI     abi.ABI
 }
@@ -64,9 +66,19 @@ func (e *UniswapV2Executor) Quote(ctx context.Context, req coreswap.Request) (*c
 		return nil, fmt.Errorf("amountIn must be positive")
 	}
 
-	pool, err := e.Pools.GetPool(ctx, req.PoolID)
+	poolID := requestPoolID(req)
+	if poolID == "" {
+		return nil, fmt.Errorf("pool id is required")
+	}
+	pool, err := e.Pools.GetPool(ctx, poolID)
 	if err != nil {
 		return nil, err
+	}
+	if pool == nil {
+		return nil, fmt.Errorf("pool %s not found", poolID)
+	}
+	if pool.Kind != "" && pool.Kind != venue.PoolKindV2 {
+		return nil, fmt.Errorf("pool %s has kind %s; uniswap v2 executor only supports %s", pool.ID, pool.Kind, venue.PoolKindV2)
 	}
 
 	reserveIn, reserveOut, err := reservesForDirection(*pool, req.TokenIn, req.TokenOut)
@@ -74,7 +86,8 @@ func (e *UniswapV2Executor) Quote(ctx context.Context, req coreswap.Request) (*c
 		return nil, err
 	}
 
-	amountOut := constantProductOut(req.AmountIn, reserveIn, reserveOut, e.FeeBps)
+	feeBps := e.feeBps(req)
+	amountOut := constantProductOut(req.AmountIn, reserveIn, reserveOut, feeBps)
 	return &coreswap.Quote{
 		ChainKey:  req.ChainKey,
 		VenueKey:  req.VenueKey,
@@ -85,13 +98,14 @@ func (e *UniswapV2Executor) Quote(ctx context.Context, req coreswap.Request) (*c
 		AmountIn:  new(big.Int).Set(req.AmountIn),
 		AmountOut: amountOut,
 		MinOut:    coreswap.MinOut(amountOut, req.SlippageBps),
-		FeeBps:    e.FeeBps,
+		FeeBps:    feeBps,
 	}, nil
 }
 
 func (e *UniswapV2Executor) BuildTransaction(_ context.Context, req coreswap.Request, quote coreswap.Quote) (*coreswap.TransactionIntent, error) {
-	if e.RouterAddress == "" {
-		return nil, fmt.Errorf("router address is required")
+	routerAddress, err := e.routerAddress(req)
+	if err != nil {
+		return nil, err
 	}
 	if req.Recipient == "" {
 		return nil, fmt.Errorf("recipient is required")
@@ -121,13 +135,48 @@ func (e *UniswapV2Executor) BuildTransaction(_ context.Context, req coreswap.Req
 
 	return &coreswap.TransactionIntent{
 		ChainKey:  req.ChainKey,
+		VenueKey:  req.VenueKey,
 		VenueKind: req.VenueKind,
 		EVM: &coreswap.EVMTransaction{
-			To:    common.HexToAddress(e.RouterAddress).Hex(),
+			To:    common.HexToAddress(routerAddress).Hex(),
 			Data:  data,
 			Value: big.NewInt(0),
 		},
 	}, nil
+}
+
+func (e *UniswapV2Executor) routerAddress(req coreswap.Request) (string, error) {
+	if e.RouterByVenue != nil {
+		if routerAddress, ok := e.RouterByVenue[req.VenueKey]; ok && routerAddress != "" {
+			return routerAddress, nil
+		}
+	}
+	if e.RouterAddress != "" {
+		return e.RouterAddress, nil
+	}
+	return "", fmt.Errorf("router address is required for venue %s", req.VenueKey)
+}
+
+func (e *UniswapV2Executor) feeBps(req coreswap.Request) uint32 {
+	if e.FeeBpsByVenue != nil {
+		if feeBps, ok := e.FeeBpsByVenue[req.VenueKey]; ok && feeBps > 0 {
+			return feeBps
+		}
+	}
+	if e.FeeBps > 0 {
+		return e.FeeBps
+	}
+	return 30
+}
+
+func requestPoolID(req coreswap.Request) venue.PoolID {
+	if req.PoolID != "" {
+		return req.PoolID
+	}
+	if req.PoolAddress != "" {
+		return venue.PoolID(req.PoolAddress)
+	}
+	return ""
 }
 
 func reservesForDirection(pool venue.Pool, tokenIn string, tokenOut string) (*big.Int, *big.Int, error) {

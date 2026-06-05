@@ -37,6 +37,7 @@ func (e *PoolExecutor) BuildTransaction(ctx context.Context, req coreswap.Reques
 	}
 	return &coreswap.TransactionIntent{
 		ChainKey:  req.ChainKey,
+		VenueKey:  req.VenueKey,
 		VenueKind: req.VenueKind,
 		Solana:    instructions,
 	}, nil

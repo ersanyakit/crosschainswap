@@ -20,6 +20,7 @@ const factoryABI = `[
 const pairABI = `[
   {"inputs":[],"name":"token0","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
   {"inputs":[],"name":"token1","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"stable","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},
   {"inputs":[],"name":"getReserves","outputs":[
     {"internalType":"uint256","name":"_reserve0","type":"uint256"},
     {"internalType":"uint256","name":"_reserve1","type":"uint256"},
@@ -126,6 +127,33 @@ func callAddress(ctx context.Context, client *ethclient.Client, contract common.
 	}
 
 	return values[0].(common.Address), nil
+}
+
+func callBool(ctx context.Context, client *ethclient.Client, contract common.Address, method string) (bool, error) {
+	parsed, err := abi.JSON(strings.NewReader(pairABI))
+	if err != nil {
+		return false, err
+	}
+
+	data, err := parsed.Pack(method)
+	if err != nil {
+		return false, err
+	}
+
+	out, err := callContractWithRetry(ctx, client, ethereum.CallMsg{
+		To:   &contract,
+		Data: data,
+	})
+	if err != nil {
+		return false, err
+	}
+
+	values, err := parsed.Unpack(method, out)
+	if err != nil {
+		return false, err
+	}
+
+	return values[0].(bool), nil
 }
 
 func callReserves(ctx context.Context, client *ethclient.Client, pair common.Address) (*big.Int, *big.Int, error) {

@@ -53,6 +53,7 @@ type SolanaInstruction struct {
 
 type TransactionIntent struct {
 	ChainKey  chain.ChainKey
+	VenueKey  venue.VenueKey
 	VenueKind venue.VenueKind
 
 	EVM    *EVMTransaction

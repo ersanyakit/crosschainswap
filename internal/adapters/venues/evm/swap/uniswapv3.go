@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	coreswap "exchange/internal/core/swap"
+	"exchange/internal/core/venue"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -44,8 +45,11 @@ type V3Quoter interface {
 
 type UniswapV3Executor struct {
 	RouterAddress string
+	RouterByVenue map[venue.VenueKey]string
 	Fee           uint32
+	FeeByVenue    map[venue.VenueKey]uint32
 	Quoter        V3Quoter
+	Pools         PoolProvider
 	routerABI     abi.ABI
 }
 
@@ -84,7 +88,12 @@ func (e *UniswapV3Executor) Quote(ctx context.Context, req coreswap.Request) (*c
 		return nil, fmt.Errorf("amountIn must be positive")
 	}
 
-	amountOut, err := e.Quoter.QuoteExactInputSingle(ctx, req, e.Fee)
+	fee, err := e.fee(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	amountOut, err := e.Quoter.QuoteExactInputSingle(ctx, req, fee)
 	if err != nil {
 		return nil, err
 	}
@@ -98,13 +107,14 @@ func (e *UniswapV3Executor) Quote(ctx context.Context, req coreswap.Request) (*c
 		AmountIn:  new(big.Int).Set(req.AmountIn),
 		AmountOut: amountOut,
 		MinOut:    coreswap.MinOut(amountOut, req.SlippageBps),
-		FeeBps:    0,
+		FeeBps:    fee / 100,
 	}, nil
 }
 
-func (e *UniswapV3Executor) BuildTransaction(_ context.Context, req coreswap.Request, quote coreswap.Quote) (*coreswap.TransactionIntent, error) {
-	if e.RouterAddress == "" {
-		return nil, fmt.Errorf("router address is required")
+func (e *UniswapV3Executor) BuildTransaction(ctx context.Context, req coreswap.Request, quote coreswap.Quote) (*coreswap.TransactionIntent, error) {
+	routerAddress, err := e.routerAddress(req)
+	if err != nil {
+		return nil, err
 	}
 	if req.Recipient == "" {
 		return nil, fmt.Errorf("recipient is required")
@@ -115,11 +125,15 @@ func (e *UniswapV3Executor) BuildTransaction(_ context.Context, req coreswap.Req
 	if quote.MinOut == nil {
 		return nil, fmt.Errorf("quote minOut is required")
 	}
+	fee, err := e.fee(ctx, req)
+	if err != nil {
+		return nil, err
+	}
 
 	params := exactInputSingleParams{
 		TokenIn:           common.HexToAddress(req.TokenIn),
 		TokenOut:          common.HexToAddress(req.TokenOut),
-		Fee:               new(big.Int).SetUint64(uint64(e.Fee)),
+		Fee:               new(big.Int).SetUint64(uint64(fee)),
 		Recipient:         common.HexToAddress(req.Recipient),
 		Deadline:          new(big.Int).SetUint64(req.DeadlineUnix),
 		AmountIn:          req.AmountIn,
@@ -133,11 +147,49 @@ func (e *UniswapV3Executor) BuildTransaction(_ context.Context, req coreswap.Req
 
 	return &coreswap.TransactionIntent{
 		ChainKey:  req.ChainKey,
+		VenueKey:  req.VenueKey,
 		VenueKind: req.VenueKind,
 		EVM: &coreswap.EVMTransaction{
-			To:    common.HexToAddress(e.RouterAddress).Hex(),
+			To:    common.HexToAddress(routerAddress).Hex(),
 			Data:  data,
 			Value: big.NewInt(0),
 		},
 	}, nil
+}
+
+func (e *UniswapV3Executor) routerAddress(req coreswap.Request) (string, error) {
+	if e.RouterByVenue != nil {
+		if routerAddress, ok := e.RouterByVenue[req.VenueKey]; ok && routerAddress != "" {
+			return routerAddress, nil
+		}
+	}
+	if e.RouterAddress != "" {
+		return e.RouterAddress, nil
+	}
+	return "", fmt.Errorf("router address is required for venue %s", req.VenueKey)
+}
+
+func (e *UniswapV3Executor) fee(ctx context.Context, req coreswap.Request) (uint32, error) {
+	poolID := requestPoolID(req)
+	if e.Pools != nil && poolID != "" {
+		pool, err := e.Pools.GetPool(ctx, poolID)
+		if err != nil {
+			return 0, err
+		}
+		if pool == nil {
+			return 0, fmt.Errorf("pool %s not found", poolID)
+		}
+		if pool.Fee > 0 {
+			return pool.Fee, nil
+		}
+	}
+	if e.FeeByVenue != nil {
+		if fee, ok := e.FeeByVenue[req.VenueKey]; ok && fee > 0 {
+			return fee, nil
+		}
+	}
+	if e.Fee > 0 {
+		return e.Fee, nil
+	}
+	return 3000, nil
 }

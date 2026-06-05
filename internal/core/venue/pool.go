@@ -12,10 +12,11 @@ type AssetID string
 type PoolKind string
 
 const (
-	PoolKindV2   PoolKind = "v2"
-	PoolKindV3   PoolKind = "v3"
-	PoolKindV4   PoolKind = "v4"
-	PoolKindCLMM PoolKind = "clmm"
+	PoolKindV2     PoolKind = "v2"
+	PoolKindV3     PoolKind = "v3"
+	PoolKindV4     PoolKind = "v4"
+	PoolKindCLMM   PoolKind = "clmm"
+	PoolKindStable PoolKind = "stable"
 )
 
 type Pool struct {
