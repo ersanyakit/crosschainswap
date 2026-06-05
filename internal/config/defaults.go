@@ -43,6 +43,10 @@ func LoadDefaultRegistries() Registries {
 			NativeAsset: "SOL",
 			RPCURLs: chain.RPCURLs{
 				"https://api.mainnet-beta.solana.com",
+				"https://solana-rpc.publicnode.com",
+				"https://rpc.ankr.com/solana",
+				"https://1rpc.io/solana",
+				"https://solana.drpc.org",
 			},
 			ExplorerURL:   "https://solscan.io",
 			Confirmations: 32,
@@ -126,6 +130,39 @@ func LoadDefaultRegistries() Registries {
 				FactoryAddress:  "0xE2918AA38088878546c1A18F2F9b1BC83297fdD3",
 				RouterAddress:   "0xE2918AA38088878546c1A18F2F9b1BC83297fdD3",
 				DeploymentBlock: 0,
+			},
+		},
+		{
+			Key:      venue.VenueKeyRaydium,
+			Name:     "Raydium",
+			ChainKey: chain.ChainKeySolana,
+			Kind:     venue.VenueKindRaydium,
+			Enabled:  true,
+			Config: venue.RaydiumConfig{
+				AMMProgramID:  "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8",
+				CLMMProgramID: "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK",
+				CPMMProgramID: "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C",
+			},
+		},
+		{
+			Key:      venue.VenueKeyOrca,
+			Name:     "Orca",
+			ChainKey: chain.ChainKeySolana,
+			Kind:     venue.VenueKindOrca,
+			Enabled:  true,
+			Config: venue.OrcaConfig{
+				WhirlpoolProgramID: "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+				ConfigAccounts:     []string{"2LecshUwdy9xi7meFgHtFJQNSKk4KdTrcpvaB56dP2NQ"},
+			},
+		},
+		{
+			Key:      venue.VenueKeyMeteora,
+			Name:     "Meteora DLMM",
+			ChainKey: chain.ChainKeySolana,
+			Kind:     venue.VenueKindMeteora,
+			Enabled:  true,
+			Config: venue.MeteoraConfig{
+				DLMMProgramID: "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
 			},
 		},
 		{

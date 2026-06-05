@@ -35,6 +35,7 @@ func RunAll(processName string) error {
 		{Name: "settler", Interval: 5 * time.Second, RunOnce: heartbeat("settler")},
 		{Name: "scheduler", Interval: 15 * time.Second, RunOnce: heartbeat("scheduler")},
 		{Name: "worker", Interval: 20 * time.Second, RunOnce: heartbeat("worker")},
+		{Name: "scanner", Interval: 10 * time.Second, RunOnce: heartbeat("scanner")},
 	}
 
 	var wg sync.WaitGroup

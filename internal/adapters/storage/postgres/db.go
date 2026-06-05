@@ -14,12 +14,16 @@ import (
 
 // LoadEnv loads environment variables from a .env file if it exists.
 func LoadEnv(rootPath string) error {
-	envPath := filepath.Join(rootPath, ".env")
+	envPath, err := findEnvPath(rootPath)
+	if err != nil {
+		return err
+	}
+	if envPath == "" {
+		return nil
+	}
+
 	file, err := os.Open(envPath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil // ignore missing .env if variables are set externally
-		}
 		return err
 	}
 	defer file.Close()
@@ -44,8 +48,30 @@ func LoadEnv(rootPath string) error {
 	return scanner.Err()
 }
 
-// ConnectAndMigrate establishes a PostgreSQL connection via GORM and auto-migrates the models.
-func ConnectAndMigrate() (*gorm.DB, error) {
+func findEnvPath(startPath string) (string, error) {
+	dir, err := filepath.Abs(startPath)
+	if err != nil {
+		return "", err
+	}
+
+	for {
+		envPath := filepath.Join(dir, ".env")
+		if _, err := os.Stat(envPath); err == nil {
+			return envPath, nil
+		} else if !os.IsNotExist(err) {
+			return "", err
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", nil
+		}
+		dir = parent
+	}
+}
+
+// Connect establishes a PostgreSQL connection and syncs the GORM models.
+func Connect() (*gorm.DB, error) {
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
 		return nil, fmt.Errorf("DATABASE_URL environment variable is not set")
@@ -67,12 +93,14 @@ func ConnectAndMigrate() (*gorm.DB, error) {
 
 	log.Println("GORM database connection established successfully.")
 
-	// Auto-run GORM migrations
-	log.Println("Running AutoMigrate for Pool model...")
+	log.Println("Syncing GORM Pool model...")
 	if err := db.AutoMigrate(&Pool{}); err != nil {
-		return nil, fmt.Errorf("failed to auto-migrate Pool model: %w", err)
+		return nil, fmt.Errorf("failed to sync Pool model: %w", err)
+	}
+	if err := db.Exec("UPDATE pools SET pool_address = id WHERE pool_address IS NULL OR pool_address = ''").Error; err != nil {
+		return nil, fmt.Errorf("failed to backfill pool addresses: %w", err)
 	}
 
-	log.Println("GORM migrations applied successfully.")
+	log.Println("GORM model sync completed successfully.")
 	return db, nil
 }

@@ -52,7 +52,7 @@ func (p *Pool) Close() {
 }
 
 func (p *Pool) Client() *ethclient.Client {
-	i := p.next.Add(1)
+	i := p.next.Add(1) - 1
 	return p.clients[int(i)%len(p.clients)]
 }
 
@@ -61,8 +61,12 @@ func (p *Pool) CallContract(
 	msg ethereum.CallMsg,
 ) ([]byte, error) {
 	var lastErr error
+	attempts := len(p.clients) * 3
+	if attempts < 3 {
+		attempts = 3
+	}
 
-	for i := 0; i < len(p.clients); i++ {
+	for i := 0; i < attempts; i++ {
 		client := p.Client()
 
 		out, err := client.CallContract(ctx, msg, nil)
@@ -76,7 +80,7 @@ func (p *Pool) CallContract(
 			return nil, err
 		}
 
-		sleep := time.Duration(i+1) * 250 * time.Millisecond
+		sleep := time.Duration(i%len(p.clients)+1) * 250 * time.Millisecond
 
 		timer := time.NewTimer(sleep)
 		select {
@@ -99,9 +103,21 @@ func isRetryableRPCError(err error) bool {
 
 	return strings.Contains(msg, "429") ||
 		strings.Contains(msg, "too many requests") ||
+		strings.Contains(msg, "403") ||
+		strings.Contains(msg, "forbidden") ||
+		strings.Contains(msg, "administrative rules") ||
 		strings.Contains(msg, "rate limit") ||
 		strings.Contains(msg, "over rate limit") ||
 		strings.Contains(msg, "timeout") ||
+		strings.Contains(msg, "deadline exceeded") ||
+		strings.Contains(msg, "broken pipe") ||
+		strings.Contains(msg, "eof") ||
 		strings.Contains(msg, "connection reset") ||
-		strings.Contains(msg, "temporarily unavailable")
+		strings.Contains(msg, "connection refused") ||
+		strings.Contains(msg, "no such host") ||
+		strings.Contains(msg, "temporarily unavailable") ||
+		strings.Contains(msg, "500 internal server error") ||
+		strings.Contains(msg, "502 bad gateway") ||
+		strings.Contains(msg, "503 service unavailable") ||
+		strings.Contains(msg, "504 gateway timeout")
 }

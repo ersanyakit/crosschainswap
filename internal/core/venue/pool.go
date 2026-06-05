@@ -19,7 +19,9 @@ const (
 )
 
 type Pool struct {
-	ID       PoolID
+	ID      PoolID
+	Address string
+
 	ChainKey chain.ChainKey
 	VenueKey VenueKey
 	Kind     PoolKind

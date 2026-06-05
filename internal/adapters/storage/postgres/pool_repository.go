@@ -37,19 +37,24 @@ func (r *PoolRepository) SavePools(ctx context.Context, pools []venue.Pool) erro
 		if p.Reserve1 != nil {
 			reserve1Str = p.Reserve1.String()
 		}
+		poolAddress := p.Address
+		if poolAddress == "" {
+			poolAddress = string(p.ID)
+		}
 
 		dbPools[i] = Pool{
-			ID:        string(p.ID),
-			ChainKey:  string(p.ChainKey),
-			VenueKey:  string(p.VenueKey),
-			Kind:      string(p.Kind),
-			Token0:    string(p.Token0),
-			Token1:    string(p.Token1),
-			Reserve0:  reserve0Str,
-			Reserve1:  reserve1Str,
-			Enabled:   p.Enabled,
-			CreatedAt: now,
-			UpdatedAt: now,
+			ID:          string(p.ID),
+			PoolAddress: poolAddress,
+			ChainKey:    string(p.ChainKey),
+			VenueKey:    string(p.VenueKey),
+			Kind:        string(p.Kind),
+			Token0:      string(p.Token0),
+			Token1:      string(p.Token1),
+			Reserve0:    reserve0Str,
+			Reserve1:    reserve1Str,
+			Enabled:     p.Enabled,
+			CreatedAt:   now,
+			UpdatedAt:   now,
 		}
 	}
 
@@ -57,7 +62,7 @@ func (r *PoolRepository) SavePools(ctx context.Context, pools []venue.Pool) erro
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		return tx.Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "id"}},
-			DoUpdates: clause.AssignmentColumns([]string{"reserve0", "reserve1", "enabled", "updated_at"}),
+			DoUpdates: clause.AssignmentColumns([]string{"pool_address", "chain_key", "venue_key", "kind", "token0", "token1", "reserve0", "reserve1", "enabled", "updated_at"}),
 		}).Create(&dbPools).Error
 	})
 

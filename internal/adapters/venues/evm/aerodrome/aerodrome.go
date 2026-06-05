@@ -138,6 +138,7 @@ func (s *Scanner) loadPool(ctx context.Context, poolAddress common.Address) (*ve
 
 	return &venue.Pool{
 		ID:       venue.PoolID(poolAddress.Hex()),
+		Address:  poolAddress.Hex(),
 		ChainKey: s.chainKey,
 		VenueKey: s.venueKey,
 		Kind:     venue.PoolKindV2,
@@ -153,6 +154,18 @@ func (s *Scanner) loadPool(ctx context.Context, poolAddress common.Address) (*ve
 }
 
 func (s *Scanner) ScanPools(ctx context.Context) ([]venue.Pool, error) {
+	if s.mc != nil {
+		var pools []venue.Pool
+		_, err := s.ScanPoolsStream(ctx, func(_ context.Context, batch []venue.Pool) error {
+			pools = append(pools, batch...)
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		return pools, nil
+	}
+
 	total, err := s.AllPoolsLength(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("allPoolsLength: %w", err)
@@ -222,36 +235,92 @@ func (s *Scanner) ScanPools(ctx context.Context) ([]venue.Pool, error) {
 	return pools, nil
 }
 
+func (s *Scanner) ScanPoolsStream(ctx context.Context, handle venue.PoolBatchHandler) (int, error) {
+	total, err := s.AllPoolsLength(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("allPoolsLength: %w", err)
+	}
+
+	totalInt := total.Int64()
+	if totalInt == 0 {
+		return 0, nil
+	}
+	if s.mc == nil {
+		pools, err := s.ScanPools(ctx)
+		if err != nil {
+			return 0, err
+		}
+		if handle != nil {
+			if err := handle(ctx, pools); err != nil {
+				return 0, err
+			}
+		}
+		return len(pools), nil
+	}
+
+	totalScanned := 0
+	for start := int64(0); start < totalInt; start += int64(s.batchSize) {
+		end := min(start+int64(s.batchSize), totalInt)
+		addresses, err := s.loadPoolAddressBatchMulticall(ctx, start, end)
+		if err != nil {
+			return totalScanned, err
+		}
+		pools, err := s.loadPoolBatchMulticall(ctx, addresses)
+		if err != nil {
+			return totalScanned, err
+		}
+		if handle != nil {
+			if err := handle(ctx, pools); err != nil {
+				return totalScanned, err
+			}
+		}
+		totalScanned += len(pools)
+	}
+
+	return totalScanned, nil
+}
+
 func (s *Scanner) loadPoolAddressesMulticall(ctx context.Context, total int64) ([]common.Address, error) {
 	addresses := make([]common.Address, 0, total)
 
 	for start := int64(0); start < total; start += int64(s.batchSize) {
 		end := min(start+int64(s.batchSize), total)
-		calls := make([]multicall.Call3, 0, end-start)
-
-		for i := start; i < end; i++ {
-			data, err := s.factoryABI.Pack("allPools", big.NewInt(i))
-			if err != nil {
-				return nil, err
-			}
-			calls = append(calls, multicall.Call3{Target: s.factory, AllowFailure: false, CallData: data})
-		}
-
-		results, err := s.mc.Aggregate3(ctx, calls)
+		batch, err := s.loadPoolAddressBatchMulticall(ctx, start, end)
 		if err != nil {
-			return nil, fmt.Errorf("multicall allPools %d-%d: %w", start, end-1, err)
+			return nil, err
 		}
+		addresses = append(addresses, batch...)
+	}
 
-		for offset, result := range results {
-			if !result.Success {
-				return nil, fmt.Errorf("allPools(%d) failed", start+int64(offset))
-			}
-			values, err := s.factoryABI.Unpack("allPools", result.ReturnData)
-			if err != nil {
-				return nil, err
-			}
-			addresses = append(addresses, values[0].(common.Address))
+	return addresses, nil
+}
+
+func (s *Scanner) loadPoolAddressBatchMulticall(ctx context.Context, start, end int64) ([]common.Address, error) {
+	calls := make([]multicall.Call3, 0, end-start)
+
+	for i := start; i < end; i++ {
+		data, err := s.factoryABI.Pack("allPools", big.NewInt(i))
+		if err != nil {
+			return nil, err
 		}
+		calls = append(calls, multicall.Call3{Target: s.factory, AllowFailure: false, CallData: data})
+	}
+
+	results, err := s.mc.Aggregate3(ctx, calls)
+	if err != nil {
+		return nil, fmt.Errorf("multicall allPools %d-%d: %w", start, end-1, err)
+	}
+
+	addresses := make([]common.Address, 0, len(results))
+	for offset, result := range results {
+		if !result.Success {
+			return nil, fmt.Errorf("allPools(%d) failed", start+int64(offset))
+		}
+		values, err := s.factoryABI.Unpack("allPools", result.ReturnData)
+		if err != nil {
+			return nil, err
+		}
+		addresses = append(addresses, values[0].(common.Address))
 	}
 
 	return addresses, nil
@@ -262,55 +331,66 @@ func (s *Scanner) loadPoolsMulticall(ctx context.Context, addresses []common.Add
 
 	for start := 0; start < len(addresses); start += s.batchSize {
 		end := min(start+s.batchSize, len(addresses))
-		batch := addresses[start:end]
-		calls := make([]multicall.Call3, 0, len(batch)*3)
-
-		for _, pool := range batch {
-			for _, method := range []string{"token0", "token1", "getReserves"} {
-				data, err := s.pairABI.Pack(method)
-				if err != nil {
-					return nil, err
-				}
-				calls = append(calls, multicall.Call3{Target: pool, AllowFailure: false, CallData: data})
-			}
-		}
-
-		results, err := s.mc.Aggregate3(ctx, calls)
+		batch, err := s.loadPoolBatchMulticall(ctx, addresses[start:end])
 		if err != nil {
-			return nil, fmt.Errorf("multicall pool details %d-%d: %w", start, end-1, err)
+			return nil, err
+		}
+		pools = append(pools, batch...)
+	}
+
+	return pools, nil
+}
+
+func (s *Scanner) loadPoolBatchMulticall(ctx context.Context, addresses []common.Address) ([]venue.Pool, error) {
+	pools := make([]venue.Pool, 0, len(addresses))
+	calls := make([]multicall.Call3, 0, len(addresses)*3)
+
+	for _, pool := range addresses {
+		for _, method := range []string{"token0", "token1", "getReserves"} {
+			data, err := s.pairABI.Pack(method)
+			if err != nil {
+				return nil, err
+			}
+			calls = append(calls, multicall.Call3{Target: pool, AllowFailure: false, CallData: data})
+		}
+	}
+
+	results, err := s.mc.Aggregate3(ctx, calls)
+	if err != nil {
+		return nil, fmt.Errorf("multicall pool details: %w", err)
+	}
+
+	for i, pool := range addresses {
+		base := i * 3
+		if !results[base].Success || !results[base+1].Success || !results[base+2].Success {
+			return nil, fmt.Errorf("pool detail call failed for %s", pool.Hex())
 		}
 
-		for i, pool := range batch {
-			base := i * 3
-			if !results[base].Success || !results[base+1].Success || !results[base+2].Success {
-				return nil, fmt.Errorf("pool detail call failed for %s", pool.Hex())
-			}
-
-			token0Values, err := s.pairABI.Unpack("token0", results[base].ReturnData)
-			if err != nil {
-				return nil, err
-			}
-			token1Values, err := s.pairABI.Unpack("token1", results[base+1].ReturnData)
-			if err != nil {
-				return nil, err
-			}
-			reserveValues, err := s.pairABI.Unpack("getReserves", results[base+2].ReturnData)
-			if err != nil {
-				return nil, err
-			}
-
-			pools = append(pools, venue.Pool{
-				ID:       venue.PoolID(pool.Hex()),
-				ChainKey: s.chainKey,
-				VenueKey: s.venueKey,
-				Kind:     venue.PoolKindV2,
-				Token0:   venue.AssetID(token0Values[0].(common.Address).Hex()),
-				Token1:   venue.AssetID(token1Values[0].(common.Address).Hex()),
-				Reserve0: reserveValues[0].(*big.Int),
-				Reserve1: reserveValues[1].(*big.Int),
-				Enabled:  true,
-			})
+		token0Values, err := s.pairABI.Unpack("token0", results[base].ReturnData)
+		if err != nil {
+			return nil, err
 		}
+		token1Values, err := s.pairABI.Unpack("token1", results[base+1].ReturnData)
+		if err != nil {
+			return nil, err
+		}
+		reserveValues, err := s.pairABI.Unpack("getReserves", results[base+2].ReturnData)
+		if err != nil {
+			return nil, err
+		}
+
+		pools = append(pools, venue.Pool{
+			ID:       venue.PoolID(pool.Hex()),
+			Address:  pool.Hex(),
+			ChainKey: s.chainKey,
+			VenueKey: s.venueKey,
+			Kind:     venue.PoolKindV2,
+			Token0:   venue.AssetID(token0Values[0].(common.Address).Hex()),
+			Token1:   venue.AssetID(token1Values[0].(common.Address).Hex()),
+			Reserve0: reserveValues[0].(*big.Int),
+			Reserve1: reserveValues[1].(*big.Int),
+			Enabled:  true,
+		})
 	}
 
 	return pools, nil

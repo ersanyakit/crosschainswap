@@ -2,6 +2,7 @@ package venue
 
 import (
 	"fmt"
+	"sort"
 
 	"exchange/internal/core/chain"
 )
@@ -20,6 +21,7 @@ const (
 	VenueKeyBalancer            VenueKey = "balancer"
 	VenueKeyRaydium             VenueKey = "raydium"
 	VenueKeyOrca                VenueKey = "orca"
+	VenueKeyMeteora             VenueKey = "meteora"
 	VenueKeyAerodrome           VenueKey = "aerodrome"
 	VenueKeyTraderJoe           VenueKey = "traderjoe"
 )
@@ -34,6 +36,7 @@ const (
 	VenueKindBalancer  VenueKind = "balancer"
 	VenueKindRaydium   VenueKind = "raydium"
 	VenueKindOrca      VenueKind = "orca"
+	VenueKindMeteora   VenueKind = "meteora"
 	VenueKindAerodrome VenueKind = "aerodrome"
 	VenueKindTraderJoe VenueKind = "traderjoe"
 )
@@ -109,6 +112,10 @@ func (r Registry) All() []Venue {
 	for _, v := range r.items {
 		out = append(out, v)
 	}
+
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Key < out[j].Key
+	})
 
 	return out
 }

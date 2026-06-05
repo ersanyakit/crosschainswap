@@ -57,6 +57,14 @@ func (OrcaConfig) VenueConfigKind() VenueKind {
 	return VenueKindOrca
 }
 
+type MeteoraConfig struct {
+	DLMMProgramID string
+}
+
+func (MeteoraConfig) VenueConfigKind() VenueKind {
+	return VenueKindMeteora
+}
+
 type AerodromeClassicConfig struct {
 	PoolFactoryAddress string
 	RouterAddress      string
