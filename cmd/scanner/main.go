@@ -5,15 +5,19 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"sync/atomic"
 	"time"
 
+	"exchange/internal/adapters/eventbus"
 	"exchange/internal/adapters/storage/postgres"
 	"exchange/internal/adapters/venues/evm/aerodrome"
 	"exchange/internal/adapters/venues/evm/multicall"
 	evmrpc "exchange/internal/adapters/venues/evm/rpc"
 	"exchange/internal/adapters/venues/evm/uniswapv2"
+	solanaonchain "exchange/internal/adapters/venues/solana/onchain"
 	"exchange/internal/config"
 	"exchange/internal/core/chain"
+	"exchange/internal/core/event"
 	"exchange/internal/core/venue"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -27,12 +31,20 @@ func main() {
 		log.Printf("Warning: failed to load .env file: %v", err)
 	}
 
-	// 2. Connect to Database and Run Migrations
-	db, err := postgres.ConnectAndMigrate()
+	// 2. Connect to database and sync GORM models
+	db, err := postgres.Connect()
 	if err != nil {
 		log.Fatalf("Fatal: failed to initialize database: %v", err)
 	}
 	repo := postgres.NewPoolRepository(db)
+	bus := eventbus.NewInMemory()
+	bus.Subscribe(event.PoolBatchScanned, func(ctx context.Context, evt event.Event) error {
+		payload, ok := evt.Payload.(event.PoolBatchScannedPayload)
+		if !ok {
+			return fmt.Errorf("invalid payload for %s", evt.Type)
+		}
+		return repo.SavePools(ctx, payload.Pools)
+	})
 
 	ctx := context.Background()
 	regs := config.LoadDefaultRegistries()
@@ -46,7 +58,11 @@ func main() {
 			continue
 		}
 
-		if v.Kind != venue.VenueKindUniswapV2 && v.Kind != venue.VenueKindAerodrome {
+		if v.Kind != venue.VenueKindUniswapV2 &&
+			v.Kind != venue.VenueKindAerodrome &&
+			v.Kind != venue.VenueKindRaydium &&
+			v.Kind != venue.VenueKindOrca &&
+			v.Kind != venue.VenueKindMeteora {
 			fmt.Printf("Skipping unsupported venue kind: %s (%s) of kind %s\n", v.Name, v.Key, v.Kind)
 			continue
 		}
@@ -65,8 +81,18 @@ func main() {
 			continue
 		}
 
+		if chainCfg.Kind == chain.KindSolana {
+			scanner, err := solanaonchain.NewScanner([]string(chainCfg.RPCURLs), v.ChainKey, v.Key, v.Config)
+			if err != nil {
+				log.Printf("Error: failed to initialize Solana on-chain scanner for %s: %v", v.Key, err)
+				continue
+			}
+			scanAndSave(ctx, bus, scanner, v.Key)
+			continue
+		}
+
 		if chainCfg.Kind != chain.KindEVM {
-			log.Printf("Skipping %s: scanner currently supports EVM venues only; Solana adapter is not implemented yet", v.Key)
+			log.Printf("Skipping %s: unsupported chain kind %s", v.Key, chainCfg.Kind)
 			continue
 		}
 
@@ -135,32 +161,78 @@ func main() {
 		}
 
 		fmt.Printf("Total pairs found in factory: %s\n", total.String())
-
-		// Scan all pools concurrently
-		fmt.Println("Concurrently scanning all pools...")
-		startTime := time.Now()
-		pools, err := scanner.ScanPools(ctx)
-		if err != nil {
-			log.Printf("Error: failed to scan pools: %v", err)
-			rpcPool.Close()
-			continue
-		}
-		duration := time.Since(startTime)
-		if len(pools) > 0 {
-			fmt.Printf("Scanned %d pools in %v (Average: %v per pool)\n", len(pools), duration, duration/time.Duration(len(pools)))
-		} else {
-			fmt.Printf("Scanned 0 pools in %v\n", duration)
-		}
-
-		// Save pools to database
-		fmt.Printf("Saving %d pools to Postgres...\n", len(pools))
-		dbStartTime := time.Now()
-		if err := repo.SavePools(ctx, pools); err != nil {
-			log.Printf("Error: failed to save pools to database: %v", err)
-		} else {
-			fmt.Printf("Successfully saved %d pools in %v\n", len(pools), time.Since(dbStartTime))
-		}
-
+		scanAndSave(ctx, bus, scanner, v.Key)
 		rpcPool.Close()
+	}
+}
+
+func scanAndSave(
+	ctx context.Context,
+	bus event.Bus,
+	scanner venue.PoolScanner,
+	venueKey venue.VenueKey,
+) {
+	fmt.Println("Scanning all pools...")
+	startTime := time.Now()
+
+	if streaming, ok := scanner.(venue.StreamingPoolScanner); ok {
+		var totalSaved atomic.Int64
+		totalScanned, err := streaming.ScanPoolsStream(ctx, func(ctx context.Context, pools []venue.Pool) error {
+			if len(pools) == 0 {
+				return nil
+			}
+
+			if err := bus.Publish(ctx, event.Event{
+				Type: event.PoolBatchScanned,
+				Payload: event.PoolBatchScannedPayload{
+					VenueKey: venueKey,
+					Pools:    pools,
+				},
+			}); err != nil {
+				return err
+			}
+
+			saved := totalSaved.Add(int64(len(pools)))
+			fmt.Printf("Saved %d pools for %s (total saved: %d)\n", len(pools), venueKey, saved)
+			return nil
+		})
+		if err != nil {
+			log.Printf("Error: failed to scan pools for %s: %v", venueKey, err)
+			return
+		}
+
+		duration := time.Since(startTime)
+		if totalScanned > 0 {
+			fmt.Printf("Scanned and saved %d pools in %v (Average: %v per pool)\n", totalScanned, duration, duration/time.Duration(totalScanned))
+		} else {
+			fmt.Printf("Scanned and saved 0 pools in %v\n", duration)
+		}
+		return
+	}
+
+	pools, err := scanner.ScanPools(ctx)
+	if err != nil {
+		log.Printf("Error: failed to scan pools for %s: %v", venueKey, err)
+		return
+	}
+	duration := time.Since(startTime)
+	if len(pools) > 0 {
+		fmt.Printf("Scanned %d pools in %v (Average: %v per pool)\n", len(pools), duration, duration/time.Duration(len(pools)))
+	} else {
+		fmt.Printf("Scanned 0 pools in %v\n", duration)
+	}
+
+	fmt.Printf("Saving %d pools to Postgres...\n", len(pools))
+	dbStartTime := time.Now()
+	if err := bus.Publish(ctx, event.Event{
+		Type: event.PoolBatchScanned,
+		Payload: event.PoolBatchScannedPayload{
+			VenueKey: venueKey,
+			Pools:    pools,
+		},
+	}); err != nil {
+		log.Printf("Error: failed to save pools to database: %v", err)
+	} else {
+		fmt.Printf("Successfully saved %d pools in %v\n", len(pools), time.Since(dbStartTime))
 	}
 }
