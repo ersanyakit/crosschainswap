@@ -1,6 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: "Google Sans";
   --font-mono: "Google Sans";
@@ -27,6 +29,55 @@
   --color-trade-red-bg: rgba(246, 70, 93, 0.1);
 }
 
+:root,
+.theme-light {
+  --app-bg: #f6f8fa;
+  --app-fg: #24292f;
+  --uni-surface-3: rgba(31, 35, 40, 0.08);
+  --uni-surface-3-solid: #f2f4f7;
+  --uni-surface-4: rgba(255, 255, 255, 0.72);
+  --uni-accent-1: #ff37c7;
+  --uni-accent-1-hovered: #e500a5;
+  --uni-accent-2: rgba(255, 55, 199, 0.08);
+  --uni-accent-2-hovered: rgba(255, 55, 199, 0.12);
+  --uni-accent-2-solid: #fff3fc;
+  color-scheme: light;
+}
+
+.theme-dark {
+  --app-bg: #1e1e1e;
+  --app-fg: #d4d4d4;
+  --vscode-activity: #181818;
+  --vscode-side-bar: #1f1f1f;
+  --vscode-editor: #1e1e1e;
+  --vscode-panel: #181818;
+  --vscode-panel-elevated: #252526;
+  --vscode-tab-active: #1e1e1e;
+  --vscode-tab-inactive: #2d2d2d;
+  --vscode-input: #313131;
+  --vscode-input-border: #3c3c3c;
+  --vscode-border: #2b2b2b;
+  --vscode-border-strong: #3a3a3a;
+  --vscode-fg: #d4d4d4;
+  --vscode-muted: #858585;
+  --vscode-muted-strong: #a6a6a6;
+  --vscode-hover: rgba(255, 255, 255, 0.06);
+  --vscode-selection: rgba(255, 55, 199, 0.16);
+  --uni-surface-3: rgba(255, 255, 255, 0.065);
+  --uni-surface-3-solid: #2a2a2a;
+  --uni-surface-4: rgba(255, 255, 255, 0.08);
+  --uni-accent-1: #ff37c7;
+  --uni-accent-1-hovered: #ff5bd3;
+  --uni-accent-2: rgba(255, 55, 199, 0.13);
+  --uni-accent-2-hovered: rgba(255, 55, 199, 0.2);
+  --uni-accent-2-solid: #352033;
+  --color-terminal-bg-dark: var(--vscode-panel);
+  --color-terminal-border-dark: var(--vscode-border);
+  --color-trade-green-bg: rgba(14, 203, 129, 0.16);
+  --color-trade-red-bg: rgba(246, 70, 93, 0.16);
+  color-scheme: dark;
+}
+
 /* Base resets & layout helpers */
 html, body, #root {
   margin: 0;
@@ -38,8 +89,80 @@ html, body, #root {
   user-select: none;
 }
 
+body {
+  background: var(--app-bg);
+  color: var(--app-fg);
+}
+
 *, *::before, *::after {
   font-family: "Google Sans" !important;
+}
+
+.theme-dark ::selection {
+  background: var(--vscode-selection);
+  color: var(--vscode-fg);
+}
+
+.theme-dark input,
+.theme-dark select,
+.theme-dark textarea {
+  background-color: var(--vscode-input);
+  border-color: var(--vscode-input-border);
+  color: var(--vscode-fg);
+  caret-color: var(--uni-accent-1);
+}
+
+.theme-dark input::placeholder,
+.theme-dark textarea::placeholder {
+  color: #7a7a7a;
+}
+
+.theme-dark [class*="dark:bg-[#040406]"],
+.theme-dark [class*="dark:bg-[#070b0f]"] {
+  background-color: var(--vscode-editor) !important;
+}
+
+.theme-dark [class*="dark:bg-[#090d12]"],
+.theme-dark [class*="dark:bg-[#0d1117]"] {
+  background-color: var(--vscode-panel) !important;
+}
+
+.theme-dark [class*="dark:bg-[#0b1118]"],
+.theme-dark [class*="dark:bg-[#0c1015]"] {
+  background-color: var(--vscode-panel-elevated) !important;
+}
+
+.theme-dark [class*="dark:bg-[#0a0c10]"],
+.theme-dark [class*="dark:bg-[#101720]"],
+.theme-dark [class*="dark:bg-[#12161f]"],
+.theme-dark [class*="dark:bg-[#161b22]"] {
+  background-color: var(--vscode-input) !important;
+}
+
+.theme-dark [class*="dark:border-[#21262d]"],
+.theme-dark [class*="dark:border-[#30363d]"],
+.theme-dark [class*="dark:border-[#2f3a48]"],
+.theme-dark [class*="dark:border-gray-800"],
+.theme-dark [class*="dark:border-slate-800"] {
+  border-color: var(--vscode-border) !important;
+}
+
+.theme-dark [class*="dark:text-gray-100"],
+.theme-dark [class*="dark:text-gray-200"],
+.theme-dark [class*="dark:text-gray-300"] {
+  color: var(--vscode-fg) !important;
+}
+
+.theme-dark [class*="dark:text-gray-400"],
+.theme-dark [class*="dark:text-gray-500"] {
+  color: var(--vscode-muted) !important;
+}
+
+.theme-dark .shadow-sm,
+.theme-dark .shadow-md,
+.theme-dark .shadow-lg,
+.theme-dark .shadow-xs {
+  box-shadow: none !important;
 }
 
 /* Custom scrollbar optimized for ultra-dense panels */

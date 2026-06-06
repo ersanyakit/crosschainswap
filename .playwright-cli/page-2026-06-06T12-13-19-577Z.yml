@@ -1,0 +1,451 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - button "K Toggle Sidebar (Ctrl+B)" [ref=e7] [cursor=pointer]:
+          - generic [ref=e8]: K
+          - generic: Toggle Sidebar (Ctrl+B)
+        - generic [ref=e9]:
+          - button "Markets Explorer" [ref=e10] [cursor=pointer]:
+            - img [ref=e11]
+            - generic: Markets Explorer
+          - button "Trading Desk" [ref=e14] [cursor=pointer]:
+            - img [ref=e15]
+            - generic: Trading Desk
+          - button "Portfolio Analytics" [ref=e18] [cursor=pointer]:
+            - img [ref=e19]
+            - generic: Portfolio Analytics
+          - button "3 Orders Ledger" [ref=e22] [cursor=pointer]:
+            - img [ref=e23]
+            - generic [ref=e28]: "3"
+            - generic: Orders Ledger
+          - button "Secured Wallet" [ref=e29] [cursor=pointer]:
+            - img [ref=e30]
+            - generic: Secured Wallet
+          - button "Dev Strategy Lab" [ref=e33] [cursor=pointer]:
+            - img [ref=e34]
+            - generic: Dev Strategy Lab
+      - generic [ref=e39]:
+        - button "Login" [ref=e40] [cursor=pointer]:
+          - img [ref=e41]
+          - generic: Login
+        - button "Rescan Node Tickers" [ref=e44] [cursor=pointer]:
+          - img [ref=e45]
+          - generic: Rescan Node Tickers
+        - generic [ref=e50]:
+          - generic:
+            - generic: Node status
+            - text: "Network: mainnet-london-v3"
+            - text: "Ping: 16ms"
+            - text: "Engine: Live Polling WS"
+        - button "Terminal Preferences" [ref=e54] [cursor=pointer]:
+          - img [ref=e55]
+          - generic: Terminal Preferences
+    - generic [ref=e58]:
+      - generic [ref=e59]:
+        - generic [ref=e60]:
+          - heading "Spot Explorer" [level=2] [ref=e61]:
+            - img [ref=e62]
+            - text: Spot Explorer
+          - generic [ref=e63]: 6/6 pairs
+        - generic [ref=e64]:
+          - img [ref=e65]
+          - textbox "Search assets... (e.g. BTC)" [ref=e68]
+        - generic [ref=e69]:
+          - button "ALL" [ref=e70] [cursor=pointer]
+          - button "FAVORITES" [ref=e71] [cursor=pointer]
+          - button "TRENDING" [ref=e72] [cursor=pointer]
+      - generic [ref=e73]:
+        - generic [ref=e74]:
+          - generic [ref=e75] [cursor=pointer]:
+            - img [ref=e77]
+            - img [ref=e79]
+            - generic [ref=e81]: ★ Watchlist (2)
+          - generic [ref=e82]:
+            - generic [ref=e83] [cursor=pointer]:
+              - generic [ref=e84]:
+                - button [ref=e85]:
+                  - img [ref=e86]
+                - generic "CHZ" [ref=e88]:
+                  - img "CHZ" [ref=e89]
+                - generic [ref=e90]: CHZ/USD
+              - generic [ref=e91]:
+                - generic [ref=e92]: 0,08
+                - generic [ref=e93]: +0.00%
+            - generic [ref=e94] [cursor=pointer]:
+              - generic [ref=e95]:
+                - button [ref=e96]:
+                  - img [ref=e97]
+                - generic "PEPPER" [ref=e99]:
+                  - img "PEPPER" [ref=e100]
+                - generic [ref=e101]: PEPPER/USD
+              - generic [ref=e102]:
+                - generic [ref=e103]: 0,000000001
+                - generic [ref=e104]: +0.00%
+        - generic [ref=e105]:
+          - generic [ref=e106] [cursor=pointer]:
+            - img [ref=e108]
+            - img [ref=e110]
+            - generic [ref=e112]: 📁 Spot Markets (6)
+          - generic [ref=e113]:
+            - generic [ref=e114] [cursor=pointer]:
+              - generic [ref=e115]:
+                - button [ref=e116]:
+                  - img [ref=e117]
+                - generic "SOL" [ref=e119]:
+                  - img "SOL" [ref=e120]
+                - generic [ref=e121]: SOL/USD
+              - generic [ref=e122]:
+                - generic [ref=e123]: 184,25
+                - generic [ref=e124]: +0.00%
+            - generic [ref=e125] [cursor=pointer]:
+              - generic [ref=e126]:
+                - button [ref=e127]:
+                  - img [ref=e128]
+                - generic "ETH" [ref=e130]:
+                  - img "ETH" [ref=e131]
+                - generic [ref=e132]: ETH/USD
+              - generic [ref=e133]:
+                - generic [ref=e134]: 3.412,80
+                - generic [ref=e135]: +0.00%
+            - generic [ref=e136] [cursor=pointer]:
+              - generic [ref=e137]:
+                - button [ref=e138]:
+                  - img [ref=e139]
+                - generic "AVAX" [ref=e141]:
+                  - img "AVAX" [ref=e142]
+                - generic [ref=e143]: AVAX/USD
+              - generic [ref=e144]:
+                - generic [ref=e145]: 32,40
+                - generic [ref=e146]: +0.00%
+            - generic [ref=e147] [cursor=pointer]:
+              - generic [ref=e148]:
+                - button [ref=e149]:
+                  - img [ref=e150]
+                - generic "USDC" [ref=e152]:
+                  - img "USDC" [ref=e153]
+                - generic [ref=e154]: USDC/USD
+              - generic [ref=e155]:
+                - generic [ref=e156]: 1,00
+                - generic [ref=e157]: +0.00%
+            - generic [ref=e158] [cursor=pointer]:
+              - generic [ref=e159]:
+                - button [ref=e160]:
+                  - img [ref=e161]
+                - generic "CHZ" [ref=e163]:
+                  - img "CHZ" [ref=e164]
+                - generic [ref=e165]: CHZ/USD
+              - generic [ref=e166]:
+                - generic [ref=e167]: 0,08
+                - generic [ref=e168]: +0.00%
+            - generic [ref=e169] [cursor=pointer]:
+              - generic [ref=e170]:
+                - button [ref=e171]:
+                  - img [ref=e172]
+                - generic "PEPPER" [ref=e174]:
+                  - img "PEPPER" [ref=e175]
+                - generic [ref=e176]: PEPPER/USD
+              - generic [ref=e177]:
+                - generic [ref=e178]: 0,000000001
+                - generic [ref=e179]: +0.00%
+        - generic [ref=e181] [cursor=pointer]:
+          - img [ref=e183]
+          - img [ref=e185]
+          - generic [ref=e187]: 🔥 Volatile Movers
+      - generic [ref=e188]:
+        - generic [ref=e189]:
+          - generic [ref=e190]: "Command Palette:"
+          - generic [ref=e191]: Ctrl+K
+        - generic [ref=e192]:
+          - generic [ref=e193]: "Toggle Sidebar:"
+          - generic [ref=e194]: Ctrl+B
+    - generic [ref=e195]:
+      - generic [ref=e197]:
+        - button "P PEPPER/USD" [ref=e198] [cursor=pointer]:
+          - generic [ref=e199]: P
+          - generic [ref=e200]: PEPPER/USD
+          - generic "Close Tab" [ref=e201]:
+            - img [ref=e202]
+        - button "C CHZ/USD" [ref=e205] [cursor=pointer]:
+          - generic [ref=e206]: C
+          - generic [ref=e207]: CHZ/USD
+          - generic "Close Tab" [ref=e208]:
+            - img [ref=e209]
+        - button "S SOL/USD" [ref=e212] [cursor=pointer]:
+          - generic [ref=e213]: S
+          - generic [ref=e214]: SOL/USD
+          - generic "Close Tab" [ref=e215]:
+            - img [ref=e216]
+        - button "Portfolio.json" [ref=e219] [cursor=pointer]:
+          - img [ref=e220]
+          - generic [ref=e223]: Portfolio.json
+          - generic "Close Tab" [ref=e224]:
+            - img [ref=e225]
+        - button "strategy.ts" [ref=e228] [cursor=pointer]:
+          - img [ref=e229]
+          - generic [ref=e232]: strategy.ts
+          - generic "Close Tab" [ref=e233]:
+            - img [ref=e234]
+      - generic [ref=e237]:
+        - generic [ref=e238]:
+          - generic [ref=e239]:
+            - img [ref=e240]
+            - text: Prefetching historical blocks...
+          - generic [ref=e250]:
+            - generic [ref=e251]:
+              - generic [ref=e252]:
+                - button "Open Orders 3" [ref=e253] [cursor=pointer]:
+                  - text: Open Orders
+                  - generic [ref=e254]: "3"
+                - button "Order History 1" [ref=e255] [cursor=pointer]:
+                  - text: Order History
+                  - generic [ref=e256]: "1"
+                - button "Trade History" [ref=e257] [cursor=pointer]
+                - button "System Logs 6" [ref=e258] [cursor=pointer]:
+                  - text: System Logs
+                  - generic [ref=e259]: "6"
+                - button "DEX Prices 10" [ref=e260] [cursor=pointer]:
+                  - text: DEX Prices
+                  - generic [ref=e261]: "10"
+              - generic [ref=e262]:
+                - button "Cancel All Open Orders" [ref=e263] [cursor=pointer]:
+                  - img [ref=e264]
+                  - text: Cancel All Open Orders
+                - generic [ref=e267]: Active Core Console v3
+            - table [ref=e270]:
+              - rowgroup [ref=e271]:
+                - row "Time Symbol Side Type Price Amount Filled Total Action" [ref=e272]:
+                  - columnheader "Time" [ref=e273]
+                  - columnheader "Symbol" [ref=e274]
+                  - columnheader "Side" [ref=e275]
+                  - columnheader "Type" [ref=e276]
+                  - columnheader "Price" [ref=e277]
+                  - columnheader "Amount" [ref=e278]
+                  - columnheader "Filled" [ref=e279]
+                  - columnheader "Total" [ref=e280]
+                  - columnheader "Action" [ref=e281]
+              - rowgroup [ref=e282]:
+                - row "11:13:18 PEPPER/USD BUY LIMIT 0,0000000009 50.000.000 0,0000 0,045 USD Cancel" [ref=e283]:
+                  - cell "11:13:18" [ref=e284]
+                  - cell "PEPPER/USD" [ref=e285]
+                  - cell "BUY" [ref=e286]
+                  - cell "LIMIT" [ref=e287]
+                  - cell "0,0000000009" [ref=e288]
+                  - cell "50.000.000" [ref=e289]
+                  - cell "0,0000" [ref=e290]
+                  - cell "0,045 USD" [ref=e291]
+                  - cell "Cancel" [ref=e292]:
+                    - button "Cancel" [ref=e293] [cursor=pointer]
+                - row "15:11:18 CHZ/USD SELL LIMIT 0,09 250,0000 0,0000 22,50 USD Cancel" [ref=e294]:
+                  - cell "15:11:18" [ref=e295]
+                  - cell "CHZ/USD" [ref=e296]
+                  - cell "SELL" [ref=e297]
+                  - cell "LIMIT" [ref=e298]
+                  - cell "0,09" [ref=e299]
+                  - cell "250,0000" [ref=e300]
+                  - cell "0,0000" [ref=e301]
+                  - cell "22,50 USD" [ref=e302]
+                  - cell "Cancel" [ref=e303]:
+                    - button "Cancel" [ref=e304] [cursor=pointer]
+                - row "15:13:18 SOL/USD SELL STOP_LIMIT 180,00 10,0000 0,0000 1.800,00 USD Cancel" [ref=e305]:
+                  - cell "15:13:18" [ref=e306]
+                  - cell "SOL/USD" [ref=e307]
+                  - cell "SELL" [ref=e308]
+                  - cell "STOP_LIMIT" [ref=e309]
+                  - cell "180,00" [ref=e310]
+                  - cell "10,0000" [ref=e311]
+                  - cell "0,0000" [ref=e312]
+                  - cell "1.800,00 USD" [ref=e313]
+                  - cell "Cancel" [ref=e314]:
+                    - button "Cancel" [ref=e315] [cursor=pointer]
+        - generic [ref=e316]:
+          - generic [ref=e317]:
+            - generic [ref=e318]:
+              - generic [ref=e319]:
+                - generic [ref=e320]:
+                  - img [ref=e321]
+                  - text: Order Book
+                - combobox [ref=e325] [cursor=pointer]:
+                  - 'option "Group: 0.01" [selected]'
+                  - 'option "Group: 0.1"'
+                  - 'option "Group: 1.0"'
+              - generic [ref=e326]:
+                - generic [ref=e327]: Price (USD)
+                - generic [ref=e328]: Size (PEPPER)
+                - generic [ref=e329]: Total (USD)
+              - generic [ref=e332]:
+                - generic [ref=e334]:
+                  - img [ref=e335]
+                  - text: 0,000000001
+                - generic [ref=e339]: "Spread: 0.00 (0.000%)"
+            - generic [ref=e341]:
+              - generic [ref=e342]:
+                - generic [ref=e343]:
+                  - img [ref=e344]
+                  - text: Recent Trades
+                - generic [ref=e346]: Live Trades feed
+              - generic [ref=e347]:
+                - generic [ref=e348]: Price (USD)
+                - generic [ref=e349]: Size (PEPPER)
+                - generic [ref=e350]: Time
+              - generic [ref=e351]:
+                - generic [ref=e352]:
+                  - generic [ref=e353]: 0,000000001
+                  - generic [ref=e354]: 1,1935
+                  - generic [ref=e355]: 15:13:18
+                - generic [ref=e356]:
+                  - generic [ref=e357]: 0,000000000999
+                  - generic [ref=e358]: 0,8490
+                  - generic [ref=e359]: 15:13:03
+                - generic [ref=e360]:
+                  - generic [ref=e361]: 0,000000000999
+                  - generic [ref=e362]: 1,4577
+                  - generic [ref=e363]: 15:12:48
+                - generic [ref=e364]:
+                  - generic [ref=e365]: 0,000000001
+                  - generic [ref=e366]: 0,7881
+                  - generic [ref=e367]: 15:12:33
+                - generic [ref=e368]:
+                  - generic [ref=e369]: 0,000000001
+                  - generic [ref=e370]: 1,0085
+                  - generic [ref=e371]: 15:12:18
+                - generic [ref=e372]:
+                  - generic [ref=e373]: 0,000000001
+                  - generic [ref=e374]: 0,7375
+                  - generic [ref=e375]: 15:12:03
+                - generic [ref=e376]:
+                  - generic [ref=e377]: 0,000000001001
+                  - generic [ref=e378]: 1,3530
+                  - generic [ref=e379]: 15:11:48
+                - generic [ref=e380]:
+                  - generic [ref=e381]: 0,000000001
+                  - generic [ref=e382]: 1,5380
+                  - generic [ref=e383]: 15:11:33
+                - generic [ref=e384]:
+                  - generic [ref=e385]: 0,000000000999
+                  - generic [ref=e386]: 1,8189
+                  - generic [ref=e387]: 15:11:18
+                - generic [ref=e388]:
+                  - generic [ref=e389]: 0,000000001001
+                  - generic [ref=e390]: 1,5602
+                  - generic [ref=e391]: 15:11:03
+                - generic [ref=e392]:
+                  - generic [ref=e393]: 0,000000001
+                  - generic [ref=e394]: 2,1995
+                  - generic [ref=e395]: 15:10:48
+                - generic [ref=e396]:
+                  - generic [ref=e397]: 0,000000000999
+                  - generic [ref=e398]: 1,0020
+                  - generic [ref=e399]: 15:10:33
+                - generic [ref=e400]:
+                  - generic [ref=e401]: 0,000000001
+                  - generic [ref=e402]: 2,1666
+                  - generic [ref=e403]: 15:10:18
+                - generic [ref=e404]:
+                  - generic [ref=e405]: 0,000000001001
+                  - generic [ref=e406]: 0,7239
+                  - generic [ref=e407]: 15:10:03
+                - generic [ref=e408]:
+                  - generic [ref=e409]: 0,000000001001
+                  - generic [ref=e410]: 0,4372
+                  - generic [ref=e411]: 15:09:48
+                - generic [ref=e412]:
+                  - generic [ref=e413]: 0,000000001
+                  - generic [ref=e414]: 1,6756
+                  - generic [ref=e415]: 15:09:33
+              - generic [ref=e416]:
+                - generic [ref=e417]: "Base ticker: PEPPER/USD"
+                - generic [ref=e418]: "24h trades: 0"
+          - generic [ref=e421]:
+            - generic [ref=e422]:
+              - button "Buy PEPPER" [ref=e423] [cursor=pointer]
+              - button "Sell PEPPER" [ref=e424] [cursor=pointer]
+            - generic [ref=e425]:
+              - generic [ref=e426]:
+                - generic [ref=e427]:
+                  - generic [ref=e428]: KEWL CONTROLLER CONSOLE v1.5
+                  - generic [ref=e430]: UNIFIED INPUT BOARD
+                - generic [ref=e431]:
+                  - generic [ref=e432]:
+                    - generic [ref=e433]: "[CMD-01] SELECT TARGET EXEC TYPE"
+                    - generic [ref=e434]: ACTIVE
+                  - generic [ref=e435]:
+                    - button "LIMIT" [ref=e436] [cursor=pointer]
+                    - button "MARKET" [ref=e437] [cursor=pointer]
+                    - button "STOP" [ref=e438] [cursor=pointer]
+                - generic [ref=e439]:
+                  - generic [ref=e440]:
+                    - generic [ref=e441]: "[CMD-02] ESTIMATED MARGIN DEPOT"
+                    - generic [ref=e442]: "Available Funds:"
+                  - generic [ref=e443]:
+                    - generic [ref=e444]: 42.550,0000 USD
+                    - generic [ref=e445]: SECURE CRYPTO STORAGE
+                - generic [ref=e446]:
+                  - generic [ref=e448]: "[CMD-04] Limit Price (USD)"
+                  - generic [ref=e449]:
+                    - textbox "0.00" [ref=e450]: "1e-9"
+                    - generic [ref=e451]: USD
+                - generic [ref=e452]:
+                  - generic [ref=e453]:
+                    - generic [ref=e454]: "[CMD-05] Amount (PEPPER)"
+                    - generic [ref=e455]: ● Active Focus
+                  - generic [ref=e456]:
+                    - textbox "0.0000" [ref=e457]
+                    - generic [ref=e458]: PEPPER
+                - generic [ref=e459]:
+                  - button "25%" [ref=e460] [cursor=pointer]
+                  - button "50%" [ref=e461] [cursor=pointer]
+                  - button "75%" [ref=e462] [cursor=pointer]
+                  - button "100%" [ref=e463] [cursor=pointer]
+                - generic [ref=e464]:
+                  - generic [ref=e465]:
+                    - button "Interactive Hardware Keypad Amount" [ref=e466] [cursor=pointer]:
+                      - img [ref=e467]
+                      - generic [ref=e468]: Interactive Hardware Keypad
+                      - generic [ref=e469]: Amount
+                    - button "HIDE PAD" [ref=e470] [cursor=pointer]
+                  - generic [ref=e471]:
+                    - generic [ref=e472]:
+                      - generic [ref=e473]:
+                        - button "1" [ref=e474] [cursor=pointer]
+                        - button "2" [ref=e475] [cursor=pointer]
+                        - button "3" [ref=e476] [cursor=pointer]
+                        - button "4" [ref=e477] [cursor=pointer]
+                        - button "5" [ref=e478] [cursor=pointer]
+                        - button "6" [ref=e479] [cursor=pointer]
+                        - button "7" [ref=e480] [cursor=pointer]
+                        - button "8" [ref=e481] [cursor=pointer]
+                        - button "9" [ref=e482] [cursor=pointer]
+                        - button "." [ref=e483] [cursor=pointer]
+                        - button "0" [ref=e484] [cursor=pointer]
+                        - button "CLEAR" [ref=e485] [cursor=pointer]
+                      - generic [ref=e486]:
+                        - button "⌫" [ref=e487] [cursor=pointer]
+                        - button "+0.01" [ref=e488] [cursor=pointer]
+                        - button "+0.1" [ref=e489] [cursor=pointer]
+                        - button "+1" [ref=e490] [cursor=pointer]
+                    - generic [ref=e491]:
+                      - generic [ref=e494]: "Focus Link: amount"
+                      - generic [ref=e495]: Terminal Node Exec Ready
+              - generic [ref=e496]:
+                - generic [ref=e497]:
+                  - generic [ref=e498]: "Sub-Total:"
+                  - generic [ref=e499]: 0.00 USD
+                - generic [ref=e500]:
+                  - generic [ref=e501]: "Est. Trading Fee (0.08%):"
+                  - generic [ref=e502]: 0.0000 USD
+                - generic [ref=e503]:
+                  - generic [ref=e504]: "Total Outflow:"
+                  - generic [ref=e505]: 0.00 USD
+              - button "EXECUTE BUY LIMIT" [disabled] [ref=e506]
+  - contentinfo [ref=e507]:
+    - generic [ref=e508]:
+      - generic [ref=e509]: KEWL LIMIT PROTOCOL
+      - generic [ref=e511]: "Exchange: LIVE REST/WS"
+      - generic [ref=e512]: "Fee rate: Maker 0.08% / Taker 0.10%"
+    - generic [ref=e513]:
+      - generic "Spot mode operates without liabilities" [ref=e514]: "Account: Spot"
+      - button "Login" [ref=e515] [cursor=pointer]
+      - generic [ref=e516]: "Latency API: 16ms"
+      - generic "REST/WS bound to /api" [ref=e517]: "Protocol rev: 0"
+      - generic [ref=e518]: "UTC: 15:13:18"

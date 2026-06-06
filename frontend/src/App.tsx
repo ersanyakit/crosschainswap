@@ -66,6 +66,16 @@ interface Tab {
 }
 
 type ExchangeMode = 'connecting' | 'live' | 'fallback';
+type ThemeMode = 'light' | 'dark';
+
+const THEME_STORAGE_KEY = 'kewl.theme';
+
+function initialTheme(): ThemeMode {
+  if (typeof window === 'undefined') return 'dark';
+  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+  if (stored === 'light' || stored === 'dark') return stored;
+  return 'dark';
+}
 
 export default function App() {
   const [isPending, startTransition] = useTransition();
@@ -80,7 +90,7 @@ export default function App() {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
   // Layout preferences states
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [theme, setTheme] = useState<ThemeMode>(() => initialTheme());
   const [density, setDensity] = useState<'compact' | 'comfortable'>('compact');
   const [confirmOrders, setConfirmOrders] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -185,10 +195,13 @@ export default function App() {
     if (theme === 'dark') {
       root.classList.add('theme-dark', 'dark');
       root.classList.remove('theme-light');
+      root.style.colorScheme = 'dark';
     } else {
       root.classList.add('theme-light');
       root.classList.remove('theme-dark', 'dark');
+      root.style.colorScheme = 'light';
     }
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
   }, [theme]);
 
   // Global key listening (Ctrl+K for command palette, Ctrl+B for Sidebar toggle)
@@ -1029,7 +1042,7 @@ export default function App() {
 
   return (
     <div className={`w-full h-full flex flex-col overflow-hidden text-sm relative transition-colors duration-200 ${
-      theme === 'light' ? 'bg-[#f6f8fa] text-gray-800' : 'bg-[#040406] text-gray-200'
+      theme === 'light' ? 'bg-[#f6f8fa] text-gray-800' : 'bg-[var(--app-bg)] text-[var(--app-fg)]'
     } ${density === 'compact' ? 'layout-dense' : 'layout-cozy'}`}>
 
       {/* App Frame Panel (Top Navbar, Vertical activity, Sidebar, Main tabs Workspace, base Status bar) */}
