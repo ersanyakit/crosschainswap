@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"exchange/internal/core/chain"
@@ -89,6 +90,49 @@ func (r *PoolRepository) GetPool(ctx context.Context, id venue.PoolID) (*venue.P
 	return pool, nil
 }
 
+func (r *PoolRepository) ListPoolsByAssetIDs(ctx context.Context, ids []venue.AssetID) ([]venue.Pool, error) {
+	exactIDs, lowerIDs := poolAssetQueryIDs(ids)
+	if len(exactIDs) == 0 {
+		return nil, nil
+	}
+
+	var dbPools []Pool
+	err := r.db.WithContext(ctx).
+		Where("enabled = ?", true).
+		Where(
+			"token0 IN ? OR token1 IN ? OR LOWER(token0) IN ? OR LOWER(token1) IN ?",
+			exactIDs,
+			exactIDs,
+			lowerIDs,
+			lowerIDs,
+		).
+		Find(&dbPools).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to list pools by asset ids: %w", err)
+	}
+
+	pools := make([]venue.Pool, 0, len(dbPools))
+	for _, dbPool := range dbPools {
+		pool, err := dbPool.toVenuePool()
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode pool %s: %w", dbPool.ID, err)
+		}
+		pools = append(pools, *pool)
+	}
+
+	return pools, nil
+}
+
+func (r *PoolRepository) Notify(ctx context.Context, channel string, payload []byte) error {
+	if channel == "" || len(payload) == 0 {
+		return nil
+	}
+	if err := r.db.WithContext(ctx).Exec("SELECT pg_notify(?, ?)", channel, string(payload)).Error; err != nil {
+		return fmt.Errorf("failed to notify %s: %w", channel, err)
+	}
+	return nil
+}
+
 func (p Pool) toVenuePool() (*venue.Pool, error) {
 	reserve0, err := parseBigInt("reserve0", p.Reserve0)
 	if err != nil {
@@ -150,4 +194,29 @@ func parseBigInt(field string, value string) (*big.Int, error) {
 		return nil, fmt.Errorf("%s is not a valid integer: %q", field, value)
 	}
 	return out, nil
+}
+
+func poolAssetQueryIDs(ids []venue.AssetID) ([]string, []string) {
+	exactSeen := make(map[string]struct{}, len(ids))
+	lowerSeen := make(map[string]struct{}, len(ids))
+	exactIDs := make([]string, 0, len(ids))
+	lowerIDs := make([]string, 0, len(ids))
+
+	for _, id := range ids {
+		value := strings.TrimSpace(string(id))
+		if value == "" {
+			continue
+		}
+		if _, ok := exactSeen[value]; !ok {
+			exactSeen[value] = struct{}{}
+			exactIDs = append(exactIDs, value)
+		}
+		lower := strings.ToLower(value)
+		if _, ok := lowerSeen[lower]; !ok {
+			lowerSeen[lower] = struct{}{}
+			lowerIDs = append(lowerIDs, lower)
+		}
+	}
+
+	return exactIDs, lowerIDs
 }

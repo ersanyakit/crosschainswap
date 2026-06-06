@@ -15,6 +15,11 @@ const (
 	VenueKeyKayenSwap           VenueKey = "kayenswap"
 	VenueKeyAerodromeClassic    VenueKey = "aerodrome_classic_base"
 	VenueKeyAerodromeSlipstream VenueKey = "aerodrome_slipstream_base"
+	VenueKeyUniswapV1Ethereum   VenueKey = "uniswap_v1_ethereum"
+	VenueKeyUniswapV2Ethereum   VenueKey = "uniswap_v2_ethereum"
+	VenueKeyUniswapV3Ethereum   VenueKey = "uniswap_v3_ethereum"
+	VenueKeyPangolinAvalanche   VenueKey = "pangolin_avalanche"
+	VenueKeyTraderJoeAvalanche  VenueKey = "traderjoe_avalanche"
 	VenueKeyUniswapV2           VenueKey = "uniswap_v2"
 	VenueKeyUniswapV3           VenueKey = "uniswap_v3"
 	VenueKeyCurve               VenueKey = "curve"
@@ -29,6 +34,7 @@ const (
 type VenueKind string
 
 const (
+	VenueKindUniswapV1 VenueKind = "uniswap_v1"
 	VenueKindUniswapV2 VenueKind = "uniswap_v2"
 	VenueKindUniswapV3 VenueKind = "uniswap_v3"
 	VenueKindUniswapV4 VenueKind = "uniswap_v4"

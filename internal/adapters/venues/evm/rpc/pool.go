@@ -3,11 +3,13 @@ package rpc
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
@@ -82,6 +84,40 @@ func (p *Pool) CallContract(
 
 		sleep := time.Duration(i%len(p.clients)+1) * 250 * time.Millisecond
 
+		timer := time.NewTimer(sleep)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
+	}
+
+	return nil, lastErr
+}
+
+func (p *Pool) BalanceAt(ctx context.Context, account common.Address) (*big.Int, error) {
+	var lastErr error
+	attempts := len(p.clients) * 3
+	if attempts < 3 {
+		attempts = 3
+	}
+
+	for i := 0; i < attempts; i++ {
+		client := p.Client()
+
+		out, err := client.BalanceAt(ctx, account, nil)
+		if err == nil {
+			return out, nil
+		}
+
+		lastErr = err
+
+		if !isRetryableRPCError(err) {
+			return nil, err
+		}
+
+		sleep := time.Duration(i%len(p.clients)+1) * 250 * time.Millisecond
 		timer := time.NewTimer(sleep)
 		select {
 		case <-ctx.Done():

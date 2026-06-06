@@ -39,10 +39,15 @@ const (
 	programShardConcurrency  = 32
 
 	orcaToken0Offset        = 101
+	orcaToken1Offset        = 181
 	raydiumCLMMToken0Offset = 73
+	raydiumCLMMToken1Offset = 105
 	raydiumCPMMToken0Offset = 168
+	raydiumCPMMToken1Offset = 200
 	raydiumAMMToken0Offset  = 400
+	raydiumAMMToken1Offset  = 432
 	meteoraToken0Offset     = 88
+	meteoraToken1Offset     = 120
 )
 
 type Scanner struct {
@@ -122,6 +127,24 @@ func (s *Scanner) ScanPools(ctx context.Context) ([]venue.Pool, error) {
 		return nil, err
 	}
 	return pools, nil
+}
+
+func (s *Scanner) ScanPoolsForAssets(ctx context.Context, assetIDs []venue.AssetID, handle venue.PoolBatchHandler) (int, error) {
+	mints := solanaAssetMints(assetIDs)
+	if len(mints) == 0 {
+		return 0, nil
+	}
+
+	switch s.venueKey {
+	case venue.VenueKeyOrca:
+		return s.scanOrcaForMints(ctx, mints, handle)
+	case venue.VenueKeyRaydium:
+		return s.scanRaydiumForMints(ctx, mints, handle)
+	case venue.VenueKeyMeteora:
+		return s.scanMeteoraForMints(ctx, mints, handle)
+	default:
+		return 0, fmt.Errorf("unsupported solana venue %s", s.venueKey)
+	}
 }
 
 func (s *Scanner) ScanPoolsStream(ctx context.Context, handle venue.PoolBatchHandler) (int, error) {
@@ -237,6 +260,129 @@ func (s *Scanner) scanMeteoraStream(ctx context.Context, handle venue.PoolBatchH
 		pool, ok := parseMeteoraLbPair(account.Pubkey, account.Data, s.chainKey, s.venueKey, s.meteoraDLMMProgram)
 		return pool, ok
 	})
+}
+
+func (s *Scanner) scanOrcaForMints(ctx context.Context, mints []string, handle venue.PoolBatchHandler) (int, error) {
+	baseFilters := []programFilter{
+		dataSizeFilter(orcaWhirlpoolAccountSize),
+		memcmpFilter(0, anchorDiscriminator("Whirlpool")),
+	}
+	if len(s.orcaConfigAccounts) == 0 {
+		return s.scanProgramForMints(ctx, s.orcaProgram, baseFilters, []int{orcaToken0Offset, orcaToken1Offset}, mints, handle, func(account programAccount) (venue.Pool, bool) {
+			return parseOrcaWhirlpool(account.Pubkey, account.Data, s.chainKey, s.venueKey, s.orcaProgram)
+		})
+	}
+
+	totalScanned := 0
+	for _, configAccount := range s.orcaConfigAccounts {
+		filters := append([]programFilter{}, baseFilters...)
+		filters = append(filters, memcmpStringFilter(8, configAccount))
+		count, err := s.scanProgramForMints(ctx, s.orcaProgram, filters, []int{orcaToken0Offset, orcaToken1Offset}, mints, handle, func(account programAccount) (venue.Pool, bool) {
+			return parseOrcaWhirlpool(account.Pubkey, account.Data, s.chainKey, s.venueKey, s.orcaProgram)
+		})
+		totalScanned += count
+		if err != nil {
+			log.Printf("Warning: targeted orca config %s scan failed: %v", configAccount, err)
+			continue
+		}
+	}
+	return totalScanned, nil
+}
+
+func (s *Scanner) scanRaydiumForMints(ctx context.Context, mints []string, handle venue.PoolBatchHandler) (int, error) {
+	totalScanned := 0
+
+	count, err := s.scanProgramForMints(ctx, s.raydiumCLMMProgram, []programFilter{
+		dataSizeFilter(raydiumCLMMAccountSize),
+		memcmpFilter(0, anchorDiscriminator("PoolState")),
+	}, []int{raydiumCLMMToken0Offset, raydiumCLMMToken1Offset}, mints, handle, func(account programAccount) (venue.Pool, bool) {
+		return parseRaydiumCLMM(account.Pubkey, account.Data, s.chainKey, s.venueKey, s.raydiumCLMMProgram)
+	})
+	totalScanned += count
+	if err != nil {
+		log.Printf("Warning: targeted raydium clmm scan failed: %v", err)
+	}
+
+	count, err = s.scanProgramForMints(ctx, s.raydiumCPMMProgram, []programFilter{
+		dataSizeFilter(raydiumCPMMAccountSize),
+		memcmpFilter(0, anchorDiscriminator("PoolState")),
+	}, []int{raydiumCPMMToken0Offset, raydiumCPMMToken1Offset}, mints, handle, func(account programAccount) (venue.Pool, bool) {
+		return parseRaydiumCPMM(account.Pubkey, account.Data, s.chainKey, s.venueKey, s.raydiumCPMMProgram)
+	})
+	totalScanned += count
+	if err != nil {
+		log.Printf("Warning: targeted raydium cpmm scan failed: %v", err)
+	}
+
+	count, err = s.scanProgramForMints(ctx, s.raydiumAMMProgram, []programFilter{
+		dataSizeFilter(raydiumAMMAccountSize),
+	}, []int{raydiumAMMToken0Offset, raydiumAMMToken1Offset}, mints, handle, func(account programAccount) (venue.Pool, bool) {
+		return parseRaydiumAMM(account.Pubkey, account.Data, s.chainKey, s.venueKey, s.raydiumAMMProgram)
+	})
+	totalScanned += count
+	if err != nil {
+		log.Printf("Warning: targeted raydium amm scan failed: %v", err)
+	}
+
+	return totalScanned, nil
+}
+
+func (s *Scanner) scanMeteoraForMints(ctx context.Context, mints []string, handle venue.PoolBatchHandler) (int, error) {
+	return s.scanProgramForMints(ctx, s.meteoraDLMMProgram, []programFilter{
+		dataSizeFilter(meteoraDLMMAccountSize),
+		memcmpFilter(0, anchorDiscriminator("LbPair")),
+	}, []int{meteoraToken0Offset, meteoraToken1Offset}, mints, handle, func(account programAccount) (venue.Pool, bool) {
+		return parseMeteoraLbPair(account.Pubkey, account.Data, s.chainKey, s.venueKey, s.meteoraDLMMProgram)
+	})
+}
+
+func (s *Scanner) scanProgramForMints(
+	ctx context.Context,
+	programID string,
+	baseFilters []programFilter,
+	tokenOffsets []int,
+	mints []string,
+	handle venue.PoolBatchHandler,
+	parse func(programAccount) (venue.Pool, bool),
+) (int, error) {
+	seen := make(map[string]struct{})
+	totalScanned := 0
+
+	for _, mint := range mints {
+		for _, offset := range tokenOffsets {
+			filters := append([]programFilter{}, baseFilters...)
+			filters = append(filters, memcmpStringFilter(offset, mint))
+
+			pubkeys, err := s.rpc.GetProgramAccountPubkeys(ctx, programID, filters)
+			if err != nil {
+				if isRetryableRPCError(err) {
+					log.Printf("Warning: targeted Solana scan skipped program=%s mint=%s offset=%d: %v", programID, mint, offset, err)
+					continue
+				}
+				return totalScanned, err
+			}
+
+			unique := make([]string, 0, len(pubkeys))
+			for _, pubkey := range pubkeys {
+				if _, ok := seen[pubkey]; ok {
+					continue
+				}
+				seen[pubkey] = struct{}{}
+				unique = append(unique, pubkey)
+			}
+			if len(unique) == 0 {
+				continue
+			}
+
+			count, err := s.streamProgramAccountPubkeys(ctx, unique, handle, parse)
+			totalScanned += count
+			if err != nil {
+				return totalScanned, err
+			}
+		}
+	}
+
+	return totalScanned, nil
 }
 
 func (s *Scanner) streamProgramAccountQuery(
@@ -1019,6 +1165,23 @@ func parseMeteoraLbPair(id string, data []byte, chainKey chain.ChainKey, venueKe
 		Vault1:      pubkey(data, 184),
 		Enabled:     true,
 	}, true
+}
+
+func solanaAssetMints(assetIDs []venue.AssetID) []string {
+	seen := make(map[string]struct{}, len(assetIDs))
+	out := make([]string, 0, len(assetIDs))
+	for _, id := range assetIDs {
+		mint := strings.TrimSpace(string(id))
+		if mint == "" {
+			continue
+		}
+		if _, ok := seen[mint]; ok {
+			continue
+		}
+		seen[mint] = struct{}{}
+		out = append(out, mint)
+	}
+	return out
 }
 
 func anchorDiscriminator(name string) []byte {

@@ -21,6 +21,7 @@ func NewSwapEngine(venues venue.Registry, opts SwapEngineOptions) (*appswap.Engi
 	uniswapV2Routers := make(map[venue.VenueKey]string)
 	aerodromeRouters := make(map[venue.VenueKey]string)
 	uniswapV3Routers := make(map[venue.VenueKey]string)
+	slipstreamVenues := make(map[venue.VenueKey]bool)
 
 	for _, v := range venues.All() {
 		if !v.Enabled {
@@ -52,6 +53,9 @@ func NewSwapEngine(venues venue.Registry, opts SwapEngineOptions) (*appswap.Engi
 			if cfg.RouterAddress != "" {
 				uniswapV3Routers[v.Key] = cfg.RouterAddress
 			}
+			if v.Key == venue.VenueKeyAerodromeSlipstream {
+				slipstreamVenues[v.Key] = true
+			}
 		}
 	}
 
@@ -79,6 +83,7 @@ func NewSwapEngine(venues venue.Registry, opts SwapEngineOptions) (*appswap.Engi
 			return nil, err
 		}
 		executor.RouterByVenue = uniswapV3Routers
+		executor.SlipstreamByVenue = slipstreamVenues
 		executor.Pools = opts.PoolProvider
 		engine.Register(venue.VenueKindUniswapV3, executor)
 	}

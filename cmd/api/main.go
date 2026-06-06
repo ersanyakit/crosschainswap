@@ -1,13 +1,21 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 
-	"exchange/internal/runtime"
+	"exchange/internal/app/apiruntime"
 )
 
 func main() {
-	if err := runtime.RunAll("api"); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := apiruntime.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
 		log.Fatal(err)
 	}
 }

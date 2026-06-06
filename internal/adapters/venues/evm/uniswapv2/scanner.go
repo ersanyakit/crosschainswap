@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"strings"
 
+	evmassets "exchange/internal/adapters/venues/evm/assets"
 	"exchange/internal/adapters/venues/evm/multicall"
 	"exchange/internal/adapters/venues/evm/rpc"
 	"exchange/internal/core/chain"
@@ -18,7 +19,8 @@ import (
 
 const factoryABI = `[
   {"inputs":[],"name":"allPairsLength","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-  {"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"allPairs","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"}
+  {"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"allPairs","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"address","name":"","type":"address"}],"name":"getPair","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"}
 ]`
 
 const pairABI = `[
@@ -114,6 +116,17 @@ func (s *Scanner) ScanPools(ctx context.Context) ([]venue.Pool, error) {
 	return pools, nil
 }
 
+func (s *Scanner) ScanPoolsForAssets(ctx context.Context, assetIDs []venue.AssetID) ([]venue.Pool, error) {
+	addresses, err := s.findPairAddresses(ctx, assetIDs)
+	if err != nil {
+		return nil, err
+	}
+	if len(addresses) == 0 {
+		return nil, nil
+	}
+	return s.loadPairs(ctx, addresses)
+}
+
 func (s *Scanner) ScanPoolsStream(ctx context.Context, handle venue.PoolBatchHandler) (int, error) {
 	total, err := s.AllPairsLength(ctx)
 	if err != nil {
@@ -145,6 +158,52 @@ func (s *Scanner) ScanPoolsStream(ctx context.Context, handle venue.PoolBatchHan
 	}
 
 	return totalScanned, nil
+}
+
+func (s *Scanner) findPairAddresses(ctx context.Context, assetIDs []venue.AssetID) ([]common.Address, error) {
+	tokens := evmassets.Addresses(assetIDs)
+	if len(tokens) < 2 {
+		return nil, nil
+	}
+
+	calls := make([]multicall.Call3, 0, (len(tokens)*(len(tokens)-1))/2)
+	for i := 0; i < len(tokens); i++ {
+		for j := i + 1; j < len(tokens); j++ {
+			data, err := s.factoryABI.Pack("getPair", tokens[i], tokens[j])
+			if err != nil {
+				return nil, err
+			}
+			calls = append(calls, multicall.Call3{Target: s.factory, AllowFailure: true, CallData: data})
+		}
+	}
+
+	results, err := s.multicall.Aggregate3(ctx, calls)
+	if err != nil {
+		return nil, fmt.Errorf("multicall getPair: %w", err)
+	}
+
+	seen := make(map[common.Address]struct{})
+	addresses := make([]common.Address, 0, len(results))
+	for _, result := range results {
+		if !result.Success {
+			continue
+		}
+		values, err := s.factoryABI.Unpack("getPair", result.ReturnData)
+		if err != nil {
+			continue
+		}
+		pair := values[0].(common.Address)
+		if pair == (common.Address{}) {
+			continue
+		}
+		if _, ok := seen[pair]; ok {
+			continue
+		}
+		seen[pair] = struct{}{}
+		addresses = append(addresses, pair)
+	}
+
+	return addresses, nil
 }
 
 func (s *Scanner) loadPairAddresses(ctx context.Context, total int64) ([]common.Address, error) {
@@ -218,7 +277,7 @@ func (s *Scanner) loadPairBatch(ctx context.Context, addresses []common.Address)
 			if err != nil {
 				return nil, err
 			}
-			calls = append(calls, multicall.Call3{Target: pair, AllowFailure: false, CallData: data})
+			calls = append(calls, multicall.Call3{Target: pair, AllowFailure: true, CallData: data})
 		}
 	}
 
@@ -230,20 +289,20 @@ func (s *Scanner) loadPairBatch(ctx context.Context, addresses []common.Address)
 	for i, pair := range addresses {
 		base := i * 3
 		if !results[base].Success || !results[base+1].Success || !results[base+2].Success {
-			return nil, fmt.Errorf("pair detail call failed for %s", pair.Hex())
+			continue
 		}
 
 		token0Values, err := s.pairABI.Unpack("token0", results[base].ReturnData)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		token1Values, err := s.pairABI.Unpack("token1", results[base+1].ReturnData)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		reserveValues, err := s.pairABI.Unpack("getReserves", results[base+2].ReturnData)
 		if err != nil {
-			return nil, err
+			continue
 		}
 
 		pools = append(pools, venue.Pool{

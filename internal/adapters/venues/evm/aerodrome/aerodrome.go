@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"strings"
 
+	evmassets "exchange/internal/adapters/venues/evm/assets"
 	"exchange/internal/adapters/venues/evm/multicall"
 	"exchange/internal/adapters/venues/evm/rpc"
 	"exchange/internal/core/chain"
@@ -243,6 +244,20 @@ func (s *Scanner) ScanPools(ctx context.Context) ([]venue.Pool, error) {
 	return pools, nil
 }
 
+func (s *Scanner) ScanPoolsForAssets(ctx context.Context, assetIDs []venue.AssetID) ([]venue.Pool, error) {
+	if s.mc == nil {
+		return nil, fmt.Errorf("tracked aerodrome scan requires multicall")
+	}
+	addresses, err := s.findPoolAddresses(ctx, assetIDs)
+	if err != nil {
+		return nil, err
+	}
+	if len(addresses) == 0 {
+		return nil, nil
+	}
+	return s.loadPoolsMulticall(ctx, addresses)
+}
+
 func (s *Scanner) ScanPoolsStream(ctx context.Context, handle venue.PoolBatchHandler) (int, error) {
 	total, err := s.AllPoolsLength(ctx)
 	if err != nil {
@@ -286,6 +301,54 @@ func (s *Scanner) ScanPoolsStream(ctx context.Context, handle venue.PoolBatchHan
 	}
 
 	return totalScanned, nil
+}
+
+func (s *Scanner) findPoolAddresses(ctx context.Context, assetIDs []venue.AssetID) ([]common.Address, error) {
+	tokens := evmassets.Addresses(assetIDs)
+	if len(tokens) < 2 {
+		return nil, nil
+	}
+
+	calls := make([]multicall.Call3, 0, len(tokens)*(len(tokens)-1))
+	for i := 0; i < len(tokens); i++ {
+		for j := i + 1; j < len(tokens); j++ {
+			for _, stable := range []bool{false, true} {
+				data, err := s.factoryABI.Pack("getPool", tokens[i], tokens[j], stable)
+				if err != nil {
+					return nil, err
+				}
+				calls = append(calls, multicall.Call3{Target: s.factory, AllowFailure: true, CallData: data})
+			}
+		}
+	}
+
+	results, err := s.mc.Aggregate3(ctx, calls)
+	if err != nil {
+		return nil, fmt.Errorf("multicall getPool: %w", err)
+	}
+
+	seen := make(map[common.Address]struct{})
+	addresses := make([]common.Address, 0, len(results))
+	for _, result := range results {
+		if !result.Success {
+			continue
+		}
+		values, err := s.factoryABI.Unpack("getPool", result.ReturnData)
+		if err != nil {
+			continue
+		}
+		pool := values[0].(common.Address)
+		if pool == (common.Address{}) {
+			continue
+		}
+		if _, ok := seen[pool]; ok {
+			continue
+		}
+		seen[pool] = struct{}{}
+		addresses = append(addresses, pool)
+	}
+
+	return addresses, nil
 }
 
 func (s *Scanner) loadPoolAddressesMulticall(ctx context.Context, total int64) ([]common.Address, error) {
@@ -359,7 +422,7 @@ func (s *Scanner) loadPoolBatchMulticall(ctx context.Context, addresses []common
 			if err != nil {
 				return nil, err
 			}
-			calls = append(calls, multicall.Call3{Target: pool, AllowFailure: false, CallData: data})
+			calls = append(calls, multicall.Call3{Target: pool, AllowFailure: true, CallData: data})
 		}
 	}
 
@@ -371,24 +434,24 @@ func (s *Scanner) loadPoolBatchMulticall(ctx context.Context, addresses []common
 	for i, pool := range addresses {
 		base := i * 4
 		if !results[base].Success || !results[base+1].Success || !results[base+2].Success || !results[base+3].Success {
-			return nil, fmt.Errorf("pool detail call failed for %s", pool.Hex())
+			continue
 		}
 
 		token0Values, err := s.pairABI.Unpack("token0", results[base].ReturnData)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		token1Values, err := s.pairABI.Unpack("token1", results[base+1].ReturnData)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		stableValues, err := s.pairABI.Unpack("stable", results[base+2].ReturnData)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		reserveValues, err := s.pairABI.Unpack("getReserves", results[base+3].ReturnData)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		poolKind := venue.PoolKindV2
 		if stableValues[0].(bool) {

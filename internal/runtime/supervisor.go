@@ -11,6 +11,9 @@ import (
 	"syscall"
 	"time"
 
+	"exchange/internal/adapters/storage/postgres"
+	"exchange/internal/app/apiruntime"
+	"exchange/internal/app/poolscanner"
 	"exchange/internal/config"
 )
 
@@ -18,24 +21,29 @@ type Service struct {
 	Name     string
 	Interval time.Duration
 	RunOnce  func(context.Context, config.Registries) error
+	Run      func(context.Context) error
 }
 
 func RunAll(processName string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	if err := postgres.LoadEnv("."); err != nil {
+		slog.Warn("failed to load .env file", "error", err)
+	}
+
 	registries := config.LoadDefaultRegistries()
 	printRegistrySummary(processName, registries)
 
 	services := []Service{
-		{Name: "api", Interval: 30 * time.Second, RunOnce: heartbeat("api")},
+		{Name: "api", Run: apiruntime.Run},
 		{Name: "indexer", Interval: 10 * time.Second, RunOnce: heartbeat("indexer")},
 		{Name: "matcher", Interval: 2 * time.Second, RunOnce: heartbeat("matcher")},
 		{Name: "executor", Interval: 3 * time.Second, RunOnce: heartbeat("executor")},
 		{Name: "settler", Interval: 5 * time.Second, RunOnce: heartbeat("settler")},
 		{Name: "scheduler", Interval: 15 * time.Second, RunOnce: heartbeat("scheduler")},
 		{Name: "worker", Interval: 20 * time.Second, RunOnce: heartbeat("worker")},
-		{Name: "scanner", Interval: 10 * time.Second, RunOnce: heartbeat("scanner")},
+		{Name: "scanner", Run: runPoolScanner},
 	}
 
 	var wg sync.WaitGroup
@@ -69,6 +77,10 @@ func runService(ctx context.Context, registries config.Registries, svc Service) 
 	slog.Info("service started", "service", svc.Name)
 	defer slog.Info("service stopped", "service", svc.Name)
 
+	if svc.Run != nil {
+		return svc.Run(ctx)
+	}
+
 	if err := svc.RunOnce(ctx, registries); err != nil {
 		return err
 	}
@@ -85,6 +97,13 @@ func runService(ctx context.Context, registries config.Registries, svc Service) 
 			}
 		}
 	}
+}
+
+func runPoolScanner(ctx context.Context) error {
+	if os.Getenv("SCANNER_INTERVAL") == "" {
+		os.Setenv("SCANNER_INTERVAL", "1s")
+	}
+	return poolscanner.Run(ctx)
 }
 
 func heartbeat(name string) func(context.Context, config.Registries) error {

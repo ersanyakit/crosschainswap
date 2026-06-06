@@ -12,6 +12,17 @@ func (UniswapV2Config) VenueConfigKind() VenueKind {
 	return VenueKindUniswapV2
 }
 
+type UniswapV1Config struct {
+	FactoryAddress string
+	WETHAddress    string
+
+	DeploymentBlock uint64
+}
+
+func (UniswapV1Config) VenueConfigKind() VenueKind {
+	return VenueKindUniswapV1
+}
+
 type UniswapV3Config struct {
 	FactoryAddress         string
 	RouterAddress          string
