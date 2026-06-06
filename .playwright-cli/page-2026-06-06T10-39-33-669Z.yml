@@ -1,0 +1,39 @@
+- generic [ref=e4]:
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - generic [ref=e8]: K
+        - generic [ref=e9]:
+          - generic [ref=e10]: KEWL LIMIT PROTOCOL
+          - generic [ref=e11]: OIDC secured exchange terminal
+      - generic [ref=e12]:
+        - generic [ref=e13]:
+          - img [ref=e14]
+          - text: Identity required
+        - heading "Secure operator session" [level=1] [ref=e18]
+        - paragraph [ref=e19]: Access to order placement, balances, wallets and account history is bound to the authenticated OIDC subject. Market data remains visible only after the terminal establishes a trusted session.
+    - generic [ref=e20]:
+      - generic [ref=e21]:
+        - img [ref=e22]
+        - generic [ref=e25]: Session Cookie
+        - generic [ref=e26]: HTTP-only exchange session
+      - generic [ref=e27]:
+        - img [ref=e28]
+        - generic [ref=e32]: Subject Binding
+        - generic [ref=e33]: OIDC sub becomes user_id
+      - generic [ref=e34]:
+        - img [ref=e35]
+        - generic [ref=e37]: Audit Ready
+        - generic [ref=e38]: Orders reject impersonation
+  - generic [ref=e40]:
+    - generic [ref=e41]:
+      - generic [ref=e42]:
+        - generic [ref=e43]: Identity Provider
+        - generic [ref=e44]: RESEARCHCAVE
+      - generic [ref=e45]: NOT CONFIGURED
+    - button "Start OIDC Login" [disabled] [ref=e46]:
+      - img [ref=e47]
+      - text: Start OIDC Login
+    - generic [ref=e49]: Auth API error 500
+    - button "Continue in local sandbox" [ref=e50] [cursor=pointer]
+    - button "Refresh auth status" [ref=e51] [cursor=pointer]

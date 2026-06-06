@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
 
+const exchangeProxyTarget = process.env.VITE_EXCHANGE_PROXY_TARGET || 'http://127.0.0.1:8080';
+
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
@@ -19,12 +21,16 @@ export default defineConfig(() => {
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
       proxy: {
         '/api': {
-          target: process.env.VITE_EXCHANGE_PROXY_TARGET || 'http://localhost:8080',
+          target: exchangeProxyTarget,
           changeOrigin: true,
           rewrite: (requestPath) => requestPath.replace(/^\/api/, ''),
         },
+        '/auth': {
+          target: exchangeProxyTarget,
+          changeOrigin: true,
+        },
         '/ws': {
-          target: process.env.VITE_EXCHANGE_PROXY_TARGET || 'http://localhost:8080',
+          target: exchangeProxyTarget,
           ws: true,
           changeOrigin: true,
         },

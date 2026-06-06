@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { TrendingUp, Coins, Briefcase, FileCode2, Wallet, Terminal, Settings, RefreshCw } from 'lucide-react';
+import { TrendingUp, Coins, Briefcase, FileCode2, Wallet, Terminal, Settings, RefreshCw, LogIn, LogOut, User } from 'lucide-react';
 import { BRAND_INITIAL } from '../constants/brand';
 
 interface VerticalActivityBarProps {
@@ -15,6 +15,13 @@ interface VerticalActivityBarProps {
   triggerRefresh: () => void;
   isSidebarOpen: boolean;
   setIsSidebarOpen: (open: boolean) => void;
+  isAuthenticated: boolean;
+  authEnabled: boolean;
+  authLoading: boolean;
+  accountLabel?: string;
+  onLogin: () => void;
+  onLogout: () => void;
+  onAuthRetry: () => void;
 }
 
 export default function VerticalActivityBar({
@@ -26,6 +33,13 @@ export default function VerticalActivityBar({
   triggerRefresh,
   isSidebarOpen,
   setIsSidebarOpen,
+  isAuthenticated,
+  authEnabled,
+  authLoading,
+  accountLabel,
+  onLogin,
+  onLogout,
+  onAuthRetry,
 }: VerticalActivityBarProps) {
   const items = [
     { id: 'MARKETS', label: 'Markets Explorer', icon: TrendingUp },
@@ -71,7 +85,7 @@ export default function VerticalActivityBar({
                 className={`relative group flex items-center justify-center p-3 rounded-lg transition-all duration-200 cursor-pointer ${
                   isActive
                     ? 'text-accent-1 bg-accent-2-solid dark:bg-[#1f1924]/60 border border-accent-1/25 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-150 hover:bg-surface-3'
+                    : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-surface-3'
                 }`}
               >
                 <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2px]' : 'stroke-[1.5px]'}`} />
@@ -95,6 +109,51 @@ export default function VerticalActivityBar({
 
       {/* Bottom Actions */}
       <div className="flex flex-col items-center gap-4 w-full px-2">
+        {/* Identity launcher */}
+        <button
+          onClick={() => {
+            if (isAuthenticated) {
+              setActiveView('PORTFOLIO');
+              return;
+            }
+            if (authEnabled) {
+              onLogin();
+              return;
+            }
+            onAuthRetry();
+          }}
+          disabled={authLoading}
+          className={`relative group flex items-center justify-center p-3 rounded-lg transition-all duration-200 cursor-pointer disabled:cursor-not-allowed ${
+            isAuthenticated
+              ? 'text-accent-1 bg-accent-2-solid dark:bg-[#1f1924]/60 border border-accent-1/25 shadow-sm'
+              : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-surface-3 disabled:text-gray-400 dark:disabled:text-gray-600'
+          }`}
+          title={isAuthenticated ? `Profile: ${accountLabel || 'Exchange account'}` : authEnabled ? 'Login' : 'Retry Auth'}
+        >
+          {isAuthenticated ? (
+            <User className="w-5 h-5 stroke-[1.5px]" />
+          ) : (
+            <LogIn className={`w-5 h-5 stroke-[1.5px] ${authLoading ? 'animate-pulse' : ''}`} />
+          )}
+          <span className="absolute left-16 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 shadow-lg font-medium">
+            {isAuthenticated ? (accountLabel || 'Profile') : authLoading ? 'Checking Auth...' : authEnabled ? 'Login' : 'Retry Auth'}
+          </span>
+        </button>
+
+        {isAuthenticated && (
+          <button
+            onClick={onLogout}
+            disabled={authLoading}
+            className="relative group flex items-center justify-center p-3 rounded-lg text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:text-gray-500"
+            title="Logout"
+          >
+            <LogOut className="w-5 h-5 stroke-[1.5px]" />
+            <span className="absolute left-16 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 shadow-lg font-medium">
+              Logout
+            </span>
+          </button>
+        )}
+
         {/* Network & Connection Indicators */}
         <button
           onClick={triggerRefresh}
@@ -141,7 +200,7 @@ export default function VerticalActivityBar({
           className={`relative group flex items-center justify-center p-3 rounded-lg transition-all duration-200 cursor-pointer ${
             activeView === 'SETTINGS'
               ? 'text-accent-1 bg-accent-2-solid dark:bg-[#1f1924]/60 border border-accent-1/25 shadow-sm'
-              : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-150 hover:bg-surface-3'
+              : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-surface-3'
           }`}
         >
           <Settings className="w-5 h-5 stroke-[1.5px]" />

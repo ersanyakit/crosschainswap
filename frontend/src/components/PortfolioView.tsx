@@ -156,7 +156,7 @@ export default function PortfolioView({
           className={`pb-2 px-4 border-b-2 font-bold cursor-pointer flex items-center gap-1.5 transition-all ${
             activeTab === 'OVERVIEW'
               ? 'border-accent-1 text-accent-1'
-              : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-250'
+              : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
           }`}
         >
           <Wallet className="w-3.5 h-3.5" />
@@ -167,7 +167,7 @@ export default function PortfolioView({
           className={`pb-2 px-4 border-b-2 font-bold cursor-pointer flex items-center gap-1.5 transition-all ${
             activeTab === 'TX_LEDGER'
               ? 'border-accent-1 text-accent-1'
-              : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-250'
+              : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
           }`}
         >
           <Activity className="w-3.5 h-3.5" />
@@ -209,7 +209,7 @@ export default function PortfolioView({
                         <td className="py-2.5 text-right text-amber-500 font-medium">
                           {item.locked > 0 ? item.locked.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 }) : '0.00'}
                         </td>
-                        <td className="py-2.5 text-right font-bold text-gray-900 dark:text-gray-150">
+                        <td className="py-2.5 text-right font-bold text-gray-900 dark:text-gray-100">
                           ${item.valueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
                         <td className="py-2.5 text-right font-semibold">

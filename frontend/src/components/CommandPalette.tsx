@@ -99,7 +99,7 @@ export default function CommandPalette({ isOpen, onClose, actions }: CommandPale
             placeholder="Type a transaction terminal action or symbol... (e.g. Open BTC)"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="flex-1 bg-transparent border-none text-xs text-gray-900 dark:text-gray-150 focus:outline-none placeholder-gray-400 font-mono"
+            className="flex-1 bg-transparent border-none text-xs text-gray-900 dark:text-gray-100 focus:outline-none placeholder-gray-400 font-mono"
           />
           <kbd className="hidden sm:flex items-center gap-0.5 px-1.5 py-0.5 bg-gray-100 dark:bg-[#21262d] text-gray-400 border border-[#e1e4e8] dark:border-transparent rounded font-mono text-[9px] font-semibold select-none">
             ESC

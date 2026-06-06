@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldAlert, AlertTriangle, Info, AlertCircle, Sparkles, Sliders } from 'lucide-react';
 import { MarketPair, OrderType, OrderSide } from '../types/trading';
+import { BRAND_NAME } from '../constants/brand';
 
 interface OrderFormProps {
   pair: MarketPair;
@@ -170,7 +171,7 @@ export default function OrderForm({
   };
 
   return (
-    <div className="bg-white dark:bg-[#0c1015] border border-[#e1e4e8] dark:border-[#21262d] rounded-lg shadow-sm flex flex-col p-4 text-gray-800 dark:text-gray-150 select-none relative h-full">
+    <div className="bg-white dark:bg-[#0c1015] border border-[#e1e4e8] dark:border-[#21262d] rounded-lg shadow-sm flex flex-col p-4 text-gray-800 dark:text-gray-100 select-none relative h-full">
       
       {/* BUY / SELL Switch Tab */}
       <div className="grid grid-cols-2 gap-2 mb-3">
@@ -207,10 +208,10 @@ export default function OrderForm({
         <div className="bg-[#fafbfc] dark:bg-[#0a0c10] border-2 border-[#e1e4e8] dark:border-[#21262d] rounded-xl p-3.5 space-y-3.5 shadow-xs flex flex-col relative focus-within:border-accent-1/60 transition-all">
           
           {/* Diagnostic Console Panel Header */}
-          <div className="flex justify-between items-center text-[9px] font-mono border-b border-gray-150 dark:border-gray-800/80 pb-2 text-gray-400 select-none">
+          <div className="flex justify-between items-center text-[9px] font-mono border-b border-gray-200 dark:border-gray-800/80 pb-2 text-gray-400 select-none">
             <span className="flex items-center gap-1.5 font-semibold text-[9px]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#ff37c7] animate-ping"></span>
-              AURA CONTROLLER CONSOLE v1.5
+              {BRAND_NAME} CONTROLLER CONSOLE v1.5
             </span>
             <span className="text-accent-1 font-extrabold uppercase tracking-widest text-[8px] bg-accent-1/10 px-1.5 py-0.5 rounded">
               UNIFIED INPUT BOARD
@@ -232,7 +233,7 @@ export default function OrderForm({
                   className={`py-1.5 text-[9.5px] font-mono font-extrabold rounded-md text-center cursor-pointer transition-all border ${
                     type === t
                       ? 'bg-accent-1 text-white border-accent-1 shadow-xs'
-                      : 'border-[#e1e4e8] dark:border-[#30363d] bg-gray-50/50 dark:bg-[#161b22]/50 text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-350'
+                      : 'border-[#e1e4e8] dark:border-[#30363d] bg-gray-50/50 dark:bg-[#161b22]/50 text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
                   {t === 'STOP_LIMIT' ? 'STOP' : t}
@@ -262,7 +263,7 @@ export default function OrderForm({
                 <label className="block text-[10.5px] font-mono text-gray-400 uppercase select-none">[CMD-03] Trigger Stop Price ({pair.quoteAsset})</label>
                 {activeInput === 'stopPrice' && <span className="text-[8px] text-[#ff37c7] font-bold font-mono uppercase select-none">● Active Focus</span>}
               </div>
-              <div className="relative text-gray-800 dark:text-gray-150">
+              <div className="relative text-gray-800 dark:text-gray-100">
                 <input
                   type="text"
                   placeholder="0.00"
@@ -291,7 +292,7 @@ export default function OrderForm({
               </label>
               {activeInput === 'price' && type !== 'MARKET' && <span className="text-[8px] text-[#ff37c7] font-bold font-mono uppercase select-none">● Active Focus</span>}
             </div>
-            <div className="relative text-gray-800 dark:text-gray-150">
+            <div className="relative text-gray-800 dark:text-gray-100">
               <input
                 type="text"
                 disabled={type === 'MARKET'}
@@ -322,7 +323,7 @@ export default function OrderForm({
               <label className="block text-[10.5px] font-mono text-gray-400 uppercase select-none">[CMD-05] Amount ({pair.baseAsset})</label>
               {activeInput === 'amount' && <span className="text-[8px] text-[#ff37c7] font-bold font-mono uppercase select-none">● Active Focus</span>}
             </div>
-            <div className="relative text-gray-800 dark:text-gray-150">
+            <div className="relative text-gray-800 dark:text-gray-100">
               <input
                 type="text"
                 placeholder="0.0000"
@@ -380,7 +381,7 @@ export default function OrderForm({
             </div>
 
             {showKeypad && (
-              <div className="bg-[#f6f8fa]/60 dark:bg-[#090c10] border border-[#e1e4e8]/40 dark:border-[#21262d]/40 rounded-lg p-2.5 space-y-2.5 select-none font-mono text-gray-800 dark:text-gray-150 animate-fade-in shadow-inner">
+              <div className="bg-[#f6f8fa]/60 dark:bg-[#090c10] border border-[#e1e4e8]/40 dark:border-[#21262d]/40 rounded-lg p-2.5 space-y-2.5 select-none font-mono text-gray-800 dark:text-gray-100 animate-fade-in shadow-inner">
                 <div className="grid grid-cols-4 gap-1.5">
                   {/* Digits and decimal */}
                   <div className="col-span-3 grid grid-cols-3 gap-1">
@@ -507,7 +508,7 @@ export default function OrderForm({
       {showConfirm && (
         <div className="absolute inset-0 bg-white/95 dark:bg-[#0c1015]/95 backdrop-blur-xs flex flex-col justify-between p-4 z-50 rounded-lg animate-fade-in border border-[#e1e4e8] dark:border-[#21262d]">
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-amber-500 font-display font-semibold text-xs border-b border-gray-150 dark:border-gray-800 pb-1.5">
+            <div className="flex items-center gap-2 text-amber-500 font-display font-semibold text-xs border-b border-gray-200 dark:border-gray-800 pb-1.5">
               <AlertTriangle className="w-4 h-4 text-amber-500 animate-bounce" />
               Slippage & Impact Guard
             </div>

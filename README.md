@@ -24,7 +24,7 @@ DEX venues:
 
 Runtime commands:
 
-- `go run ./cmd/executor`: starts the all-in-one runtime, including API, websocket listener, scanner, and the placeholder exchange services
+- `go run ./cmd/executor`: starts the all-in-one runtime, including API, websocket listener, scanner, frontend dev server, and the placeholder exchange services
 - `go run ./cmd/scanner`: runs only the scanner
 - `go run ./cmd/api`: runs only the Fiber v3 HTTP API and websocket endpoint
 
@@ -50,7 +50,7 @@ API_ADDR=:8080
 # Keep OIDC_CLIENT_SECRET out of source control.
 OIDC_PROVIDER_NAME=RESEARCHCAVE
 OIDC_ISSUER_URL=
-OIDC_CLIENT_ID=kewlswap-exchange
+OIDC_CLIENT_ID=kewlswapexchange
 OIDC_CLIENT_SECRET=
 OIDC_REDIRECT_URI=http://localhost:8080/auth/oidc/callback
 OIDC_SCOPES=openid,profile,email,roles
@@ -131,10 +131,27 @@ go run ./cmd/executor
 This starts:
 
 - Fiber v3 API
+- frontend dev server on `http://localhost:3001`
 - websocket price publisher
 - Postgres price update listener
 - pool scanner
 - indexer, matcher, executor, settler, scheduler and worker heartbeat services
+
+Frontend options:
+
+```bash
+go run ./cmd/executor --frontend=dev
+go run ./cmd/executor --frontend=build
+go run ./cmd/executor --frontend=off
+go run ./cmd/executor --frontend=dev --frontend-port=3001
+```
+
+The frontend directory is resolved from the repository root, so both commands below work:
+
+```bash
+go run ./cmd/executor
+cd cmd/executor && go run .
+```
 
 In all-in-one mode, if `SCANNER_INTERVAL` is empty, the runtime sets it to `1s` so the scanner keeps running. If you want a different scan cadence:
 

@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -31,6 +32,10 @@ var (
 type Config struct {
 	ProviderName  string
 	IssuerURL     string
+	AuthURL       string
+	TokenURL      string
+	UserInfoURL   string
+	EndSessionURL string
 	ClientID      string
 	ClientSecret  string
 	RedirectURI   string
@@ -68,7 +73,11 @@ type tokenClaims struct {
 func ConfigFromEnv() Config {
 	return Config{
 		ProviderName:  envOrDefault("OIDC_PROVIDER_NAME", DefaultProviderName),
-		IssuerURL:     strings.TrimRight(strings.TrimSpace(os.Getenv("OIDC_ISSUER_URL")), "/"),
+		IssuerURL:     strings.TrimSpace(os.Getenv("OIDC_ISSUER_URL")),
+		AuthURL:       strings.TrimSpace(os.Getenv("OIDC_AUTH_URL")),
+		TokenURL:      strings.TrimSpace(os.Getenv("OIDC_TOKEN_URL")),
+		UserInfoURL:   strings.TrimSpace(os.Getenv("OIDC_USERINFO_URL")),
+		EndSessionURL: envOrDefault("OIDC_LOGOUT_URL", strings.TrimSpace(os.Getenv("OIDC_END_SESSION_URL"))),
 		ClientID:      envOrDefault("OIDC_CLIENT_ID", DefaultClientID),
 		ClientSecret:  strings.TrimSpace(os.Getenv("OIDC_CLIENT_SECRET")),
 		RedirectURI:   envOrDefault("OIDC_REDIRECT_URI", DefaultRedirectURI),
@@ -81,7 +90,11 @@ func ConfigFromEnv() Config {
 
 func NewOIDCService(ctx context.Context, cfg Config) (*Service, error) {
 	cfg.ProviderName = strings.TrimSpace(cfg.ProviderName)
-	cfg.IssuerURL = strings.TrimRight(strings.TrimSpace(cfg.IssuerURL), "/")
+	cfg.IssuerURL = strings.TrimSpace(cfg.IssuerURL)
+	cfg.AuthURL = strings.TrimSpace(cfg.AuthURL)
+	cfg.TokenURL = strings.TrimSpace(cfg.TokenURL)
+	cfg.UserInfoURL = strings.TrimSpace(cfg.UserInfoURL)
+	cfg.EndSessionURL = strings.TrimSpace(cfg.EndSessionURL)
 	cfg.ClientID = strings.TrimSpace(cfg.ClientID)
 	cfg.ClientSecret = strings.TrimSpace(cfg.ClientSecret)
 	cfg.RedirectURI = strings.TrimSpace(cfg.RedirectURI)
@@ -108,6 +121,21 @@ func NewOIDCService(ctx context.Context, cfg Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	if cfg.EndSessionURL == "" {
+		var metadata struct {
+			EndSessionEndpoint string `json:"end_session_endpoint"`
+		}
+		if err := provider.Claims(&metadata); err == nil {
+			cfg.EndSessionURL = strings.TrimSpace(metadata.EndSessionEndpoint)
+		}
+	}
+	endpoint := provider.Endpoint()
+	if cfg.AuthURL != "" {
+		endpoint.AuthURL = cfg.AuthURL
+	}
+	if cfg.TokenURL != "" {
+		endpoint.TokenURL = cfg.TokenURL
+	}
 	out := &Service{
 		cfg:      cfg,
 		provider: provider,
@@ -116,7 +144,7 @@ func NewOIDCService(ctx context.Context, cfg Config) (*Service, error) {
 			ClientID:     cfg.ClientID,
 			ClientSecret: cfg.ClientSecret,
 			RedirectURL:  cfg.RedirectURI,
-			Endpoint:     provider.Endpoint(),
+			Endpoint:     endpoint,
 			Scopes:       cfg.Scopes,
 		},
 		enabled: true,
@@ -151,6 +179,25 @@ func (s *Service) AuthCodeURL(state string) (string, error) {
 		return "", ErrDisabled
 	}
 	return s.oauth2.AuthCodeURL(state, oauth2.AccessTypeOnline), nil
+}
+
+func (s *Service) EndSessionURL(postLogoutRedirect string) string {
+	if !s.Enabled() || s.cfg.EndSessionURL == "" {
+		return ""
+	}
+	parsed, err := url.Parse(s.cfg.EndSessionURL)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return ""
+	}
+	query := parsed.Query()
+	if s.cfg.ClientID != "" {
+		query.Set("client_id", s.cfg.ClientID)
+	}
+	if postLogoutRedirect = strings.TrimSpace(postLogoutRedirect); postLogoutRedirect != "" {
+		query.Set("post_logout_redirect_uri", postLogoutRedirect)
+	}
+	parsed.RawQuery = query.Encode()
+	return parsed.String()
 }
 
 func (s *Service) Exchange(ctx context.Context, code string) (*Claims, error) {

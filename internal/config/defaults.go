@@ -106,37 +106,37 @@ func LoadDefaultRegistries() Registries {
 	}
 
 	assets := []asset.Asset{
-		{Symbol: "CHZ", Name: "Chiliz", Type: "native", Decimals: 18,
+		{Symbol: "CHZ", Name: "Chiliz", Type: "native", Decimals: 18, IconURL: coinMarketCapIconURL("4066"),
 			Deployments: []asset.Deployment{
 				{ChainKey: chain.ChainKeySolana, Decimals: 8, Enabled: true, Address: "6eftxVbSAunVEoxUWdGhPdxg5UdsJ8Wkwy5w5YFuxouw"},
 				{ChainKey: chain.ChainKeyBase, Decimals: 18, Enabled: true, Address: "0x70c8392DE9b39a1E48d12A70Af6FF4Be25D6D0A2"},
 				{ChainKey: chain.ChainKeyChiliz, Name: "Wrapped Chiliz", Symbol: "wCHZ", Decimals: 18, Enabled: true, Address: "0x677f7e16c7dd57be1d4c8ad1244883214953dc47"},
 			},
 		},
-		{Symbol: "PEPPER", Name: "PEPPER", Type: "token", Decimals: 18,
+		{Symbol: "PEPPER", Name: "PEPPER", Type: "token", Decimals: 18, IconURL: coinMarketCapIconURL("33603"),
 			Deployments: []asset.Deployment{
 				{ChainKey: chain.ChainKeySolana, Mint: "GozPNCAseytzxCR3d2k8hTsTYkr4SDpuXy2RQAZFVx2g", Decimals: 3},
 				{ChainKey: chain.ChainKeyBase, Address: "0x5e985E4BCa4664E985f3FaF8140EbA25b10E28C2", Decimals: 18},
 				{ChainKey: chain.ChainKeyChiliz, Address: "0x60f397acbcfb8f4e3234c659a3e10867e6fa6b67", Decimals: 18},
 			},
 		},
-		{Symbol: "SOL", Name: "Solana", Type: "native", Decimals: 9,
+		{Symbol: "SOL", Name: "Solana", Type: "native", Decimals: 9, IconURL: coinMarketCapIconURL("5426"),
 			Deployments: []asset.Deployment{
 				{ChainKey: chain.ChainKeySolana, Name: "Wrapped Solana", Symbol: "WSOL", Mint: "So11111111111111111111111111111111111111112", Decimals: 9, Enabled: true},
 			},
 		},
-		{Symbol: "ETH", Name: "Ether", Type: "native", Decimals: 18,
+		{Symbol: "ETH", Name: "Ether", Type: "native", Decimals: 18, IconURL: coinMarketCapIconURL("1027"),
 			Deployments: []asset.Deployment{
 				{ChainKey: chain.ChainKeyEthereum, Name: "Wrapped Ether", Symbol: "WETH", Address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", Decimals: 18, Enabled: true},
 				{ChainKey: chain.ChainKeyBase, Name: "Wrapped Ether", Symbol: "WETH", Address: "0x4200000000000000000000000000000000000006", Decimals: 18, Enabled: true},
 			},
 		},
-		{Symbol: "AVAX", Name: "Avalanche", Type: "native", Decimals: 18,
+		{Symbol: "AVAX", Name: "Avalanche", Type: "native", Decimals: 18, IconURL: coinMarketCapIconURL("5805"),
 			Deployments: []asset.Deployment{
 				{ChainKey: chain.ChainKeyAvalanche, Name: "Wrapped AVAX", Symbol: "WAVAX", Address: "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7", Decimals: 18, Enabled: true},
 			},
 		},
-		{Symbol: "USDC", Name: "USD Coin", Type: "token", Decimals: 6,
+		{Symbol: "USDC", Name: "USD Coin", Type: "token", Decimals: 6, IconURL: coinMarketCapIconURL("3408"),
 			Deployments: []asset.Deployment{
 				{ChainKey: chain.ChainKeyChiliz, Address: "0xa37936F56249965d407E39347528a1A91eB1cbef", Decimals: 6, Enabled: true},
 				{ChainKey: chain.ChainKeyEthereum, Address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", Decimals: 6, Enabled: true},
@@ -358,6 +358,13 @@ func envOrDefault(key string, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func coinMarketCapIconURL(id string) string {
+	if strings.TrimSpace(id) == "" {
+		return ""
+	}
+	return "https://s2.coinmarketcap.com/static/img/coins/64x64/" + strings.TrimSpace(id) + ".png"
 }
 
 func envBoolOrDefault(key string, fallback bool) bool {

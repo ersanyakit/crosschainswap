@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useTransition, useCallback, useRef } from 'react';
-import { Sparkles, Cpu, Coins, ShieldCheck, Heart, User, Sun, Moon, CheckSquare, Layers, Code, Play, Wallet, Trash2, Briefcase } from 'lucide-react';
+import { Sparkles, Cpu, Coins, ShieldCheck, Heart, User, Sun, Moon, CheckSquare, Layers, Code, Play, Wallet, Trash2, Briefcase, X } from 'lucide-react';
 import VerticalActivityBar from './components/VerticalActivityBar';
 import CollapsibleSidebar from './components/CollapsibleSidebar';
 import MarketChart from './components/MarketChart';
@@ -17,7 +17,8 @@ import PortfolioView from './components/PortfolioView';
 import StrategyLab from './components/StrategyLab';
 import SettingsView from './components/SettingsModal';
 import LoginScreen from './components/LoginScreen';
-import { BRAND_DOCUMENT_TITLE } from './constants/brand';
+import AssetIcon from './components/AssetIcon';
+import { BRAND_DOCUMENT_TITLE, BRAND_NAME } from './constants/brand';
 
 import {
   INITIAL_MARKETS,
@@ -25,16 +26,16 @@ import {
   INITIAL_ORDERS,
   INITIAL_LOGS,
   INITIAL_STRATEGIES,
-  generateCandles,
-  generateOrderBook,
   generateRecentTrades
 } from './data/mockData';
 
 import { MarketPair, Candle, Timeframe, Order, Trade, SystemLog, AssetBalance, TradingStrategy, OrderType, OrderSide, OrderBook } from './types/trading';
 import {
+  type AssetInfo,
   type AssetPriceResponse,
   cancelOrder as cancelExchangeOrder,
   exchangeConfig,
+  fetchAssets,
   fetchAssetPrices,
   fetchBalances,
   fetchCandles,
@@ -93,23 +94,21 @@ export default function App() {
   // Historical executions
   const selectedMarketObj = markets.find(m => m.symbol === selectedPairSymbol) || markets[0];
   const [tradeHistory, setTradeHistory] = useState<Trade[]>(() => generateRecentTrades(selectedMarketObj.lastPrice));
-  const [activeOrderBook, setActiveOrderBook] = useState<OrderBook>(() => generateOrderBook(selectedMarketObj.lastPrice));
+  const [activeOrderBook, setActiveOrderBook] = useState<OrderBook>(() => emptyOrderBook());
   const [exchangeMode, setExchangeMode] = useState<ExchangeMode>('connecting');
   const [exchangeMessage, setExchangeMessage] = useState('Probing exchange API');
   const [protocolRevision, setProtocolRevision] = useState(0);
-  const [authChecked, setAuthChecked] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [authEnabled, setAuthEnabled] = useState(false);
   const [authProvider, setAuthProvider] = useState('RESEARCHCAVE');
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authError, setAuthError] = useState('');
-  const [allowSandboxAuth, setAllowSandboxAuth] = useState(false);
   const activeUserID = authUser?.sub || exchangeConfig.userID;
-  const loginGateActive = !authChecked || (!authUser && !allowSandboxAuth);
   const selectedAssetSymbol = selectedMarketObj.baseAsset || selectedPairSymbol.split('/')[0] || 'PEPPER';
   const [dexPrices, setDexPrices] = useState<AssetPriceResponse | null>(null);
   const [dexPricesLoading, setDexPricesLoading] = useState(false);
   const [dexPricesError, setDexPricesError] = useState<string | null>(null);
+  const [assetMetadata, setAssetMetadata] = useState<Record<string, AssetInfo>>({});
 
   // Visual terminal logs and strategies
   const [systemLogs, setSystemLogs] = useState<SystemLog[]>(INITIAL_LOGS);
@@ -162,20 +161,16 @@ export default function App() {
       setAuthProvider(status.provider || 'OIDC');
       if (!status.enabled) {
         setAuthUser(null);
-        setAllowSandboxAuth(false);
         return;
       }
 
       const session = await fetchAuthSession();
       setAuthUser(session.authenticated ? session.user || null : null);
-      setAllowSandboxAuth(false);
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : 'Auth service unavailable');
       setAuthUser(null);
       setAuthEnabled(false);
-      setAllowSandboxAuth(false);
     } finally {
-      setAuthChecked(true);
       setAuthLoading(false);
     }
   }, []);
@@ -196,18 +191,28 @@ export default function App() {
     }
   }, [theme]);
 
-  // Fetch initial candles on pair/timeframe switch
-  useEffect(() => {
-    if (exchangeMode === 'live') return;
-    const data = generateCandles(selectedPairSymbol, timeframe);
-    setCandles(data);
-    setActiveOrderBook(generateOrderBook(selectedMarketObj.lastPrice));
-  }, [selectedPairSymbol, timeframe, exchangeMode, selectedMarketObj.lastPrice]);
-
   // Global key listening (Ctrl+K for command palette, Ctrl+B for Sidebar toggle)
   useEffect(() => {
     document.title = BRAND_DOCUMENT_TITLE;
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchAssets()
+      .then((assets) => {
+        if (!cancelled) {
+          setAssetMetadata(assetMetadataBySymbol(assets));
+        }
+      })
+      .catch((err) => {
+        appendLog(`Asset registry metadata failed: ${err instanceof Error ? err.message : 'unknown asset metadata error'}`, 'SYSTEM', 'WARNING');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [appendLog]);
 
   useEffect(() => {
     const handleGlobalKeys = (e: KeyboardEvent) => {
@@ -425,7 +430,6 @@ export default function App() {
   }, [markets, selectedPairSymbol, strategies, exchangeMode, appendLog]);
 
   useEffect(() => {
-    if (loginGateActive) return;
     let cancelled = false;
 
     const refreshExchangeSnapshot = async () => {
@@ -534,7 +538,7 @@ export default function App() {
       cancelled = true;
       window.clearInterval(refreshTimer);
     };
-  }, [selectedPairSymbol, selectedAssetSymbol, timeframe, protocolRevision, appendLog, activeUserID, loginGateActive]);
+  }, [selectedPairSymbol, selectedAssetSymbol, timeframe, protocolRevision, appendLog, activeUserID]);
 
   useEffect(() => {
     if (exchangeMode !== 'live') return;
@@ -787,11 +791,20 @@ export default function App() {
     window.location.assign(oidcLoginURL());
   };
 
+  const handleShowLoginScreen = () => {
+    startTransition(() => {
+      setActiveView('LOGIN');
+    });
+  };
+
   const handleOIDCLogout = async () => {
     try {
-      await logoutOIDC();
+      const result = await logoutOIDC();
       setAuthUser(null);
-      setAuthChecked(false);
+      if (result.logout_url) {
+        window.location.assign(result.logout_url);
+        return;
+      }
       await refreshAuth();
       appendLog('OIDC session closed. Operator identity released.', 'SYSTEM', 'WARNING');
     } catch (err) {
@@ -1006,28 +1019,14 @@ export default function App() {
       action: () => setTheme(prev => prev === 'light' ? 'dark' : 'light'),
     },
     {
-      id: 'act-logout',
+      id: authUser ? 'act-logout' : 'act-login',
       category: 'IDENTITY',
-      title: 'Close OIDC Session',
-      subtitle: 'Clears the secure exchange session cookie.',
+      title: authUser ? 'Close OIDC Session' : 'Start OIDC Login',
+      subtitle: authUser ? 'Clears the secure exchange session cookie.' : `Open the ${authProvider} login screen.`,
       icon: User,
-      action: () => handleOIDCLogout(),
+      action: () => authUser ? handleOIDCLogout() : handleShowLoginScreen(),
     },
   ];
-
-  if (loginGateActive) {
-    return (
-      <LoginScreen
-        provider={authProvider}
-        isOIDCEnabled={authEnabled}
-        isLoading={authLoading}
-        error={authError}
-        onLogin={handleOIDCLogin}
-        onRetry={refreshAuth}
-        onContinueSandbox={() => setAllowSandboxAuth(true)}
-      />
-    );
-  }
 
   return (
     <div className={`w-full h-full flex flex-col overflow-hidden text-sm relative transition-colors duration-200 ${
@@ -1059,6 +1058,13 @@ export default function App() {
           triggerRefresh={triggerRescanTickers}
           isSidebarOpen={isSidebarOpen}
           setIsSidebarOpen={setIsSidebarOpen}
+          isAuthenticated={Boolean(authUser)}
+          authEnabled={authEnabled}
+          authLoading={authLoading}
+          accountLabel={authUser?.email || authUser?.name || authUser?.sub}
+          onLogin={handleShowLoginScreen}
+          onLogout={handleOIDCLogout}
+          onAuthRetry={refreshAuth}
         />
 
         {/* VIEW COLUMN 2: COLLAPSIBLE SIDEBAR MARKETS TREE PLOTTER */}
@@ -1071,6 +1077,7 @@ export default function App() {
             appendLog(`Favorite state updated for pair ${symbol}.`, 'SYSTEM', 'INFO');
           }}
           isSidebarOpen={isSidebarOpen}
+          assetMetadata={assetMetadata}
         />
 
         {/* VIEW COLUMN 3: MAIN WORKSPACE PANEL AREA WITH VS-CODE TABS */}
@@ -1128,17 +1135,17 @@ export default function App() {
                     className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-semibold rounded border transition-all whitespace-nowrap cursor-pointer select-none ${
                       isActive
                         ? 'bg-white dark:bg-[#0c1015] border-[#e1e4e8] dark:border-[#21262d] text-accent-1 shadow-xs font-bold ring-1 ring-accent-1/10'
-                        : 'border-transparent text-gray-500 hover:text-gray-900 dark:hover:text-gray-150 hover:bg-surface-3'
+                        : 'border-transparent text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-surface-3'
                     }`}
                   >
                     {renderTabIcon()}
                     <span>{tab.title}</span>
                     <span
                       onClick={(e) => handleCloseTab(tab.id, e)}
-                      className="w-3.5 h-3.5 bg-[#ff37c7] text-white hover:bg-[#ff1cf4] hover:scale-105 active:scale-95 rounded-full flex items-center justify-center leading-none text-[9px] font-bold transition-all ml-1 ring-1 ring-pink-300 dark:ring-pink-500/30 shadow-xs cursor-pointer select-none"
+                      className="w-4 h-4 rounded-full flex items-center justify-center ml-1 bg-pink-50/80 text-pink-400 border border-pink-200/80 hover:bg-pink-100 hover:text-pink-500 hover:border-pink-300 dark:bg-pink-400/10 dark:text-pink-300 dark:border-pink-300/20 dark:hover:bg-pink-400/15 dark:hover:text-pink-200 dark:hover:border-pink-300/35 shadow-[0_1px_2px_rgba(244,114,182,0.14)] hover:shadow-[0_2px_6px_rgba(244,114,182,0.2)] hover:scale-105 active:scale-95 transition-all cursor-pointer select-none"
                       title="Close Tab"
                     >
-                      ×
+                      <X className="w-2.5 h-2.5 stroke-[2.25]" aria-hidden="true" />
                     </span>
                   </button>
                 );
@@ -1153,6 +1160,16 @@ export default function App() {
               <Cpu className="w-8 h-8 animate-spin mb-2 text-accent-1" />
               Allocating workspace memory...
             </div>
+          ) : activeView === 'LOGIN' ? (
+            <LoginScreen
+              provider={authProvider}
+              isOIDCEnabled={authEnabled}
+              isLoading={authLoading}
+              error={authError}
+              onLogin={handleOIDCLogin}
+              onRetry={refreshAuth}
+              onContinueSandbox={() => setActiveView('TRADE')}
+            />
           ) : activeView === 'PORTFOLIO' || activeView === 'WALLET' ? (
             /* PORTFOLIO VIEW */
             <PortfolioView
@@ -1188,7 +1205,7 @@ export default function App() {
             /* BULK MARKETS LISTING SCREEN */
             <div className="flex-1 p-5 overflow-y-auto space-y-4 max-w-7xl mx-auto w-full select-none">
               <div className="flex justify-between items-center border-b border-[#e1e4e8] dark:border-[#21262d] pb-3">
-                <h2 className="text-sm font-bold uppercase tracking-wider font-display text-gray-900 dark:text-gray-150">
+                <h2 className="text-sm font-bold uppercase tracking-wider font-display text-gray-900 dark:text-gray-100">
                   Bulk Markets Liquidity Indices
                 </h2>
                 <div className="text-xs font-mono text-gray-400">Europe Gateway v3</div>
@@ -1204,7 +1221,10 @@ export default function App() {
                       className="p-4 bg-white dark:bg-[#0c1015] border border-[#e1e4e8] dark:border-[#21262d] rounded-lg cursor-pointer hover:border-accent-1 transition-all flex flex-col justify-between group h-32"
                     >
                       <div className="flex justify-between items-center mb-2">
-                        <span className="font-display font-medium text-xs text-gray-800 dark:text-gray-200 uppercase tracking-widest">{m.symbol}</span>
+                        <span className="font-display font-medium text-xs text-gray-800 dark:text-gray-200 uppercase tracking-widest flex items-center gap-2 min-w-0">
+                          <AssetIcon symbol={m.baseAsset} iconURL={assetMetadata[m.baseAsset]?.icon_url} size="sm" />
+                          <span className="truncate">{m.symbol}</span>
+                        </span>
                         <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${isUp ? 'text-trade-green bg-trade-green-bg' : 'text-trade-red bg-trade-red-bg'}`}>
                           {isUp ? '+' : ''}{m.change24h.toFixed(2)}%
                         </span>
@@ -1225,7 +1245,7 @@ export default function App() {
             /* DETAILED ACCOUNTS ORDERS SCREEN */
             <div className="flex-1 p-5 overflow-y-auto space-y-4 max-w-7xl mx-auto w-full select-none">
               <div className="flex justify-between items-center border-b border-[#e1e4e8] dark:border-[#21262d] pb-3">
-                <h2 className="text-sm font-bold uppercase tracking-wider font-display text-gray-900 dark:text-gray-150 flex items-center gap-2">
+                <h2 className="text-sm font-bold uppercase tracking-wider font-display text-gray-900 dark:text-gray-100 flex items-center gap-2">
                   <Coins className="w-5 h-5 text-accent-1" />
                   Consolidated Accounts Ledger Orders
                 </h2>
@@ -1249,6 +1269,7 @@ export default function App() {
                 dexPrices={dexPrices}
                 dexPricesLoading={dexPricesLoading}
                 dexPricesError={dexPricesError}
+                assetMetadata={assetMetadata}
                 onCancelOrder={handleCancelOrder}
                 onCancelAllOrders={handleCancelAllOrders}
               />
@@ -1265,6 +1286,7 @@ export default function App() {
                   candles={candles}
                   timeframe={timeframe}
                   setTimeframe={setTimeframe}
+                  assetMetadata={assetMetadata}
                 />
 
                 {/* 2. Base Terminal panel drawer */}
@@ -1277,6 +1299,7 @@ export default function App() {
                   dexPrices={dexPrices}
                   dexPricesLoading={dexPricesLoading}
                   dexPricesError={dexPricesError}
+                  assetMetadata={assetMetadata}
                   onCancelOrder={handleCancelOrder}
                   onCancelAllOrders={handleCancelAllOrders}
                 />
@@ -1327,7 +1350,7 @@ export default function App() {
             <span className={`w-2 h-2 rounded-full inline-block ${
               exchangeMode === 'live' ? 'bg-trade-green' : exchangeMode === 'connecting' ? 'bg-[#f59e0b]' : 'bg-trade-red'
             }`}></span>
-            AURA LIMIT PROTOCOL
+            {BRAND_NAME} LIMIT PROTOCOL
           </span>
 
           <span className="text-[#7e8c9a] hidden sm:inline">
@@ -1345,13 +1368,23 @@ export default function App() {
             Account: {authUser?.email || authUser?.name || 'Spot'}
           </span>
 
-          {authUser && (
+          {authUser ? (
             <button
               type="button"
               onClick={handleOIDCLogout}
               className="text-[#f6465d] hover:text-[#ff6f80] hidden sm:inline cursor-pointer"
             >
               Logout
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={authEnabled ? handleShowLoginScreen : refreshAuth}
+              disabled={authLoading}
+              title={authError || (authEnabled ? `Open ${authProvider} login screen` : 'OIDC status unavailable')}
+              className="text-accent-1 hover:text-accent-1-hovered disabled:text-gray-400 hidden sm:inline cursor-pointer disabled:cursor-not-allowed"
+            >
+              {authLoading ? 'Auth...' : authEnabled ? 'Login' : 'Retry Auth'}
             </button>
           )}
 
@@ -1363,7 +1396,7 @@ export default function App() {
             Protocol rev: {protocolRevision}
           </span>
 
-          <span className="text-[#7e8c9a] border-l border-gray-150 dark:border-gray-800 pl-3">
+          <span className="text-[#7e8c9a] border-l border-gray-200 dark:border-gray-800 pl-3">
             UTC: {new Date().toLocaleTimeString(undefined, {hour12: false})}
           </span>
         </div>
@@ -1387,12 +1420,6 @@ function mergeMarkets(current: MarketPair[], remote: MarketPair[]): MarketPair[]
     if (!existing) return market;
     return {
       ...market,
-      lastPrice: existing.lastPrice || market.lastPrice,
-      change24h: existing.change24h,
-      high24h: Math.max(existing.high24h, market.high24h),
-      low24h: Math.min(existing.low24h, market.low24h),
-      volume24h: existing.volume24h,
-      liquidity: existing.liquidity,
       isFavorite: existing.isFavorite ?? market.isFavorite,
     };
   });
@@ -1407,4 +1434,36 @@ function replaceMarketTabs(current: Tab[], markets: MarketPair[]): Tab[] {
   }));
   const utilityTabs = current.filter(tab => tab.type !== 'MARKET');
   return [...marketTabs, ...utilityTabs];
+}
+
+function emptyOrderBook(): OrderBook {
+  return {
+    bids: [],
+    asks: [],
+    spread: 0,
+    spreadPercent: 0,
+  };
+}
+
+function assetMetadataBySymbol(assets: AssetInfo[]): Record<string, AssetInfo> {
+  const out: Record<string, AssetInfo> = {};
+  assets.forEach((asset) => {
+    const symbol = asset.symbol?.toUpperCase();
+    if (symbol) {
+      out[symbol] = asset;
+    }
+    (asset.deployments || []).forEach((deployment) => {
+      const deploymentSymbol = deployment.symbol?.toUpperCase();
+      if (deploymentSymbol) {
+        out[deploymentSymbol] = {
+          ...asset,
+          symbol: deployment.symbol,
+          name: deployment.name || asset.name,
+          decimals: deployment.decimals ?? asset.decimals,
+          icon_url: deployment.icon_url || asset.icon_url,
+        };
+      }
+    });
+  });
+  return out;
 }

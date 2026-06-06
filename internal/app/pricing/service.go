@@ -71,6 +71,7 @@ type AssetInfo struct {
 	Name        string           `json:"name"`
 	Type        string           `json:"type"`
 	Decimals    int              `json:"decimals"`
+	IconURL     string           `json:"icon_url,omitempty"`
 	Deployments []DeploymentInfo `json:"deployments"`
 }
 
@@ -83,6 +84,7 @@ type DeploymentInfo struct {
 	Name     string         `json:"name"`
 	Decimals int            `json:"decimals"`
 	Enabled  bool           `json:"enabled"`
+	IconURL  string         `json:"icon_url,omitempty"`
 }
 
 type deploymentRef struct {
@@ -96,6 +98,7 @@ type deploymentRef struct {
 	Mint             string
 	Decimals         int
 	Enabled          bool
+	IconURL          string
 }
 
 func NewService(assets asset.Registry, pools PoolStore) *Service {
@@ -161,6 +164,18 @@ func (s *Service) Prices(ctx context.Context, symbol string) (*AssetPrices, erro
 	}
 
 	return &AssetPrices{Symbol: symbol, Asset: assetInfo(target), Prices: prices}, nil
+}
+
+func (s *Service) Assets() []AssetInfo {
+	items := s.assets.All()
+	out := make([]AssetInfo, 0, len(items))
+	for _, item := range items {
+		out = append(out, assetInfo(item))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Symbol < out[j].Symbol
+	})
+	return out
 }
 
 func (s *Service) SymbolsForPools(pools []venue.Pool) []string {
@@ -507,6 +522,7 @@ func deploymentRefs(item asset.Asset) []deploymentRef {
 			Mint:             deployment.Mint,
 			Decimals:         decimals,
 			Enabled:          true,
+			IconURL:          effectiveIconURL(item.IconURL, deployment.IconURL),
 		})
 	}
 	return out
@@ -518,6 +534,7 @@ func assetInfo(item asset.Asset) AssetInfo {
 		Name:        item.Name,
 		Type:        item.Type,
 		Decimals:    item.Decimals,
+		IconURL:     item.IconURL,
 		Deployments: deploymentInfos(item),
 	}
 }
@@ -541,7 +558,15 @@ func deploymentInfo(ref deploymentRef) DeploymentInfo {
 		Name:     ref.Name,
 		Decimals: ref.Decimals,
 		Enabled:  ref.Enabled,
+		IconURL:  ref.IconURL,
 	}
+}
+
+func effectiveIconURL(assetIconURL string, deploymentIconURL string) string {
+	if deploymentIconURL != "" {
+		return deploymentIconURL
+	}
+	return assetIconURL
 }
 
 func effectiveSymbol(assetSymbol string, deploymentSymbol string) string {

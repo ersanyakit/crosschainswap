@@ -121,7 +121,7 @@ export default function StrategyLab({
               <select
                 value={selectedStratId}
                 onChange={(e) => setSelectedStratId(e.target.value)}
-                className="text-xs font-mono font-bold px-2 py-0.5 rounded border border-[#e1e4e8] dark:border-[#21262d] bg-white dark:bg-[#0d1117] text-gray-800 dark:text-gray-250 focus:outline-none focus:border-accent-1 cursor-pointer"
+                className="text-xs font-mono font-bold px-2 py-0.5 rounded border border-[#e1e4e8] dark:border-[#21262d] bg-white dark:bg-[#0d1117] text-gray-800 dark:text-gray-200 focus:outline-none focus:border-accent-1 cursor-pointer"
               >
                 {strategies.map(s => (
                   <option key={s.id} value={s.id}>{s.name}</option>
@@ -272,13 +272,13 @@ export default function StrategyLab({
                   </div>
                   <div className="p-2 bg-slate-50 dark:bg-slate-900/40 rounded border border-[#e1e4e8]/50 dark:border-[#21262d]/50">
                     <span className="block text-[8.5px] uppercase text-gray-400">Compiled Win-rate</span>
-                    <span className="font-bold block text-sm text-gray-900 dark:text-gray-150">
+                    <span className="font-bold block text-sm text-gray-900 dark:text-gray-100">
                       {backtestStats.winRate}% (Fitted)
                     </span>
                   </div>
                 </div>
 
-                <div className="flex justify-between items-center text-[11px] pt-1 border-t border-dashed border-gray-150 dark:border-gray-800">
+                <div className="flex justify-between items-center text-[11px] pt-1 border-t border-dashed border-gray-200 dark:border-gray-800">
                   <span className="text-gray-500">Ended Equity Balance:</span>
                   <span className="font-bold text-accent-1">${backtestStats.finalCapital.toLocaleString(undefined, { minimumFractionDigits: 2 })} USD</span>
                 </div>

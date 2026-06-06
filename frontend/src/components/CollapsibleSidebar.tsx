@@ -7,6 +7,8 @@ import { useState } from 'react';
 import { Search, Star, Folder, FolderOpen, Heart, TrendingUp, Sparkles, SlidersHorizontal, ChevronRight } from 'lucide-react';
 import { MarketPair } from '../types/trading';
 import { formatPrice } from '../utils/formatters';
+import { type AssetInfo } from '../services/exchangeService';
+import AssetIcon from './AssetIcon';
 
 interface CollapsibleSidebarProps {
   markets: MarketPair[];
@@ -14,6 +16,7 @@ interface CollapsibleSidebarProps {
   onSelectPair: (symbol: string) => void;
   onToggleFavorite: (symbol: string) => void;
   isSidebarOpen: boolean;
+  assetMetadata: Record<string, AssetInfo>;
 }
 
 export default function CollapsibleSidebar({
@@ -22,6 +25,7 @@ export default function CollapsibleSidebar({
   onSelectPair,
   onToggleFavorite,
   isSidebarOpen,
+  assetMetadata,
 }: CollapsibleSidebarProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<'ALL' | 'FAVORITES' | 'TRENDING'>('ALL');
@@ -80,6 +84,7 @@ export default function CollapsibleSidebar({
               }`}
             />
           </button>
+          <AssetIcon symbol={market.baseAsset} iconURL={assetMetadata[market.baseAsset]?.icon_url} size="xs" />
           <span className="truncate">{market.symbol}</span>
         </div>
 

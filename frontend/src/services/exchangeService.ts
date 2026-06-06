@@ -86,6 +86,16 @@ export type AssetDeploymentInfo = {
   name?: string;
   decimals?: number;
   enabled?: boolean;
+  icon_url?: string;
+};
+
+export type AssetInfo = {
+  symbol?: string;
+  name?: string;
+  type?: string;
+  decimals?: number;
+  icon_url?: string;
+  deployments?: AssetDeploymentInfo[];
 };
 
 export type DexPoolPrice = {
@@ -119,13 +129,7 @@ export type DexPoolPrice = {
 
 export type AssetPriceResponse = {
   symbol: string;
-  asset?: {
-    symbol?: string;
-    name?: string;
-    type?: string;
-    decimals?: number;
-    deployments?: AssetDeploymentInfo[];
-  };
+  asset?: AssetInfo;
   prices: DexPoolPrice[];
 };
 
@@ -169,20 +173,23 @@ export async function listMarkets(): Promise<MarketPair[]> {
 }
 
 export async function fetchOrderBook(market: string, depth = 50): Promise<OrderBook> {
-  const snapshot = await apiJSON<ApiOrderBook>(`/v1/orderbook/${encodeURIComponent(market)}?depth=${depth}`);
+  const query = new URLSearchParams({ market, depth: String(depth) });
+  const snapshot = await apiJSON<ApiOrderBook>(`/v1/orderbook?${query.toString()}`);
   return mapOrderBook(snapshot);
 }
 
 export async function fetchCandles(market: string, interval: string, limit = 120): Promise<Candle[]> {
+  const query = new URLSearchParams({ market, interval, limit: String(limit) });
   const candles = await apiJSON<ApiCandle[]>(
-    `/v1/markets/${encodeURIComponent(market)}/candles?interval=${encodeURIComponent(interval)}&limit=${limit}`
+    `/v1/markets/candles?${query.toString()}`
   );
   return candles.map(mapCandle);
 }
 
 export async function fetchMarketTrades(market: string, limit = 80): Promise<Trade[]> {
+  const query = new URLSearchParams({ market, limit: String(limit) });
   const trades = await apiJSON<ApiTrade[]>(
-    `/v1/markets/${encodeURIComponent(market)}/trades?limit=${limit}`
+    `/v1/markets/trades?${query.toString()}`
   );
   return trades.map(mapTrade);
 }
@@ -212,6 +219,10 @@ export async function fetchBalances(userID: string): Promise<AssetBalance[]> {
 
 export async function fetchAssetPrices(symbol: string): Promise<AssetPriceResponse> {
   return apiJSON<AssetPriceResponse>(`/v1/prices/${encodeURIComponent(symbol)}`);
+}
+
+export async function fetchAssets(): Promise<AssetInfo[]> {
+  return apiJSON<AssetInfo[]>('/v1/assets');
 }
 
 export async function placeOrder(input: PlaceOrderInput): Promise<{ order: Order; trades: Trade[] }> {
@@ -446,7 +457,7 @@ function stripTrailingSlash(value: string): string {
 }
 
 function defaultWebsocketURL(path: string): string {
-  if (typeof window === 'undefined') return `ws://localhost:8080${path}`;
+  if (typeof window === 'undefined') return `ws://127.0.0.1:8080${path}`;
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
   return `${protocol}://${window.location.host}${path}`;
 }

@@ -25,3 +25,22 @@ func TestSanitizeOIDCRedirect(t *testing.T) {
 		})
 	}
 }
+
+func TestDecodeMarketSymbol(t *testing.T) {
+	if got := decodeMarketSymbol("PEPPER%2FUSD"); got != "PEPPER/USD" {
+		t.Fatalf("decodeMarketSymbol encoded = %q, want PEPPER/USD", got)
+	}
+	if got := decodeMarketSymbol("PEPPER/USD"); got != "PEPPER/USD" {
+		t.Fatalf("decodeMarketSymbol raw = %q, want PEPPER/USD", got)
+	}
+}
+
+func TestSanitizeOIDCPostLogoutRedirect(t *testing.T) {
+	t.Setenv("OIDC_POST_LOGOUT_REDIRECT_URL", "http://localhost:3001/")
+	if got := sanitizeOIDCPostLogoutRedirect(""); got != "http://localhost:3001/" {
+		t.Fatalf("sanitizeOIDCPostLogoutRedirect default = %q, want localhost frontend", got)
+	}
+	if got := sanitizeOIDCPostLogoutRedirect("https://evil.example"); got != "" {
+		t.Fatalf("sanitizeOIDCPostLogoutRedirect external = %q, want empty", got)
+	}
+}

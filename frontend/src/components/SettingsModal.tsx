@@ -49,7 +49,7 @@ export default function SettingsView({
           <Settings className="w-5 h-5 animate-spin" />
         </div>
         <div>
-          <h2 className="text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-gray-150 font-display">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-gray-100 font-display">
             {BRAND_NAME} Terminal Settings & Preferences
           </h2>
           <span className="text-[10px] font-mono text-gray-400">
@@ -185,7 +185,7 @@ export default function SettingsView({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
           
           {/* Identity details and parameters */}
-          <div className="p-3.5 rounded bg-slate-50 dark:bg-slate-900/45 space-y-2 border border-gray-150 dark:border-gray-800/60 leading-normal">
+          <div className="p-3.5 rounded bg-slate-50 dark:bg-slate-900/45 space-y-2 border border-gray-200 dark:border-gray-800/60 leading-normal">
             <div className="flex items-center gap-1 text-[11px] font-bold text-gray-800 dark:text-gray-100 font-display">
               <UserCheck className="w-4 h-4 text-accent-1" />
               Connected Developer Profile
@@ -193,13 +193,13 @@ export default function SettingsView({
             
             <div className="space-y-0.5 text-[10px] text-gray-500">
               <div>Session Owner: <span className="font-bold text-gray-700 dark:text-gray-200">{userEmail || 'Guest Coder'}</span></div>
-              <div>License Code: <span className="font-sans">AURA-SPOT-SANDBOX-99XLR</span></div>
+              <div>License Code: <span className="font-sans">{BRAND_NAME}-SPOT-SANDBOX-99XLR</span></div>
               <div>System Node Time: <span className="text-accent-1 font-mono">{new Date().toLocaleDateString()}</span></div>
             </div>
           </div>
 
           {/* Database resynchronization */}
-          <div className="p-3.5 rounded bg-slate-50 dark:bg-slate-900/45 flex flex-col justify-between items-start gap-3 border border-gray-150 dark:border-gray-800/60 leading-normal">
+          <div className="p-3.5 rounded bg-slate-50 dark:bg-slate-900/45 flex flex-col justify-between items-start gap-3 border border-gray-200 dark:border-gray-800/60 leading-normal">
             <div>
               <span className="font-bold block text-gray-800 dark:text-gray-100 text-[11px] font-display">Clear Handled Sessions Cache</span>
               <span className="text-[10px] text-gray-400 block mt-0.5">

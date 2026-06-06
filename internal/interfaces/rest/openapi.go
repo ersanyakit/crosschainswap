@@ -80,6 +80,15 @@ const openAPISpec = `{
         }
       }
     },
+    "/v1/assets": {
+      "get": {
+        "tags": ["Prices"],
+        "summary": "List registry assets with deployment metadata and icons",
+        "responses": {
+          "200": { "description": "Assets", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/AssetInfo" } } } } }
+        }
+      }
+    },
     "/v1/orders": {
       "post": {
         "tags": ["Orders"],
@@ -332,6 +341,33 @@ const openAPISpec = `{
           "low_24h": { "type": "string", "example": "0.0000000008" },
           "volume_24h": { "type": "string", "example": "1000000" },
           "liquidity": { "type": "string", "example": "125000.25" }
+        }
+      },
+      "AssetInfo": {
+        "type": "object",
+        "properties": {
+          "symbol": { "type": "string", "example": "PEPPER" },
+          "name": { "type": "string", "example": "PEPPER" },
+          "type": { "type": "string", "example": "token" },
+          "decimals": { "type": "integer", "example": 18 },
+          "icon_url": { "type": "string", "example": "https://s2.coinmarketcap.com/static/img/coins/64x64/33603.png" },
+          "deployments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "chain_key": { "type": "string", "example": "chiliz" },
+                "asset_id": { "type": "string" },
+                "address": { "type": "string" },
+                "mint": { "type": "string" },
+                "symbol": { "type": "string" },
+                "name": { "type": "string" },
+                "decimals": { "type": "integer" },
+                "enabled": { "type": "boolean" },
+                "icon_url": { "type": "string" }
+              }
+            }
+          }
         }
       },
       "PlaceOrderRequest": {

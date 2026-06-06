@@ -42,7 +42,7 @@ export default function OrderBookView({
   }, [pair.lastPrice, prevPrice]);
 
   return (
-    <div className="bg-white dark:bg-[#0c1015] border border-[#e1e4e8] dark:border-[#21262d] rounded-lg shadow-sm flex flex-col h-[280px] sm:h-[350px] overflow-hidden text-gray-800 dark:text-gray-150 select-none">
+    <div className="bg-white dark:bg-[#0c1015] border border-[#e1e4e8] dark:border-[#21262d] rounded-lg shadow-sm flex flex-col h-[280px] sm:h-[350px] overflow-hidden text-gray-800 dark:text-gray-100 select-none">
       
       {/* Mini Titlebar */}
       <div className="flex items-center justify-between px-3 py-2 bg-[#f6f8fa] dark:bg-[#0d1117] border-b border-[#e1e4e8] dark:border-[#21262d]">

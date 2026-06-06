@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/subtle"
 	"errors"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 
 	appauth "exchange/internal/app/auth"
 	apporders "exchange/internal/app/orders"
@@ -74,6 +76,7 @@ func (s *Server) routes() {
 	s.app.Get("/swagger", s.swagger)
 	s.app.Get("/swagger.json", s.openapi)
 	s.app.Get("/openapi.json", s.openapi)
+	s.app.Get("/v1/assets", s.listAssets)
 	s.app.Get("/v1/prices/:symbol", s.assetPrices)
 	s.app.Get("/v1/assets/:symbol/prices", s.assetPrices)
 	s.app.Post("/v1/swaps/quote", s.swapQuote)
@@ -84,8 +87,11 @@ func (s *Server) routes() {
 	s.app.Delete("/v1/orders/:id", s.cancelOrder)
 	s.app.Post("/v1/orders/triggers", s.triggerStops)
 	s.app.Get("/v1/markets", s.listMarkets)
+	s.app.Get("/v1/orderbook", s.orderBook)
 	s.app.Get("/v1/orderbook/:market", s.orderBook)
+	s.app.Get("/v1/markets/trades", s.marketTrades)
 	s.app.Get("/v1/markets/:market/trades", s.marketTrades)
+	s.app.Get("/v1/markets/candles", s.marketCandles)
 	s.app.Get("/v1/markets/:market/candles", s.marketCandles)
 	s.app.Get("/v1/users/:user_id/orders", s.orderHistory)
 	s.app.Get("/v1/users/:user_id/trades", s.userTrades)
@@ -113,6 +119,10 @@ func (s *Server) assetPrices(c fiber.Ctx) error {
 		return pricingError(c, err)
 	}
 	return c.JSON(result)
+}
+
+func (s *Server) listAssets(c fiber.Ctx) error {
+	return c.JSON(s.prices.Assets())
 }
 
 func (s *Server) swapQuote(c fiber.Ctx) error {
@@ -236,7 +246,7 @@ func (s *Server) orderBook(c fiber.Ctx) error {
 		}
 		depth = parsed
 	}
-	result, err := s.orders.Book(c.Context(), c.Params("market"), depth)
+	result, err := s.orders.Book(c.Context(), marketParam(c), depth)
 	if err != nil {
 		return orderError(c, err)
 	}
@@ -249,7 +259,7 @@ func (s *Server) marketTrades(c fiber.Ctx) error {
 		return err
 	}
 	result, err := s.orders.MarketTrades(c.Context(), apporders.MarketHistoryRequest{
-		Market: c.Params("market"),
+		Market: marketParam(c),
 		Limit:  limit,
 	})
 	if err != nil {
@@ -264,7 +274,7 @@ func (s *Server) marketCandles(c fiber.Ctx) error {
 		return err
 	}
 	result, err := s.orders.Candles(c.Context(), apporders.MarketHistoryRequest{
-		Market:   c.Params("market"),
+		Market:   marketParam(c),
 		Interval: c.Query("interval", "1m"),
 		Limit:    limit,
 	})
@@ -456,6 +466,25 @@ func queryInt(c fiber.Ctx, key string, fallback int) (int, error) {
 		return 0, c.Status(fiber.StatusBadRequest).JSON(errorResponse{Error: key + " must be a positive integer"})
 	}
 	return parsed, nil
+}
+
+func marketParam(c fiber.Ctx) string {
+	if market := strings.TrimSpace(c.Query("market")); market != "" {
+		return market
+	}
+	return decodeMarketSymbol(c.Params("market"))
+}
+
+func decodeMarketSymbol(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	decoded, err := url.PathUnescape(raw)
+	if err != nil {
+		return raw
+	}
+	return decoded
 }
 
 func bindOrderRequest(c fiber.Ctx) (apporders.PlaceRequest, error) {

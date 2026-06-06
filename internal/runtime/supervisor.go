@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -24,7 +25,19 @@ type Service struct {
 	Run      func(context.Context) error
 }
 
+type Options struct {
+	FrontendMode           string
+	FrontendDir            string
+	FrontendHost           string
+	FrontendPort           string
+	FrontendPackageManager string
+}
+
 func RunAll(processName string) error {
+	return RunAllWithOptions(processName, DefaultOptions(processName))
+}
+
+func RunAllWithOptions(processName string, opts Options) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -44,6 +57,12 @@ func RunAll(processName string) error {
 		{Name: "scheduler", Interval: 15 * time.Second, RunOnce: heartbeat("scheduler")},
 		{Name: "worker", Interval: 20 * time.Second, RunOnce: heartbeat("worker")},
 		{Name: "scanner", Run: runPoolScanner},
+	}
+	if frontendEnabled(opts.FrontendMode) {
+		frontendOpts := opts
+		services = append(services, Service{Name: "frontend", Run: func(ctx context.Context) error {
+			return runFrontend(ctx, frontendOpts)
+		}})
 	}
 
 	var wg sync.WaitGroup
@@ -70,6 +89,20 @@ func RunAll(processName string) error {
 		stop()
 		<-done
 		return err
+	}
+}
+
+func DefaultOptions(processName string) Options {
+	mode := envOrDefault("FRONTEND_MODE", "off")
+	if strings.EqualFold(processName, "executor") && os.Getenv("FRONTEND_MODE") == "" {
+		mode = "dev"
+	}
+	return Options{
+		FrontendMode:           mode,
+		FrontendDir:            envOrDefault("FRONTEND_DIR", "frontend"),
+		FrontendHost:           envOrDefault("FRONTEND_HOST", "0.0.0.0"),
+		FrontendPort:           envOrDefault("FRONTEND_PORT", "3001"),
+		FrontendPackageManager: envOrDefault("FRONTEND_PACKAGE_MANAGER", "npm"),
 	}
 }
 

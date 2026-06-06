@@ -87,10 +87,17 @@ func (s *Server) authMe(c fiber.Ctx) error {
 }
 
 func (s *Server) authLogout(c fiber.Ctx) error {
+	redirectURL := sanitizeOIDCPostLogoutRedirect(c.Query("redirect"))
 	s.clearCookie(c, oidcSessionCookie)
 	s.clearCookie(c, oidcStateCookie)
 	s.clearCookie(c, oidcRedirectCookie)
-	return c.JSON(fiber.Map{"authenticated": false})
+	response := fiber.Map{"authenticated": false}
+	if s.auth != nil && s.auth.Enabled() {
+		if logoutURL := s.auth.EndSessionURL(redirectURL); logoutURL != "" {
+			response["logout_url"] = logoutURL
+		}
+	}
+	return c.JSON(response)
 }
 
 func (s *Server) requirePathUser(c fiber.Ctx) (string, error) {
@@ -196,6 +203,17 @@ func sanitizeOIDCRedirect(raw string) string {
 		}
 	}
 	return ""
+}
+
+func sanitizeOIDCPostLogoutRedirect(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		raw = strings.TrimSpace(os.Getenv("OIDC_POST_LOGOUT_REDIRECT_URL"))
+	}
+	if raw == "" {
+		raw = strings.TrimSpace(os.Getenv("OIDC_POST_LOGIN_REDIRECT_URL"))
+	}
+	return sanitizeOIDCRedirect(raw)
 }
 
 func (s *Server) authProviderName() string {

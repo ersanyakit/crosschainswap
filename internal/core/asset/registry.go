@@ -13,6 +13,7 @@ type Deployment struct {
 	Mint     string
 	Decimals int
 	Enabled  bool
+	IconURL  string
 }
 
 func (d Deployment) Identifier() string {
@@ -58,6 +59,7 @@ type Asset struct {
 	Name        string
 	Type        string
 	Decimals    int
+	IconURL     string
 	Deployments []Deployment
 }
 

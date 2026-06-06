@@ -7,12 +7,15 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Eye, TrendingUp, Sliders, ChevronDown } from 'lucide-react';
 import { Candle, Timeframe, MarketPair } from '../types/trading';
 import { formatPrice } from '../utils/formatters';
+import { type AssetInfo } from '../services/exchangeService';
+import AssetIcon from './AssetIcon';
 
 interface MarketChartProps {
   pair: MarketPair;
   candles: Candle[];
   timeframe: Timeframe;
   setTimeframe: (tf: Timeframe) => void;
+  assetMetadata: Record<string, AssetInfo>;
 }
 
 export default function MarketChart({
@@ -20,6 +23,7 @@ export default function MarketChart({
   candles,
   timeframe,
   setTimeframe,
+  assetMetadata,
 }: MarketChartProps) {
   const [hoveredCandle, setHoveredCandle] = useState<Candle | null>(null);
   const [crosshair, setCrosshair] = useState<{ x: number; y: number; price: number; time: string } | null>(null);
@@ -151,13 +155,16 @@ export default function MarketChart({
   const priceTicks = [0.15, 0.45, 0.75, 0.95].map(pct => minPrice + pct * priceRange);
 
   return (
-    <div className="flex flex-col bg-white dark:bg-[#0c1015] border border-[#e1e4e8] dark:border-[#21262d] rounded-lg shadow-sm overflow-hidden text-gray-800 dark:text-gray-150 relative">
+    <div className="flex flex-col bg-white dark:bg-[#0c1015] border border-[#e1e4e8] dark:border-[#21262d] rounded-lg shadow-sm overflow-hidden text-gray-800 dark:text-gray-100 relative">
       
       {/* 24h Ticker Summary Widget Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-3 border-b border-[#e1e4e8] dark:border-[#21262d] bg-[#fafbfc] dark:bg-[#090d12] text-xs font-mono select-none">
         <div className="flex items-center gap-3">
           <div className="font-display font-medium text-sm text-gray-950 dark:text-gray-50 flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-accent-1 inline-block"></span>
+            <span className="flex -space-x-1">
+              <AssetIcon symbol={pair.baseAsset} iconURL={assetMetadata[pair.baseAsset]?.icon_url} size="sm" />
+              <AssetIcon symbol={pair.quoteAsset} iconURL={assetMetadata[pair.quoteAsset]?.icon_url} size="sm" />
+            </span>
             {pair.symbol}
           </div>
           <div className={`font-mono font-bold text-base ${isUpClose ? 'text-trade-green' : 'text-trade-red'}`}>
@@ -280,7 +287,7 @@ export default function MarketChart({
                   y={gy + 4}
                   fill="#858585"
                   fontSize="9"
-                  fontFamily="monospace"
+                  fontFamily="Google Sans"
                   textAnchor="start"
                 >
                   {p.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
@@ -413,7 +420,7 @@ export default function MarketChart({
                 y={crosshair.y + 3}
                 fill="#ffffff"
                 fontSize="8.5"
-                fontFamily="monospace"
+                fontFamily="Google Sans"
                 fontWeight="bold"
               >
                 {crosshair.price.toFixed(2)}
@@ -433,7 +440,7 @@ export default function MarketChart({
                 y={paddingTop + plotHeight + 11}
                 fill="#ffffff"
                 fontSize="8"
-                fontFamily="monospace"
+                fontFamily="Google Sans"
                 textAnchor="middle"
               >
                 {crosshair.time}
@@ -459,7 +466,7 @@ export default function MarketChart({
                 y={dimensions.height - 10}
                 fill="#7e8c9a"
                 fontSize="8.5"
-                fontFamily="monospace"
+                fontFamily="Google Sans"
                 textAnchor="middle"
               >
                 {label}

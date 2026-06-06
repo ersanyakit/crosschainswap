@@ -98,6 +98,7 @@ func TestPricesIncludesAssetInfoAndDerivedUSDC(t *testing.T) {
 			Name:     "PEPPER",
 			Type:     "token",
 			Decimals: 18,
+			IconURL:  "https://example.test/pepper.png",
 			Deployments: []asset.Deployment{
 				{ChainKey: chain.ChainKeyChiliz, Address: "0xpepper", Decimals: 18},
 			},
@@ -152,6 +153,9 @@ func TestPricesIncludesAssetInfoAndDerivedUSDC(t *testing.T) {
 	}
 	if result.Asset.Name != "PEPPER" || result.Asset.Decimals != 18 || len(result.Asset.Deployments) != 1 {
 		t.Fatalf("unexpected asset metadata: %#v", result.Asset)
+	}
+	if result.Asset.IconURL != "https://example.test/pepper.png" || result.Asset.Deployments[0].IconURL != "https://example.test/pepper.png" {
+		t.Fatalf("unexpected asset icon metadata: %#v", result.Asset)
 	}
 	if len(result.Prices) != 1 {
 		t.Fatalf("expected one PEPPER price, got %d", len(result.Prices))

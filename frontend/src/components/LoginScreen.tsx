@@ -50,7 +50,7 @@ export default function LoginScreen({
               </h1>
 
               <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 leading-6 max-w-[520px]">
-                Access to order placement, balances, wallets and account history is bound to the authenticated OIDC subject. Market data remains visible only after the terminal establishes a trusted session.
+                Market data remains visible without a session. Order placement, balances, wallets and account history are bound to the authenticated OIDC subject.
               </p>
             </div>
           </div>

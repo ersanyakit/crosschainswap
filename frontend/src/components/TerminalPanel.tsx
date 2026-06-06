@@ -7,7 +7,8 @@ import { useState } from 'react';
 import { Trash2, CheckCircle, Info, XOctagon, AlertTriangle, Activity, Loader2 } from 'lucide-react';
 import { Order, Trade, SystemLog } from '../types/trading';
 import { formatPrice, formatQuantity } from '../utils/formatters';
-import { type AssetPriceResponse } from '../services/exchangeService';
+import { type AssetInfo, type AssetDeploymentInfo, type AssetPriceResponse } from '../services/exchangeService';
+import AssetIcon from './AssetIcon';
 
 interface TerminalPanelProps {
   openOrders: Order[];
@@ -18,6 +19,7 @@ interface TerminalPanelProps {
   dexPrices: AssetPriceResponse | null;
   dexPricesLoading: boolean;
   dexPricesError: string | null;
+  assetMetadata: Record<string, AssetInfo>;
   onCancelOrder: (id: string) => void;
   onCancelAllOrders: () => void;
 }
@@ -31,6 +33,7 @@ export default function TerminalPanel({
   dexPrices,
   dexPricesLoading,
   dexPricesError,
+  assetMetadata,
   onCancelOrder,
   onCancelAllOrders,
 }: TerminalPanelProps) {
@@ -46,7 +49,7 @@ export default function TerminalPanel({
   };
 
   return (
-    <div className="bg-white dark:bg-[#0c1015] border border-[#e1e4e8] dark:border-[#21262d] rounded-lg shadow-sm flex flex-col h-[280px] sm:h-[320px] overflow-hidden text-gray-800 dark:text-gray-150 select-none">
+    <div className="bg-white dark:bg-[#0c1015] border border-[#e1e4e8] dark:border-[#21262d] rounded-lg shadow-sm flex flex-col h-[280px] sm:h-[320px] overflow-hidden text-gray-800 dark:text-gray-100 select-none">
       
       {/* Tabbed Navigation Bar */}
       <div className="flex flex-wrap items-center justify-between border-b border-[#e1e4e8] dark:border-[#21262d] bg-[#f6f8fa] dark:bg-[#0d1117] px-3">
@@ -64,7 +67,7 @@ export default function TerminalPanel({
               className={`flex items-center gap-1.5 px-3 py-1 text-xs font-mono font-semibold rounded transition-colors whitespace-nowrap cursor-pointer ${
                 activeTab === tab.id
                   ? 'bg-accent-2 border border-accent-1/20 text-accent-1 font-bold'
-                  : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-250 hover:bg-surface-3'
+                  : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-surface-3'
               }`}
             >
               {tab.label}
@@ -183,7 +186,7 @@ export default function TerminalPanel({
                       <td className="py-2 pl-2 text-gray-400 text-[10px]">
                         {ord.timestamp.toLocaleDateString()} {ord.timestamp.toLocaleTimeString()}
                       </td>
-                      <td className="font-semibold text-gray-900 dark:text-gray-150">{ord.symbol}</td>
+                      <td className="font-semibold text-gray-900 dark:text-gray-100">{ord.symbol}</td>
                       <td>
                         <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${ord.side === 'BUY' ? 'text-trade-green bg-trade-green-bg' : 'text-trade-red bg-trade-red-bg'}`}>
                           {ord.side}
@@ -239,7 +242,7 @@ export default function TerminalPanel({
                           {tr.side}
                         </span>
                       </td>
-                      <td className="text-right font-medium text-gray-900 dark:text-gray-150">
+                      <td className="text-right font-medium text-gray-900 dark:text-gray-100">
                         {formatPrice(tr.price)}
                       </td>
                       <td className="text-right">{formatQuantity(tr.amount)}</td>
@@ -284,10 +287,11 @@ export default function TerminalPanel({
 
         {/* VIEW 5: CROSS-DEX PRICES */}
         {activeTab === 'DEX_PRICES' && (
-          <div className="min-w-[760px] min-h-full bg-[#fdfdfd] dark:bg-[#090d12]">
+          <div className="min-w-[760px] min-h-full bg-white dark:bg-[#0b1118]">
             <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-[#e1e4e8] dark:border-[#21262d]">
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4 text-accent-1" />
+                <AssetIcon symbol={selectedAssetSymbol} iconURL={dexPrices?.asset?.icon_url || assetMetadata[selectedAssetSymbol]?.icon_url} size="sm" />
                 <div>
                   <div className="text-xs font-display font-semibold uppercase text-gray-800 dark:text-gray-200">
                     {selectedAssetSymbol} Cross-DEX Price Board
@@ -313,51 +317,78 @@ export default function TerminalPanel({
                 No DEX prices found for {selectedAssetSymbol}.
               </div>
             ) : (
-              <table className="w-full text-left font-mono">
+              <table className="w-full min-w-[1280px] table-fixed text-left font-mono">
+                <colgroup>
+                  <col className="w-[80px]" />
+                  <col className="w-[210px]" />
+                  <col className="w-[120px]" />
+                  <col className="w-[90px]" />
+                  <col className="w-[260px]" />
+                  <col className="w-[230px]" />
+                  <col className="w-[230px]" />
+                  <col className="w-[120px]" />
+                  <col className="w-[120px]" />
+                </colgroup>
                 <thead>
-                  <tr className="text-[10px] uppercase text-gray-400 border-b border-[#e1e4e8]/60 dark:border-[#21262d]/60">
-                    <th className="py-2 pl-4">Chain</th>
-                    <th>DEX</th>
-                    <th>Pair</th>
-                    <th>Kind</th>
-                    <th className="text-right">Base / Quote</th>
-                    <th className="text-right">Quote / Base</th>
-                    <th className="text-right">Base USDC</th>
-                    <th className="text-right">Quote USDC</th>
+                  <tr className="text-[10px] uppercase text-gray-500 dark:text-gray-400 border-b border-[#e1e4e8]/60 dark:border-[#2f3a48]/70 bg-[#f6f8fa] dark:bg-[#101720]">
+                    <th className="py-2 pl-4 whitespace-nowrap">Chain</th>
+                    <th className="whitespace-nowrap">DEX</th>
+                    <th className="whitespace-nowrap">Pair</th>
+                    <th className="whitespace-nowrap">Kind</th>
+                    <th className="text-right whitespace-nowrap">Base / Quote</th>
+                    <th className="text-right whitespace-nowrap">Quote / Base</th>
+                    <th className="text-right whitespace-nowrap">Base USDC</th>
+                    <th className="text-right whitespace-nowrap">Quote USDC</th>
                     <th className="text-right pr-4">Pool</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#e1e4e8]/45 dark:divide-[#21262d]/45">
+                <tbody className="divide-y divide-[#e1e4e8]/45 dark:divide-[#263241]/75">
                   {(dexPrices?.prices || []).map((pool) => (
-                    <tr key={`${pool.chain_key}:${pool.venue_key}:${pool.pool_id}`} className="hover:bg-gray-50 dark:hover:bg-[#161b22]/40 transition-colors">
-                      <td className="py-2 pl-4">
-                        <span className="px-1.5 py-0.5 rounded bg-surface-3 text-gray-700 dark:text-gray-250 text-[9px] font-bold uppercase">
+                    <tr key={`${pool.chain_key}:${pool.venue_key}:${pool.pool_id}`} className="hover:bg-[#f6f8fa] dark:hover:bg-[#121b27] transition-colors">
+                      <td className="py-2 pl-4 whitespace-nowrap">
+                        <span className="px-1.5 py-0.5 rounded bg-[#eef2f6] dark:bg-[#182233] border border-[#d8dee4] dark:border-[#2f3a48] text-gray-800 dark:text-gray-100 text-[9px] font-bold uppercase">
                           {pool.chain_key}
                         </span>
                       </td>
-                      <td className="font-semibold text-gray-850 dark:text-gray-150 uppercase">{formatVenue(pool.venue_key)}</td>
-                      <td className="text-gray-700 dark:text-gray-250">
-                        {pool.base_symbol}/{pool.quote_symbol}
+                      <td className="font-semibold text-gray-900 dark:text-gray-100 uppercase leading-tight pr-3">
+                        {formatVenue(pool.venue_key)}
                       </td>
-                      <td>
+                      <td className="text-gray-700 dark:text-gray-200 whitespace-nowrap pr-3">
+                        <span className="inline-flex items-center gap-2">
+                          <span className="flex -space-x-1">
+                            <AssetIcon
+                              symbol={pool.base_symbol}
+                              iconURL={assetIconURL(pool.base_symbol, pool.base_asset, assetMetadata)}
+                              size="xs"
+                            />
+                            <AssetIcon
+                              symbol={pool.quote_symbol}
+                              iconURL={assetIconURL(pool.quote_symbol, pool.quote_asset, assetMetadata)}
+                              size="xs"
+                            />
+                          </span>
+                          <span>{pool.base_symbol}/{pool.quote_symbol}</span>
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap pr-3">
                         <span className="text-[9px] px-1.5 py-0.5 rounded bg-accent-2 text-accent-1 font-bold uppercase">
                           {pool.pool_kind}
                         </span>
                       </td>
-                      <td className="text-right text-gray-900 dark:text-gray-100">
-                        {formatDecimal(pool.price)} {pool.quote_symbol}
+                      <td className="text-right font-semibold tabular-nums text-[11px] text-gray-950 dark:text-gray-50 whitespace-nowrap overflow-hidden text-ellipsis pr-3" title={`${pool.price} ${pool.quote_symbol}`}>
+                        {formatDecimal(pool.price, 18)} <span className="text-gray-500 dark:text-gray-400">{pool.quote_symbol}</span>
                       </td>
-                      <td className="text-right text-gray-500">
-                        {formatDecimal(pool.inverse_price)}
+                      <td className="text-right font-medium tabular-nums text-[11px] text-gray-700 dark:text-gray-200 whitespace-nowrap overflow-hidden text-ellipsis pr-3" title={pool.inverse_price}>
+                        {formatDecimal(pool.inverse_price, 18)}
                       </td>
-                      <td className="text-right font-semibold text-trade-green">
+                      <td className="text-right font-bold tabular-nums text-[11px] text-emerald-700 dark:text-emerald-300 whitespace-nowrap overflow-hidden text-ellipsis pr-3" title={pool.base_price_usdc || pool.price_usdc}>
                         {formatUSD(pool.base_price_usdc || pool.price_usdc)}
                       </td>
-                      <td className="text-right text-gray-700 dark:text-gray-250">
+                      <td className="text-right font-semibold tabular-nums text-[11px] text-gray-800 dark:text-gray-100 whitespace-nowrap overflow-hidden text-ellipsis pr-3" title={pool.quote_price_usdc}>
                         {formatUSD(pool.quote_price_usdc)}
                       </td>
-                      <td className="text-right pr-4">
-                        <span title={pool.pool_id} className="inline-flex items-center justify-end gap-1 text-gray-400 select-text">
+                      <td className="text-right pr-4 whitespace-nowrap">
+                        <span title={pool.pool_id} className="inline-flex items-center justify-end gap-1 text-gray-500 dark:text-gray-400 select-text">
                           {shortID(pool.pool_id)}
                         </span>
                       </td>
@@ -378,17 +409,33 @@ function formatVenue(value: string): string {
   return value.replace(/[_-]/g, ' ');
 }
 
+function assetIconURL(
+  symbol: string,
+  deployment: AssetDeploymentInfo | undefined,
+  metadata: Record<string, AssetInfo>
+): string | undefined {
+  return deployment?.icon_url || metadata[symbol.toUpperCase()]?.icon_url;
+}
+
 function formatDecimal(value?: string, maximumFractionDigits = 12): string {
   if (!value) return '-';
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return '-';
-  if (numeric !== 0 && Math.abs(numeric) < 0.000001) return numeric.toExponential(6);
+  if (numeric !== 0 && Math.abs(numeric) < 1) {
+    return trimDecimal(numeric.toFixed(maximumFractionDigits));
+  }
   return numeric.toLocaleString(undefined, { maximumFractionDigits });
 }
 
 function formatUSD(value?: string): string {
-  const formatted = formatDecimal(value, 12);
+  const formatted = formatDecimal(value, 18);
   return formatted === '-' ? '-' : `$${formatted}`;
+}
+
+function trimDecimal(value: string): string {
+  if (!value.includes('.')) return value;
+  const trimmed = value.replace(/0+$/, '').replace(/\.$/, '');
+  return trimmed === '-0' || trimmed === '' ? '0' : trimmed;
 }
 
 function shortID(value: string): string {

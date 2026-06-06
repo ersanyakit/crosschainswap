@@ -1,10 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  --font-display: "Space Grotesk", sans-serif;
+  --font-sans: "Google Sans";
+  --font-mono: "Google Sans";
+  --font-display: "Google Sans";
 
   /* Custom requested color attributes */
   --color-surface-3: var(--uni-surface-3, rgba(19, 19, 19, 0.08));
@@ -36,6 +36,10 @@ html, body, #root {
   font-family: var(--font-sans);
   overflow: hidden;
   user-select: none;
+}
+
+*, *::before, *::after {
+  font-family: "Google Sans" !important;
 }
 
 /* Custom scrollbar optimized for ultra-dense panels */
