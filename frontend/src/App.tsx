@@ -505,7 +505,6 @@ export default function App() {
           setDexPrices(assetPricesResult.value);
           setDexPricesError(null);
         } else {
-          setDexPrices(null);
           setDexPricesError(assetPricesResult.reason instanceof Error ? assetPricesResult.reason.message : 'DEX prices unavailable');
         }
 
@@ -574,7 +573,7 @@ export default function App() {
     const socket = openPriceSocket((event) => {
       if (event?.type !== 'prices.updated' || !event.data?.symbol) return;
       if (String(event.data.symbol).toUpperCase() !== selectedAssetSymbol.toUpperCase()) return;
-      setDexPrices(event.data as AssetPriceResponse);
+      setDexPrices(prev => mergeAssetPrices(prev, event.data as AssetPriceResponse));
       setDexPricesError(null);
       setDexPricesLoading(false);
     });
@@ -1466,4 +1465,39 @@ function assetMetadataBySymbol(assets: AssetInfo[]): Record<string, AssetInfo> {
     });
   });
   return out;
+}
+
+function mergeAssetPrices(current: AssetPriceResponse | null, incoming: AssetPriceResponse): AssetPriceResponse {
+  if (!current || current.symbol.toUpperCase() !== incoming.symbol.toUpperCase()) {
+    return incoming;
+  }
+
+  const byPool = new Map<string, AssetPriceResponse['prices'][number]>();
+  current.prices.forEach((price) => byPool.set(priceKey(price), price));
+  incoming.prices.forEach((price) => byPool.set(priceKey(price), price));
+
+  return {
+    ...current,
+    ...incoming,
+    asset: incoming.asset || current.asset,
+    prices: Array.from(byPool.values()).sort(comparePoolPrices),
+  };
+}
+
+function priceKey(price: AssetPriceResponse['prices'][number]): string {
+  return `${price.chain_key}:${price.venue_key}:${price.pool_id}`;
+}
+
+function comparePoolPrices(a: AssetPriceResponse['prices'][number], b: AssetPriceResponse['prices'][number]): number {
+  const chainOrder = ['chiliz', 'base', 'solana', 'ethereum', 'avalanche'];
+  const chainDelta = chainRank(a.chain_key, chainOrder) - chainRank(b.chain_key, chainOrder);
+  if (chainDelta !== 0) return chainDelta;
+  const venueDelta = a.venue_key.localeCompare(b.venue_key);
+  if (venueDelta !== 0) return venueDelta;
+  return a.pool_id.localeCompare(b.pool_id);
+}
+
+function chainRank(chain: string, order: string[]): number {
+  const index = order.indexOf(chain);
+  return index === -1 ? order.length : index;
 }

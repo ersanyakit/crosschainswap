@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"math/big"
 	"net/http"
 	"strings"
@@ -1153,22 +1154,50 @@ func parseMeteoraLbPair(id string, data []byte, chainKey chain.ChainKey, venueKe
 	if len(data) < 216 || !hasDiscriminator(data, "LbPair") {
 		return venue.Pool{}, false
 	}
+	activeID := int32(binary.LittleEndian.Uint32(data[76:80]))
+	binStep := binary.LittleEndian.Uint16(data[80:82])
 	return venue.Pool{
-		ID:          venue.PoolID(id),
-		Address:     id,
-		ChainKey:    chainKey,
-		VenueKey:    venueKey,
-		Kind:        venue.PoolKindCLMM,
-		Token0:      venue.AssetID(pubkey(data, 88)),
-		Token1:      venue.AssetID(pubkey(data, 120)),
-		Reserve0:    big.NewInt(0),
-		Reserve1:    big.NewInt(0),
-		TickSpacing: int32(binary.LittleEndian.Uint16(data[80:82])),
-		ProgramID:   programID,
-		Vault0:      pubkey(data, 152),
-		Vault1:      pubkey(data, 184),
-		Enabled:     true,
+		ID:           venue.PoolID(id),
+		Address:      id,
+		ChainKey:     chainKey,
+		VenueKey:     venueKey,
+		Kind:         venue.PoolKindCLMM,
+		Token0:       venue.AssetID(pubkey(data, 88)),
+		Token1:       venue.AssetID(pubkey(data, 120)),
+		Reserve0:     big.NewInt(0),
+		Reserve1:     big.NewInt(0),
+		SqrtPriceX96: meteoraSqrtPriceX96(activeID, binStep),
+		Tick:         int64(activeID),
+		TickSpacing:  int32(binStep),
+		ProgramID:    programID,
+		Vault0:       pubkey(data, 152),
+		Vault1:       pubkey(data, 184),
+		Enabled:      true,
 	}, true
+}
+
+func meteoraSqrtPriceX96(activeID int32, binStep uint16) *big.Int {
+	if binStep == 0 {
+		return big.NewInt(0)
+	}
+
+	price := math.Pow(1+float64(binStep)/10000, float64(activeID))
+	if price <= 0 || math.IsInf(price, 0) || math.IsNaN(price) {
+		return big.NewInt(0)
+	}
+
+	q96 := new(big.Int).Lsh(big.NewInt(1), 96)
+	out, _ := new(big.Float).
+		SetPrec(256).
+		Mul(
+			new(big.Float).SetPrec(256).SetFloat64(math.Sqrt(price)),
+			new(big.Float).SetPrec(256).SetInt(q96),
+		).
+		Int(nil)
+	if out == nil {
+		return big.NewInt(0)
+	}
+	return out
 }
 
 func solanaAssetMints(assetIDs []venue.AssetID) []string {

@@ -2,6 +2,7 @@ package apiruntime
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log"
 	"os"
@@ -60,7 +61,7 @@ func Run(ctx context.Context) error {
 
 	go func() {
 		if err := postgres.Listen(ctx, os.Getenv("DATABASE_URL"), pricing.UpdatesChannel, func(_ context.Context, payload []byte) error {
-			server.Publish(payload)
+			server.Publish(priceUpdateSocketPayload(ctx, priceService, payload))
 			return nil
 		}); err != nil && !errors.Is(err, context.Canceled) {
 			log.Printf("price update listener stopped: %v", err)
@@ -68,6 +69,34 @@ func Run(ctx context.Context) error {
 	}()
 
 	return server.Listen(ctx, Addr())
+}
+
+func priceUpdateSocketPayload(ctx context.Context, priceService *pricing.Service, payload []byte) []byte {
+	var event struct {
+		Type string `json:"type"`
+		Data struct {
+			Symbol string          `json:"symbol"`
+			Prices json.RawMessage `json:"prices"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(payload, &event); err != nil {
+		return payload
+	}
+	if event.Type != "prices.updated" || event.Data.Symbol == "" || len(event.Data.Prices) != 0 {
+		return payload
+	}
+
+	prices, err := priceService.Prices(ctx, event.Data.Symbol)
+	if err != nil {
+		log.Printf("failed to expand price update for %s: %v", event.Data.Symbol, err)
+		return payload
+	}
+	out, err := json.Marshal(pricing.NewUpdateEvent(prices))
+	if err != nil {
+		log.Printf("failed to encode price update for %s: %v", event.Data.Symbol, err)
+		return payload
+	}
+	return out
 }
 
 func Addr() string {

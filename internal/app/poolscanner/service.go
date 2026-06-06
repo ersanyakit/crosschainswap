@@ -405,11 +405,7 @@ func publishPriceUpdates(
 	pools []venue.Pool,
 ) error {
 	for _, symbol := range priceService.SymbolsForPools(pools) {
-		prices, err := priceService.Prices(ctx, symbol)
-		if err != nil {
-			return err
-		}
-		payload, err := json.Marshal(pricing.NewUpdateEvent(prices))
+		payload, err := json.Marshal(pricing.NewSymbolUpdateEvent(symbol))
 		if err != nil {
 			return err
 		}
