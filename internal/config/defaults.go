@@ -46,13 +46,10 @@ func LoadDefaultRegistries() Registries {
 			RPCURLs: rpcURLsFromEnv("SOLANA_RPC_URLS", chain.RPCURLs{
 				"https://api.mainnet-beta.solana.com",
 				"https://solana-rpc.publicnode.com",
-				"https://rpc.ankr.com/solana",
-				"https://1rpc.io/solana",
-				"https://solana.drpc.org",
 			}),
 			ExplorerURL:   "https://solscan.io",
 			Confirmations: 32,
-			Enabled:       true,
+			Enabled:       envBoolOrDefault("SOLANA_ENABLED", true),
 		},
 		{
 			Key:         chain.ChainKeyBase,
@@ -125,7 +122,7 @@ func LoadDefaultRegistries() Registries {
 		},
 		{Symbol: "SOL", Name: "Solana", Type: "native", Decimals: 9,
 			Deployments: []asset.Deployment{
-				{ChainKey: chain.ChainKeySolana, Decimals: 9, Enabled: true},
+				{ChainKey: chain.ChainKeySolana, Name: "Wrapped Solana", Symbol: "WSOL", Mint: "So11111111111111111111111111111111111111112", Decimals: 9, Enabled: true},
 			},
 		},
 		{Symbol: "ETH", Name: "Ether", Type: "native", Decimals: 18,
@@ -141,9 +138,11 @@ func LoadDefaultRegistries() Registries {
 		},
 		{Symbol: "USDC", Name: "USD Coin", Type: "token", Decimals: 6,
 			Deployments: []asset.Deployment{
+				{ChainKey: chain.ChainKeyChiliz, Address: "0xa37936F56249965d407E39347528a1A91eB1cbef", Decimals: 6, Enabled: true},
 				{ChainKey: chain.ChainKeyEthereum, Address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", Decimals: 6, Enabled: true},
 				{ChainKey: chain.ChainKeyBase, Address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", Decimals: 6, Enabled: true},
 				{ChainKey: chain.ChainKeyAvalanche, Address: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E", Decimals: 6, Enabled: true},
+				{ChainKey: chain.ChainKeySolana, Mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", Decimals: 6, Enabled: true},
 			},
 		},
 	}
@@ -349,4 +348,19 @@ func envOrDefault(key string, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func envBoolOrDefault(key string, fallback bool) bool {
+	value := strings.ToLower(strings.TrimSpace(os.Getenv(key)))
+	if value == "" {
+		return fallback
+	}
+	switch value {
+	case "1", "true", "yes", "y", "on", "enabled":
+		return true
+	case "0", "false", "no", "n", "off", "disabled":
+		return false
+	default:
+		return fallback
+	}
 }

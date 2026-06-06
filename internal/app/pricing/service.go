@@ -30,6 +30,7 @@ type Service struct {
 
 type AssetPrices struct {
 	Symbol string      `json:"symbol"`
+	Asset  AssetInfo   `json:"asset"`
 	Prices []PoolPrice `json:"prices"`
 }
 
@@ -42,16 +43,58 @@ type PoolPrice struct {
 	QuoteSymbol  string         `json:"quote_symbol"`
 	QuoteAssetID venue.AssetID  `json:"quote_asset_id"`
 	Price        string         `json:"price"`
+	InversePrice string         `json:"inverse_price,omitempty"`
+	PriceUSDC    string         `json:"price_usdc,omitempty"`
+	QuoteUSDC    string         `json:"quote_price_usdc,omitempty"`
+	USDCRoute    *USDCRoute     `json:"usdc_route,omitempty"`
+	BaseAsset    DeploymentInfo `json:"base_asset"`
+	QuoteAsset   DeploymentInfo `json:"quote_asset"`
 	ReserveBase  string         `json:"reserve_base"`
 	ReserveQuote string         `json:"reserve_quote"`
 	PoolKind     venue.PoolKind `json:"pool_kind"`
 }
 
+type USDCRoute struct {
+	ChainKey    chain.ChainKey `json:"chain_key"`
+	VenueKey    venue.VenueKey `json:"venue_key"`
+	PoolID      venue.PoolID   `json:"pool_id"`
+	FromSymbol  string         `json:"from_symbol"`
+	FromAssetID venue.AssetID  `json:"from_asset_id"`
+	ToSymbol    string         `json:"to_symbol"`
+	ToAssetID   venue.AssetID  `json:"to_asset_id"`
+	Price       string         `json:"price"`
+}
+
+type AssetInfo struct {
+	Symbol      string           `json:"symbol"`
+	Name        string           `json:"name"`
+	Type        string           `json:"type"`
+	Decimals    int              `json:"decimals"`
+	Deployments []DeploymentInfo `json:"deployments"`
+}
+
+type DeploymentInfo struct {
+	ChainKey chain.ChainKey `json:"chain_key"`
+	AssetID  venue.AssetID  `json:"asset_id"`
+	Address  string         `json:"address,omitempty"`
+	Mint     string         `json:"mint,omitempty"`
+	Symbol   string         `json:"symbol"`
+	Name     string         `json:"name"`
+	Decimals int            `json:"decimals"`
+	Enabled  bool           `json:"enabled"`
+}
+
 type deploymentRef struct {
-	Symbol   string
-	ChainKey chain.ChainKey
-	AssetID  venue.AssetID
-	Decimals int
+	Symbol           string
+	DeploymentSymbol string
+	Name             string
+	Type             string
+	ChainKey         chain.ChainKey
+	AssetID          venue.AssetID
+	Address          string
+	Mint             string
+	Decimals         int
+	Enabled          bool
 }
 
 func NewService(assets asset.Registry, pools PoolStore) *Service {
@@ -112,7 +155,11 @@ func (s *Service) Prices(ctx context.Context, symbol string) (*AssetPrices, erro
 		return a.PoolID < b.PoolID
 	})
 
-	return &AssetPrices{Symbol: symbol, Prices: prices}, nil
+	if err := s.enrichUSDCPrices(ctx, prices, allDeployments); err != nil {
+		return nil, err
+	}
+
+	return &AssetPrices{Symbol: symbol, Asset: assetInfo(target), Prices: prices}, nil
 }
 
 func (s *Service) SymbolsForPools(pools []venue.Pool) []string {
@@ -146,6 +193,10 @@ func (s *Service) poolPrice(
 	targetByKey map[string]deploymentRef,
 	allDeployments map[string]deploymentRef,
 ) (PoolPrice, bool) {
+	if pool.Kind == venue.PoolKindCLMM && !positive(pool.SqrtPriceX96) {
+		return PoolPrice{}, false
+	}
+
 	token0Key := deploymentKey(pool.ChainKey, pool.Token0)
 	token1Key := deploymentKey(pool.ChainKey, pool.Token1)
 
@@ -201,10 +252,195 @@ func (s *Service) poolPrice(
 		QuoteSymbol:  quote.Symbol,
 		QuoteAssetID: quoteAssetID,
 		Price:        price,
+		InversePrice: inverseDecimalString(price),
+		BaseAsset:    deploymentInfo(base),
+		QuoteAsset:   deploymentInfo(quote),
 		ReserveBase:  bigString(baseReserve),
 		ReserveQuote: bigString(quoteReserve),
 		PoolKind:     pool.Kind,
 	}, true
+}
+
+func (s *Service) enrichUSDCPrices(
+	ctx context.Context,
+	prices []PoolPrice,
+	allDeployments map[string]deploymentRef,
+) error {
+	if len(prices) == 0 {
+		return nil
+	}
+
+	usdcRefs := refsBySymbol(allDeployments, "USDC")
+	if len(usdcRefs) == 0 {
+		return nil
+	}
+
+	quoteIDs := make([]venue.AssetID, 0)
+	seen := make(map[string]struct{})
+	for _, price := range prices {
+		if strings.EqualFold(price.QuoteSymbol, "USDC") {
+			continue
+		}
+		key := deploymentKey(price.ChainKey, price.QuoteAssetID)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		quoteIDs = append(quoteIDs, price.QuoteAssetID)
+	}
+	if len(quoteIDs) == 0 {
+		for i := range prices {
+			if strings.EqualFold(prices[i].QuoteSymbol, "USDC") {
+				prices[i].QuoteUSDC = "1"
+				prices[i].PriceUSDC = prices[i].Price
+			}
+		}
+		return nil
+	}
+
+	ids := append([]venue.AssetID{}, quoteIDs...)
+	for _, ref := range usdcRefs {
+		ids = append(ids, ref.AssetID)
+	}
+
+	pools, err := s.pools.ListPoolsByAssetIDs(ctx, ids)
+	if err != nil {
+		return err
+	}
+
+	usdcByChain := make(map[chain.ChainKey]deploymentRef)
+	for _, ref := range usdcRefs {
+		usdcByChain[ref.ChainKey] = ref
+	}
+
+	conversions := make(map[string]usdcConversion)
+	for _, pool := range pools {
+		usdc, ok := usdcByChain[pool.ChainKey]
+		if !ok {
+			continue
+		}
+		token0Key := deploymentKey(pool.ChainKey, pool.Token0)
+		token1Key := deploymentKey(pool.ChainKey, pool.Token1)
+		usdcKey := deploymentKey(pool.ChainKey, usdc.AssetID)
+		if token0Key != usdcKey && token1Key != usdcKey {
+			continue
+		}
+
+		var base deploymentRef
+		var okBase bool
+		if token0Key == usdcKey {
+			base, okBase = allDeployments[token1Key]
+		} else {
+			base, okBase = allDeployments[token0Key]
+		}
+		if !okBase || strings.EqualFold(base.Symbol, "USDC") {
+			continue
+		}
+
+		price, ok := poolPriceForBase(pool, base, usdc)
+		if !ok {
+			continue
+		}
+		conversion := usdcConversion{
+			price:         price,
+			route:         usdcRoute(pool, base, usdc, price),
+			usdcReserve:   reserveForAsset(pool, usdc.AssetID),
+			poolLiquidity: pool.Liquidity,
+		}
+		key := deploymentKey(base.ChainKey, base.AssetID)
+		if existing, ok := conversions[key]; !ok || betterUSDCConversion(conversion, existing) {
+			conversions[key] = conversion
+		}
+	}
+
+	for i := range prices {
+		if strings.EqualFold(prices[i].QuoteSymbol, "USDC") {
+			prices[i].QuoteUSDC = "1"
+			prices[i].PriceUSDC = prices[i].Price
+			continue
+		}
+		conversion, ok := conversions[deploymentKey(prices[i].ChainKey, prices[i].QuoteAssetID)]
+		if !ok {
+			continue
+		}
+		prices[i].QuoteUSDC = conversion.price
+		prices[i].USDCRoute = &conversion.route
+		priceUSDC, ok := multiplyDecimalStrings(prices[i].Price, conversion.price)
+		if ok {
+			prices[i].PriceUSDC = priceUSDC
+		}
+	}
+	return nil
+}
+
+type usdcConversion struct {
+	price         string
+	route         USDCRoute
+	usdcReserve   *big.Int
+	poolLiquidity *big.Int
+}
+
+func usdcRoute(pool venue.Pool, base deploymentRef, usdc deploymentRef, price string) USDCRoute {
+	return USDCRoute{
+		ChainKey:    pool.ChainKey,
+		VenueKey:    pool.VenueKey,
+		PoolID:      pool.ID,
+		FromSymbol:  base.Symbol,
+		FromAssetID: base.AssetID,
+		ToSymbol:    usdc.Symbol,
+		ToAssetID:   usdc.AssetID,
+		Price:       price,
+	}
+}
+
+func betterUSDCConversion(candidate usdcConversion, existing usdcConversion) bool {
+	if positive(candidate.usdcReserve) || positive(existing.usdcReserve) {
+		return compareBig(candidate.usdcReserve, existing.usdcReserve) > 0
+	}
+	return compareBig(candidate.poolLiquidity, existing.poolLiquidity) > 0
+}
+
+func reserveForAsset(pool venue.Pool, assetID venue.AssetID) *big.Int {
+	token0 := deploymentKey(pool.ChainKey, pool.Token0)
+	token1 := deploymentKey(pool.ChainKey, pool.Token1)
+	target := deploymentKey(pool.ChainKey, assetID)
+	switch target {
+	case token0:
+		return pool.Reserve0
+	case token1:
+		return pool.Reserve1
+	default:
+		return nil
+	}
+}
+
+func poolPriceForBase(pool venue.Pool, base deploymentRef, quote deploymentRef) (string, bool) {
+	if pool.Kind == venue.PoolKindCLMM && !positive(pool.SqrtPriceX96) {
+		return "", false
+	}
+
+	baseKey := deploymentKey(pool.ChainKey, base.AssetID)
+	quoteKey := deploymentKey(pool.ChainKey, quote.AssetID)
+	token0Key := deploymentKey(pool.ChainKey, pool.Token0)
+	token1Key := deploymentKey(pool.ChainKey, pool.Token1)
+
+	switch {
+	case token0Key == baseKey && token1Key == quoteKey:
+		if positive(pool.Reserve0) && positive(pool.Reserve1) {
+			return reservePrice(pool.Reserve0, pool.Reserve1, base.Decimals, quote.Decimals), true
+		}
+		if positive(pool.SqrtPriceX96) {
+			return sqrtPrice(pool.SqrtPriceX96, base.Decimals, quote.Decimals, true), true
+		}
+	case token1Key == baseKey && token0Key == quoteKey:
+		if positive(pool.Reserve1) && positive(pool.Reserve0) {
+			return reservePrice(pool.Reserve1, pool.Reserve0, base.Decimals, quote.Decimals), true
+		}
+		if positive(pool.SqrtPriceX96) {
+			return sqrtPrice(pool.SqrtPriceX96, base.Decimals, quote.Decimals, false), true
+		}
+	}
+	return "", false
 }
 
 func (s *Service) deploymentIndex() map[string]deploymentRef {
@@ -230,11 +466,73 @@ func deploymentRefs(item asset.Asset) []deploymentRef {
 			decimals = item.Decimals
 		}
 		out = append(out, deploymentRef{
-			Symbol:   item.Symbol,
-			ChainKey: deployment.ChainKey,
-			AssetID:  venue.AssetID(id),
-			Decimals: decimals,
+			Symbol:           item.Symbol,
+			DeploymentSymbol: effectiveSymbol(item.Symbol, deployment.Symbol),
+			Name:             effectiveName(item.Name, deployment.Name),
+			Type:             item.Type,
+			ChainKey:         deployment.ChainKey,
+			AssetID:          venue.AssetID(id),
+			Address:          deployment.Address,
+			Mint:             deployment.Mint,
+			Decimals:         decimals,
+			Enabled:          true,
 		})
+	}
+	return out
+}
+
+func assetInfo(item asset.Asset) AssetInfo {
+	return AssetInfo{
+		Symbol:      item.Symbol,
+		Name:        item.Name,
+		Type:        item.Type,
+		Decimals:    item.Decimals,
+		Deployments: deploymentInfos(item),
+	}
+}
+
+func deploymentInfos(item asset.Asset) []DeploymentInfo {
+	refs := deploymentRefs(item)
+	out := make([]DeploymentInfo, 0, len(refs))
+	for _, ref := range refs {
+		out = append(out, deploymentInfo(ref))
+	}
+	return out
+}
+
+func deploymentInfo(ref deploymentRef) DeploymentInfo {
+	return DeploymentInfo{
+		ChainKey: ref.ChainKey,
+		AssetID:  ref.AssetID,
+		Address:  ref.Address,
+		Mint:     ref.Mint,
+		Symbol:   ref.DeploymentSymbol,
+		Name:     ref.Name,
+		Decimals: ref.Decimals,
+		Enabled:  ref.Enabled,
+	}
+}
+
+func effectiveSymbol(assetSymbol string, deploymentSymbol string) string {
+	if strings.TrimSpace(deploymentSymbol) != "" {
+		return deploymentSymbol
+	}
+	return assetSymbol
+}
+
+func effectiveName(assetName string, deploymentName string) string {
+	if strings.TrimSpace(deploymentName) != "" {
+		return deploymentName
+	}
+	return assetName
+}
+
+func refsBySymbol(deployments map[string]deploymentRef, symbol string) []deploymentRef {
+	out := make([]deploymentRef, 0)
+	for _, ref := range deployments {
+		if strings.EqualFold(ref.Symbol, symbol) {
+			out = append(out, ref)
+		}
 	}
 	return out
 }
@@ -256,6 +554,28 @@ func reservePrice(baseReserve, quoteReserve *big.Int, baseDecimals, quoteDecimal
 
 	rat := new(big.Rat).SetFrac(numerator, denominator)
 	return trimDecimal(rat.FloatString(18))
+}
+
+func multiplyDecimalStrings(left string, right string) (string, bool) {
+	leftRat, ok := new(big.Rat).SetString(left)
+	if !ok {
+		return "", false
+	}
+	rightRat, ok := new(big.Rat).SetString(right)
+	if !ok {
+		return "", false
+	}
+	out := new(big.Rat).Mul(leftRat, rightRat)
+	return trimDecimal(out.FloatString(18)), true
+}
+
+func inverseDecimalString(value string) string {
+	rat, ok := new(big.Rat).SetString(value)
+	if !ok || rat.Sign() == 0 {
+		return ""
+	}
+	out := new(big.Rat).Inv(rat)
+	return trimDecimal(out.FloatString(18))
 }
 
 func sqrtPrice(sqrtPriceX96 *big.Int, baseDecimals, quoteDecimals int, baseIsToken0 bool) string {
@@ -291,6 +611,16 @@ func pow10(decimals int) *big.Int {
 
 func positive(v *big.Int) bool {
 	return v != nil && v.Sign() > 0
+}
+
+func compareBig(left *big.Int, right *big.Int) int {
+	if left == nil {
+		left = big.NewInt(0)
+	}
+	if right == nil {
+		right = big.NewInt(0)
+	}
+	return left.Cmp(right)
 }
 
 func trimDecimal(value string) string {
