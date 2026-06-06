@@ -1,0 +1,91 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Space Grotesk", sans-serif;
+
+  /* Custom requested color attributes */
+  --color-surface-3: var(--uni-surface-3, rgba(19, 19, 19, 0.08));
+  --color-surface-3-solid: var(--uni-surface-3-solid, #f2f2f2);
+  --color-surface-4: var(--uni-surface-4, rgba(255, 255, 255, 0.64));
+  --color-accent-1: var(--uni-accent-1, #ff37c7);
+  --color-accent-1-hovered: var(--uni-accent-1-hovered, #e500a5);
+  --color-accent-2: var(--uni-accent-2, rgba(255, 55, 199, 0.08));
+  --color-accent-2-hovered: var(--uni-accent-2-hovered, rgba(255, 55, 199, 0.12));
+  --color-accent-2-solid: var(--uni-accent-2-solid, #fff3fc);
+
+  /* Clean trading interface primitives */
+  --color-terminal-bg-light: #f6f8fa;
+  --color-terminal-bg-dark: #0d1117;
+  --color-terminal-border-light: #e1e4e8;
+  --color-terminal-border-dark: #21262d;
+  --color-trade-green: #0ecb81;
+  --color-trade-red: #f6465d;
+  --color-trade-green-bg: rgba(14, 203, 129, 0.1);
+  --color-trade-red-bg: rgba(246, 70, 93, 0.1);
+}
+
+/* Base resets & layout helpers */
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  font-family: var(--font-sans);
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Custom scrollbar optimized for ultra-dense panels */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.theme-light ::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.12);
+  border-radius: 4px;
+}
+
+.theme-dark ::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.12);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent-1);
+}
+
+/* Subtle blinking green/red prices */
+@keyframes blink-green {
+  0% { background-color: rgba(14, 203, 129, 0.25); }
+  100% { background-color: transparent; }
+}
+
+@keyframes blink-red {
+  0% { background-color: rgba(246, 70, 93, 0.25); }
+  100% { background-color: transparent; }
+}
+
+.animate-blink-up {
+  animation: blink-green 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-blink-down {
+  animation: blink-red 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* CRT and IDE glows */
+.ide-glow {
+  box-shadow: 0 0 12px var(--color-accent-2);
+}
+
+.ide-glow-strong {
+  box-shadow: 0 0 20px var(--color-accent-1);
+}

@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"exchange/internal/adapters/storage/postgres"
+	appauth "exchange/internal/app/auth"
+	"exchange/internal/app/orders"
 	"exchange/internal/app/pricing"
 	"exchange/internal/app/swap"
 	"exchange/internal/bootstrap"
@@ -25,7 +27,11 @@ func Run(ctx context.Context) error {
 	}
 
 	registries := config.LoadDefaultRegistries()
+	if err := postgres.SyncExchangeMarkets(db, registries.Markets.All()); err != nil {
+		return err
+	}
 	poolRepo := postgres.NewPoolRepository(db)
+	exchangeRepo := postgres.NewExchangeRepository(db)
 	priceService := pricing.NewService(registries.Assets, poolRepo)
 	v3Quoter, closeV3Quoter, err := bootstrap.NewUniswapV3Quoter(registries.Chains, registries.Venues)
 	if err != nil {
@@ -41,7 +47,16 @@ func Run(ctx context.Context) error {
 		return err
 	}
 	swapService := swap.NewService(registries.Assets, registries.Venues, poolRepo, swapEngine)
-	server := rest.NewServer(priceService, swapService)
+	orderService := orders.NewService(registries.Markets, exchangeRepo)
+	oidcAuth, err := appauth.NewOIDCService(ctx, appauth.ConfigFromEnv())
+	if err != nil {
+		return err
+	}
+	if oidcAuth == nil || !oidcAuth.Enabled() {
+		log.Printf("OIDC auth disabled: set OIDC_ISSUER_URL, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET and OIDC_REDIRECT_URI to enable it")
+	}
+	server := rest.NewServer(priceService, swapService, orderService, oidcAuth)
+	orderService.SetPublisher(server.Publish)
 
 	go func() {
 		if err := postgres.Listen(ctx, os.Getenv("DATABASE_URL"), pricing.UpdatesChannel, func(_ context.Context, payload []byte) error {

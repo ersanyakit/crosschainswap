@@ -157,7 +157,7 @@ func TestPricesIncludesAssetInfoAndDerivedUSDC(t *testing.T) {
 		t.Fatalf("expected one PEPPER price, got %d", len(result.Prices))
 	}
 	price := result.Prices[0]
-	if price.Price != "2.5" || price.QuoteUSDC != "0.5" || price.PriceUSDC != "1.25" {
+	if price.Price != "2.5" || price.BaseUSDC != "1.25" || price.QuoteUSDC != "0.5" || price.PriceUSDC != "1.25" {
 		t.Fatalf("unexpected derived price: %#v", price)
 	}
 	if price.QuoteAsset.Symbol != "wCHZ" || price.QuoteAsset.Decimals != 18 {
@@ -239,7 +239,7 @@ func TestPricesDerivesUSDCThroughSolanaSOLPair(t *testing.T) {
 		t.Fatalf("expected one PEPPER price, got %d", len(result.Prices))
 	}
 	price := result.Prices[0]
-	if price.Price != "0.00001" || price.QuoteUSDC != "90" || price.PriceUSDC != "0.0009" {
+	if price.Price != "0.00001" || price.BaseUSDC != "0.0009" || price.QuoteUSDC != "90" || price.PriceUSDC != "0.0009" {
 		t.Fatalf("unexpected SOL-derived USDC price: %#v", price)
 	}
 	if price.USDCRoute == nil || price.USDCRoute.PoolID != "sol-usdc-large" || price.USDCRoute.FromSymbol != "SOL" {
@@ -312,6 +312,80 @@ func TestPricesDoesNotDeriveUSDCFromCLMMVaultReservesWithoutSpotPrice(t *testing
 	price := result.Prices[0]
 	if price.PriceUSDC != "" || price.QuoteUSDC != "" || price.USDCRoute != nil {
 		t.Fatalf("expected no derived USDC from CLMM vault reserves, got %#v", price)
+	}
+}
+
+func TestPricesDerivesQuoteUSDCFromDirectBaseUSDC(t *testing.T) {
+	assets := asset.NewRegistry([]asset.Asset{
+		{
+			Symbol:   "PEPPER",
+			Name:     "PEPPER",
+			Type:     "token",
+			Decimals: 18,
+			Deployments: []asset.Deployment{
+				{ChainKey: chain.ChainKeySolana, Mint: "pepper-mint", Decimals: 3},
+			},
+		},
+		{
+			Symbol:   "SOL",
+			Name:     "Solana",
+			Type:     "native",
+			Decimals: 9,
+			Deployments: []asset.Deployment{
+				{ChainKey: chain.ChainKeySolana, Mint: "sol-mint", Symbol: "WSOL", Decimals: 9},
+			},
+		},
+		{
+			Symbol:   "USDC",
+			Name:     "USD Coin",
+			Type:     "token",
+			Decimals: 6,
+			Deployments: []asset.Deployment{
+				{ChainKey: chain.ChainKeySolana, Mint: "usdc-mint", Decimals: 6},
+			},
+		},
+	})
+	service := NewService(assets, memoryPoolStore{pools: []venue.Pool{
+		{
+			ID:       "pepper-sol",
+			ChainKey: chain.ChainKeySolana,
+			VenueKey: venue.VenueKeyMeteora,
+			Kind:     venue.PoolKindV2,
+			Token0:   "pepper-mint",
+			Token1:   "sol-mint",
+			Reserve0: scaled(1_000_000, 3),
+			Reserve1: scaled(10, 9),
+			Enabled:  true,
+		},
+		{
+			ID:       "pepper-usdc",
+			ChainKey: chain.ChainKeySolana,
+			VenueKey: venue.VenueKeyMeteora,
+			Kind:     venue.PoolKindV2,
+			Token0:   "pepper-mint",
+			Token1:   "usdc-mint",
+			Reserve0: scaled(1_000_000, 3),
+			Reserve1: scaled(620, 6),
+			Enabled:  true,
+		},
+	}})
+
+	result, err := service.Prices(context.Background(), "PEPPER")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var solPrice *PoolPrice
+	for i := range result.Prices {
+		if result.Prices[i].QuoteSymbol == "SOL" {
+			solPrice = &result.Prices[i]
+			break
+		}
+	}
+	if solPrice == nil {
+		t.Fatalf("expected PEPPER/SOL price, got %#v", result.Prices)
+	}
+	if solPrice.Price != "0.00001" || solPrice.BaseUSDC != "0.00062" || solPrice.QuoteUSDC != "62" || solPrice.PriceUSDC != "0.00062" {
+		t.Fatalf("unexpected quote-derived USDC fields: %#v", solPrice)
 	}
 }
 

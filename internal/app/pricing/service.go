@@ -44,6 +44,7 @@ type PoolPrice struct {
 	QuoteAssetID venue.AssetID  `json:"quote_asset_id"`
 	Price        string         `json:"price"`
 	InversePrice string         `json:"inverse_price,omitempty"`
+	BaseUSDC     string         `json:"base_price_usdc,omitempty"`
 	PriceUSDC    string         `json:"price_usdc,omitempty"`
 	QuoteUSDC    string         `json:"quote_price_usdc,omitempty"`
 	USDCRoute    *USDCRoute     `json:"usdc_route,omitempty"`
@@ -275,30 +276,46 @@ func (s *Service) enrichUSDCPrices(
 		return nil
 	}
 
-	quoteIDs := make([]venue.AssetID, 0)
+	assetIDs := make([]venue.AssetID, 0)
 	seen := make(map[string]struct{})
 	for _, price := range prices {
-		if strings.EqualFold(price.QuoteSymbol, "USDC") {
-			continue
+		for _, candidate := range []struct {
+			symbol  string
+			chain   chain.ChainKey
+			assetID venue.AssetID
+		}{
+			{symbol: price.BaseSymbol, chain: price.ChainKey, assetID: price.BaseAssetID},
+			{symbol: price.QuoteSymbol, chain: price.ChainKey, assetID: price.QuoteAssetID},
+		} {
+			if strings.EqualFold(candidate.symbol, "USDC") {
+				continue
+			}
+			key := deploymentKey(candidate.chain, candidate.assetID)
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			assetIDs = append(assetIDs, candidate.assetID)
 		}
-		key := deploymentKey(price.ChainKey, price.QuoteAssetID)
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		quoteIDs = append(quoteIDs, price.QuoteAssetID)
 	}
-	if len(quoteIDs) == 0 {
+	if len(assetIDs) == 0 {
 		for i := range prices {
+			if strings.EqualFold(prices[i].BaseSymbol, "USDC") {
+				prices[i].BaseUSDC = "1"
+				prices[i].PriceUSDC = "1"
+			}
 			if strings.EqualFold(prices[i].QuoteSymbol, "USDC") {
 				prices[i].QuoteUSDC = "1"
-				prices[i].PriceUSDC = prices[i].Price
+				if prices[i].BaseUSDC == "" {
+					prices[i].BaseUSDC = prices[i].Price
+					prices[i].PriceUSDC = prices[i].BaseUSDC
+				}
 			}
 		}
 		return nil
 	}
 
-	ids := append([]venue.AssetID{}, quoteIDs...)
+	ids := append([]venue.AssetID{}, assetIDs...)
 	for _, ref := range usdcRefs {
 		ids = append(ids, ref.AssetID)
 	}
@@ -354,21 +371,35 @@ func (s *Service) enrichUSDCPrices(
 	}
 
 	for i := range prices {
+		if strings.EqualFold(prices[i].BaseSymbol, "USDC") {
+			prices[i].BaseUSDC = "1"
+		} else if conversion, ok := conversions[deploymentKey(prices[i].ChainKey, prices[i].BaseAssetID)]; ok {
+			prices[i].BaseUSDC = conversion.price
+			prices[i].USDCRoute = &conversion.route
+		}
+
 		if strings.EqualFold(prices[i].QuoteSymbol, "USDC") {
 			prices[i].QuoteUSDC = "1"
-			prices[i].PriceUSDC = prices[i].Price
-			continue
+		} else if conversion, ok := conversions[deploymentKey(prices[i].ChainKey, prices[i].QuoteAssetID)]; ok {
+			prices[i].QuoteUSDC = conversion.price
+			if prices[i].USDCRoute == nil {
+				prices[i].USDCRoute = &conversion.route
+			}
 		}
-		conversion, ok := conversions[deploymentKey(prices[i].ChainKey, prices[i].QuoteAssetID)]
-		if !ok {
-			continue
+
+		if prices[i].BaseUSDC == "" && prices[i].QuoteUSDC != "" {
+			baseUSDC, ok := multiplyDecimalStrings(prices[i].Price, prices[i].QuoteUSDC)
+			if ok {
+				prices[i].BaseUSDC = baseUSDC
+			}
 		}
-		prices[i].QuoteUSDC = conversion.price
-		prices[i].USDCRoute = &conversion.route
-		priceUSDC, ok := multiplyDecimalStrings(prices[i].Price, conversion.price)
-		if ok {
-			prices[i].PriceUSDC = priceUSDC
+		if prices[i].QuoteUSDC == "" && prices[i].BaseUSDC != "" {
+			quoteUSDC, ok := divideDecimalStrings(prices[i].BaseUSDC, prices[i].Price)
+			if ok {
+				prices[i].QuoteUSDC = quoteUSDC
+			}
 		}
+		prices[i].PriceUSDC = prices[i].BaseUSDC
 	}
 	return nil
 }
@@ -566,6 +597,19 @@ func multiplyDecimalStrings(left string, right string) (string, bool) {
 		return "", false
 	}
 	out := new(big.Rat).Mul(leftRat, rightRat)
+	return trimDecimal(out.FloatString(18)), true
+}
+
+func divideDecimalStrings(left string, right string) (string, bool) {
+	leftRat, ok := new(big.Rat).SetString(left)
+	if !ok {
+		return "", false
+	}
+	rightRat, ok := new(big.Rat).SetString(right)
+	if !ok || rightRat.Sign() == 0 {
+		return "", false
+	}
+	out := new(big.Rat).Quo(leftRat, rightRat)
 	return trimDecimal(out.FloatString(18)), true
 }
 

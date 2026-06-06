@@ -3,11 +3,14 @@ module exchange
 go 1.25.0
 
 require (
+	github.com/coreos/go-oidc/v3 v3.18.0
 	github.com/ethereum/go-ethereum v1.17.3
 	github.com/fasthttp/websocket v1.5.8
 	github.com/gofiber/fiber/v3 v3.3.0
+	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.12.3
 	github.com/valyala/fasthttp v1.71.0
+	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.20.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1
@@ -25,12 +28,12 @@ require (
 	github.com/deckarep/golang-set/v2 v2.6.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
 	github.com/ethereum/c-kzg-4844/v2 v2.1.6 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/gofiber/schema v1.7.1 // indirect
 	github.com/gofiber/utils/v2 v2.0.6 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/holiman/uint256 v1.3.2 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect

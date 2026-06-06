@@ -311,15 +311,25 @@ func LoadDefaultRegistries() Registries {
 		},
 	}
 
-	markets := []market.Market{
-		{Symbol: "PEPPER/USDC", BaseAsset: "PEPPER", QuoteAsset: "USDC", ChainKeys: []string{string(chain.ChainKeyChiliz), string(chain.ChainKeyBase), string(chain.ChainKeySolana), string(chain.ChainKeyUnichain)}, Enabled: true},
-		{Symbol: "CHZ/USDC", BaseAsset: "CHZ", QuoteAsset: "USDC", ChainKeys: []string{string(chain.ChainKeyChiliz)}, Enabled: true},
-		{Symbol: "SOL/USDC", BaseAsset: "SOL", QuoteAsset: "USDC", ChainKeys: []string{string(chain.ChainKeySolana)}, Enabled: true},
-		{Symbol: "AVAX/USDC", BaseAsset: "AVAX", QuoteAsset: "USDC", ChainKeys: []string{string(chain.ChainKeyAvalanche)}, Enabled: true},
-		{Symbol: "ETH/USDC", BaseAsset: "ETH", QuoteAsset: "USDC", ChainKeys: []string{string(chain.ChainKeyEthereum), string(chain.ChainKeyBase), string(chain.ChainKeyUnichain)}, Enabled: true},
-	}
+	markets := usdMarketsForAssets(assets)
 
 	return Registries{Chains: chain.NewRegistry(chains), Assets: asset.NewRegistry(assets), Venues: venue.NewRegistry(venues), Markets: market.NewRegistry(markets)}
+}
+
+func usdMarketsForAssets(assets []asset.Asset) []market.Market {
+	markets := make([]market.Market, 0, len(assets))
+	for _, item := range assets {
+		if item.Symbol == "" || strings.EqualFold(item.Symbol, "USD") {
+			continue
+		}
+		markets = append(markets, market.Market{
+			Symbol:     item.Symbol + "/USD",
+			BaseAsset:  item.Symbol,
+			QuoteAsset: "USD",
+			Enabled:    true,
+		})
+	}
+	return markets
 }
 
 func rpcURLsFromEnv(key string, fallback chain.RPCURLs) chain.RPCURLs {

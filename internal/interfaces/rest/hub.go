@@ -31,7 +31,10 @@ func (h *Hub) Publish(payload []byte) {
 	h.mu.RUnlock()
 
 	for _, conn := range clients {
-		conn.SetWriteDeadline(time.Now().Add(2 * time.Second))
+		if err := conn.SetWriteDeadline(time.Now().Add(2 * time.Second)); err != nil {
+			h.remove(conn)
+			continue
+		}
 		if err := conn.WriteMessage(websocket.TextMessage, payload); err != nil {
 			h.remove(conn)
 		}
@@ -48,7 +51,9 @@ func (h *Hub) Handle(c fiber.Ctx) error {
 	return upgrader.Upgrade(c.RequestCtx(), func(conn *websocket.Conn) {
 		h.add(conn)
 		defer h.remove(conn)
-		defer conn.Close()
+		defer func() {
+			_ = conn.Close()
+		}()
 
 		for {
 			if _, _, err := conn.ReadMessage(); err != nil {

@@ -46,6 +46,18 @@ DATABASE_URL=postgres://postgres:postgres@localhost:5432/exchange?sslmode=disabl
 # API bind address. Default is :8080.
 API_ADDR=:8080
 
+# OIDC auth. OIDC_ISSUER_URL is the provider discovery issuer URL.
+# Keep OIDC_CLIENT_SECRET out of source control.
+OIDC_PROVIDER_NAME=RESEARCHCAVE
+OIDC_ISSUER_URL=
+OIDC_CLIENT_ID=kewlswap-exchange
+OIDC_CLIENT_SECRET=
+OIDC_REDIRECT_URI=http://localhost:8080/auth/oidc/callback
+OIDC_SCOPES=openid,profile,email,roles
+OIDC_SESSION_SECRET=
+OIDC_SESSION_TTL=12h
+OIDC_COOKIE_SECURE=false
+
 # Scanner mode:
 # - default/empty: only scan pairs containing registry assets
 # - full: scan full factories where the scanner supports full scans
@@ -382,6 +394,393 @@ Response:
 ```
 
 Send `evm.to`, `evm.data`, and `evm.value` to your wallet/signing layer. The backend does not hold private keys.
+
+## OIDC Authentication
+
+OIDC is enabled only when `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI`, and `OIDC_SESSION_SECRET` are set. `OIDC_PROVIDER_NAME` is a display name; it is not the discovery URL. Use your provider issuer URL in `OIDC_ISSUER_URL`.
+
+Start login:
+
+```text
+http://localhost:8080/auth/oidc/login
+```
+
+After the provider redirects to `/auth/oidc/callback`, the API verifies the ID token and writes an HTTP-only `exchange_session` cookie. Check the current session:
+
+```bash
+curl -b cookies.txt http://localhost:8080/auth/me
+```
+
+Logout:
+
+```bash
+curl -X POST -b cookies.txt http://localhost:8080/auth/logout
+```
+
+When OIDC is enabled, order, balance, withdrawal history and wallet read endpoints require the session cookie. The authenticated OIDC `sub` is used as the exchange `user_id`; request body or path `user_id` values cannot impersonate another user. Gateway mutation endpoints still use `X-Gateway-Secret`.
+
+## Limit Order Protocol
+
+The exchange module includes an internal limit order protocol with:
+
+- asset/market based order books
+- persisted price levels
+- buy/sell limit matching
+- buy/sell market matching with IOC execution
+- stop-limit activation
+- price-time priority
+- self-trade prevention
+- decimal precision validation up to 18 places
+- last-trade price band protection
+- deterministic core matching engine
+- required `client_order_id` idempotency per user
+- row locks while matching and canceling
+- incremental price-level refresh instead of full book rebuilds
+- GORM-managed orders, trades and price level tables
+
+All amounts and prices are sent as decimal strings. Do not send floats from clients. Every order must include a unique `client_order_id` for that `user_id`; retrying the same request with the same pair returns the existing order instead of creating a duplicate.
+
+By default, new limit prices and market protection prices are rejected if they are more than 20% away from the latest trade price for that market. Configure this with `EXCHANGE_PRICE_BAND_BPS`; for example `1000` means 10%, and `0` disables the band. If a market has no trades yet, the band is not applied.
+
+### Place Limit Order
+
+The user must have enough available balance before placing an order. Buy orders lock the quote asset at `price * quantity`; sell orders lock the base asset at `quantity`.
+
+```bash
+curl -X POST http://localhost:8080/v1/orders \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "client_order_id": "my-order-1",
+    "user_id": "user-a",
+    "market": "PEPPER/USDC",
+    "side": "buy",
+    "type": "limit",
+    "time_in_force": "gtc",
+    "price": "0.000000001",
+    "quantity": "1000000"
+  }'
+```
+
+The response contains the accepted order and any trades created immediately:
+
+```json
+{
+  "order": {
+    "id": "ord_...",
+    "market": "PEPPER/USDC",
+    "side": "buy",
+    "type": "limit",
+    "status": "open",
+    "price": "0.000000001",
+    "quantity": "1000000",
+    "filled_quantity": "0",
+    "remaining_quantity": "1000000"
+  },
+  "trades": []
+}
+```
+
+### Place Market Order
+
+Market orders are immediate-or-cancel (`ioc`) and never rest on the order book. The `price` field is still required as a protection price: for market buys it is the maximum acceptable execution price, and for market sells it is the minimum acceptable execution price. Any unfilled remainder expires and its locked balance is released.
+
+Market buy:
+
+```bash
+curl -X POST http://localhost:8080/v1/orders \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "client_order_id": "my-market-buy-1",
+    "user_id": "user-a",
+    "market": "PEPPER/USDC",
+    "side": "buy",
+    "type": "market",
+    "price": "0.0000000012",
+    "quantity": "1000000"
+  }'
+```
+
+Market sell:
+
+```bash
+curl -X POST http://localhost:8080/v1/orders \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "client_order_id": "my-market-sell-1",
+    "user_id": "user-a",
+    "market": "PEPPER/USDC",
+    "side": "sell",
+    "type": "market",
+    "price": "0.0000000008",
+    "quantity": "1000000"
+  }'
+```
+
+### User Balances
+
+Exchange balances are tracked per `user_id` and asset:
+
+- `available`: can be used for new orders
+- `locked`: reserved by open limit/stop-limit orders and in-flight market execution
+- `pending`: reported by the payment gateway before final settlement
+
+The payment gateway owns wallet address generation. The exchange only stores the gateway-provided address:
+
+```bash
+curl -X PUT http://localhost:8080/v1/users/user-a/wallets \
+  -H 'X-Gateway-Secret: your-secret' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "chain_key": "chiliz",
+    "address": "0xGatewayGeneratedDepositAddress"
+  }'
+```
+
+List gateway-registered wallets:
+
+```bash
+curl http://localhost:8080/v1/users/user-a/wallets
+```
+
+List balances:
+
+```bash
+curl http://localhost:8080/v1/users/user-a/balances
+```
+
+Gateway marks an incoming deposit as pending:
+
+```bash
+curl -X POST http://localhost:8080/v1/users/user-a/deposits/pending \
+  -H 'X-Gateway-Secret: your-secret' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "asset": "USDC",
+    "amount": "100"
+  }'
+```
+
+Gateway confirms the pending deposit into available balance:
+
+```bash
+curl -X POST http://localhost:8080/v1/users/user-a/deposits/settle \
+  -H 'X-Gateway-Secret: your-secret' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "asset": "USDC",
+    "amount": "100"
+  }'
+```
+
+Request a withdrawal. This moves the amount from `available` to `pending` until the payment gateway completes or cancels it:
+
+```bash
+curl -X POST http://localhost:8080/v1/users/user-a/withdrawals \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "asset": "USDC",
+    "amount": "25",
+    "chain_key": "chiliz",
+    "address": "0xDestinationAddress"
+  }'
+```
+
+Gateway completes a withdrawal:
+
+```bash
+curl -X POST http://localhost:8080/v1/withdrawals/wd_your_withdrawal_id/complete \
+  -H 'X-Gateway-Secret: your-secret'
+```
+
+Gateway cancels a withdrawal and returns the pending amount to available balance:
+
+```bash
+curl -X POST http://localhost:8080/v1/withdrawals/wd_your_withdrawal_id/cancel \
+  -H 'X-Gateway-Secret: your-secret'
+```
+
+Set `PAYMENT_GATEWAY_SECRET` in production so gateway mutation endpoints require `X-Gateway-Secret`.
+
+### Place Stop-Limit Order
+
+Buy stop-limit triggers when `last_price >= stop_price`. Sell stop-limit triggers when `last_price <= stop_price`.
+
+```bash
+curl -X POST http://localhost:8080/v1/orders \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "client_order_id": "my-stop-order-1",
+    "user_id": "user-b",
+    "market": "PEPPER/USDC",
+    "side": "sell",
+    "type": "stop_limit",
+    "time_in_force": "gtc",
+    "stop_price": "0.0000000009",
+    "price": "0.00000000085",
+    "quantity": "500000"
+  }'
+```
+
+### Trigger Stop Orders
+
+In production this should be called by the market data/matching loop when last trade price changes. For manual testing:
+
+```bash
+curl -X POST http://localhost:8080/v1/orders/triggers \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "market": "PEPPER/USDC",
+    "last_price": "0.0000000009"
+  }'
+```
+
+### Get Order
+
+```bash
+curl http://localhost:8080/v1/orders/ord_your_order_id
+```
+
+### Cancel Order
+
+```bash
+curl -X DELETE 'http://localhost:8080/v1/orders/ord_your_order_id?user_id=user-a'
+```
+
+### Order Book
+
+```bash
+curl 'http://localhost:8080/v1/orderbook/PEPPER%2FUSDC?depth=50'
+```
+
+Response:
+
+```json
+{
+  "market": "PEPPER/USDC",
+  "bids": [
+    {
+      "market": "PEPPER/USDC",
+      "side": "buy",
+      "price": "0.000000001",
+      "quantity": "1000000",
+      "order_count": 1
+    }
+  ],
+  "asks": []
+}
+```
+
+### History and Chart Data
+
+User order history:
+
+```bash
+curl 'http://localhost:8080/v1/users/user-a/orders?market=PEPPER%2FUSDC&limit=100'
+```
+
+Filter by status:
+
+```bash
+curl 'http://localhost:8080/v1/users/user-a/orders?market=PEPPER%2FUSDC&status=filled&limit=100'
+```
+
+User trade history:
+
+```bash
+curl 'http://localhost:8080/v1/users/user-a/trades?market=PEPPER%2FUSDC&limit=100'
+```
+
+Recent market trades:
+
+```bash
+curl 'http://localhost:8080/v1/markets/PEPPER%2FUSDC/trades?limit=100'
+```
+
+OHLC candles for charts:
+
+```bash
+curl 'http://localhost:8080/v1/markets/PEPPER%2FUSDC/candles?interval=1m&limit=500'
+```
+
+Supported candle intervals are `1m`, `5m`, `15m`, `1h`, `4h`, and `1d`. Candles are persisted when trades are created, so chart reads do not need to rebuild OHLC from raw trades on every request.
+
+### Exchange Websocket Events
+
+Connect the UI to:
+
+```text
+ws://localhost:8080/ws/orders
+```
+
+`/ws` and `/ws/prices` use the same hub. Exchange lifecycle events are published after the database transaction commits:
+
+- `exchange.order_accepted`
+- `exchange.order_updated`
+- `exchange.order_filled`
+- `exchange.order_expired`
+- `exchange.order_canceled`
+- `exchange.trades_created`
+- `exchange.orderbook_updated`
+- `exchange.deposit_pending`
+- `exchange.deposit_settled`
+- `exchange.withdrawal_requested`
+- `exchange.withdrawal_completed`
+- `exchange.withdrawal_canceled`
+- `exchange.wallet_registered`
+
+Example payload:
+
+```json
+{
+  "type": "exchange.order_filled",
+  "market": "PEPPER/USDC",
+  "user_id": "user-a",
+  "order": {
+    "id": "ord_...",
+    "status": "filled",
+    "remaining_quantity": "0"
+  },
+  "trades": [
+    {
+      "id": "trd_...",
+      "price": "0.000000001",
+      "quantity": "1000000"
+    }
+  ],
+  "created_at": "2026-06-06T10:00:00Z"
+}
+```
+
+Deposit settlement event example:
+
+```json
+{
+  "type": "exchange.deposit_settled",
+  "user_id": "user-a",
+  "balance": {
+    "user_id": "user-a",
+    "asset": "USDC",
+    "available": "100",
+    "locked": "0",
+    "pending": "0"
+  },
+  "created_at": "2026-06-06T10:00:00Z"
+}
+```
+
+### Swagger
+
+Open Swagger UI:
+
+```text
+http://localhost:8080/swagger
+```
+
+OpenAPI JSON:
+
+```text
+http://localhost:8080/swagger.json
+```
 
 ## Base Aerodrome Examples
 

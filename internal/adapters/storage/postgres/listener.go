@@ -19,7 +19,9 @@ func Listen(ctx context.Context, conninfo string, channel string, handle Notific
 	}
 
 	listener := pq.NewListener(conninfo, 10*time.Second, time.Minute, nil)
-	defer listener.Close()
+	defer func() {
+		_ = listener.Close()
+	}()
 
 	if err := listener.Listen(channel); err != nil {
 		return fmt.Errorf("listen %s: %w", channel, err)

@@ -206,21 +206,6 @@ func (s *Scanner) findPairAddresses(ctx context.Context, assetIDs []venue.AssetI
 	return addresses, nil
 }
 
-func (s *Scanner) loadPairAddresses(ctx context.Context, total int64) ([]common.Address, error) {
-	addresses := make([]common.Address, 0, total)
-
-	for start := int64(0); start < total; start += int64(s.batchSize) {
-		end := min(start+int64(s.batchSize), total)
-		batch, err := s.loadPairAddressBatch(ctx, start, end)
-		if err != nil {
-			return nil, err
-		}
-		addresses = append(addresses, batch...)
-	}
-
-	return addresses, nil
-}
-
 func (s *Scanner) loadPairAddressBatch(ctx context.Context, start, end int64) ([]common.Address, error) {
 	calls := make([]multicall.Call3, 0, end-start)
 

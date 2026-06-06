@@ -632,7 +632,9 @@ func (r *RPC) call(ctx context.Context, method string, params any, out any) erro
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			bodySnippet := readBodySnippet(resp)
 			lastErr = fmt.Errorf("rpc %s %s http status %d %s%s", method, endpoint, resp.StatusCode, http.StatusText(resp.StatusCode), bodySnippet)
-			resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				return err
+			}
 			r.disableEndpoint(endpoint, endpointCooldown(lastErr), lastErr)
 			if !isRetryableRPCError(lastErr) {
 				return lastErr
@@ -645,7 +647,9 @@ func (r *RPC) call(ctx context.Context, method string, params any, out any) erro
 
 		var rpcResp rpcResponse
 		err = json.NewDecoder(resp.Body).Decode(&rpcResp)
-		resp.Body.Close()
+		if closeErr := resp.Body.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
 		if err != nil {
 			lastErr = err
 			if err := waitBeforeRetry(ctx, i); err != nil {

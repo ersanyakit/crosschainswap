@@ -1,0 +1,6 @@
+{
+  "name": "Crypto Trading Terminal",
+  "description": "A professional, ultra-dense crypto spot trading platform inspired by developer tools and high-fidelity IDEs, featuring advanced charts, real-time order books, portfolio summary, strategy simulation, and a command palette.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

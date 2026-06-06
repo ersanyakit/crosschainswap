@@ -101,7 +101,9 @@ func runService(ctx context.Context, registries config.Registries, svc Service) 
 
 func runPoolScanner(ctx context.Context) error {
 	if os.Getenv("SCANNER_INTERVAL") == "" {
-		os.Setenv("SCANNER_INTERVAL", "1s")
+		if err := os.Setenv("SCANNER_INTERVAL", "1s"); err != nil {
+			return err
+		}
 	}
 	return poolscanner.Run(ctx)
 }

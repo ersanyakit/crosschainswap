@@ -7,6 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"exchange/internal/core/market"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -26,7 +29,9 @@ func LoadEnv(rootPath string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -43,7 +48,9 @@ func LoadEnv(rootPath string) error {
 
 		// Strip optional quotes
 		val = strings.Trim(val, `"'`)
-		os.Setenv(key, val)
+		if err := os.Setenv(key, val); err != nil {
+			return err
+		}
 	}
 	return scanner.Err()
 }
@@ -93,14 +100,83 @@ func Connect() (*gorm.DB, error) {
 
 	log.Println("GORM database connection established successfully.")
 
-	log.Println("Syncing GORM Pool model...")
-	if err := db.AutoMigrate(&Pool{}); err != nil {
-		return nil, fmt.Errorf("failed to sync Pool model: %w", err)
+	log.Println("Syncing GORM models...")
+	if err := autoMigrateWithRetry(db); err != nil {
+		return nil, fmt.Errorf("failed to sync GORM models: %w", err)
 	}
-	if err := db.Exec("UPDATE pools SET pool_address = id WHERE pool_address IS NULL OR pool_address = ''").Error; err != nil {
+	if err := backfillPoolAddresses(db); err != nil {
 		return nil, fmt.Errorf("failed to backfill pool addresses: %w", err)
 	}
 
 	log.Println("GORM model sync completed successfully.")
 	return db, nil
+}
+
+func autoMigrateWithRetry(db *gorm.DB) error {
+	models := []any{&Pool{}, &ExchangeOrder{}, &ExchangeTrade{}, &ExchangeCandle{}, &ExchangeOrderEvent{}, &ExchangeWallet{}, &ExchangeBalance{}, &ExchangeBalanceEvent{}, &ExchangeWithdrawal{}, &ExchangePriceLevel{}, &ExchangeMarket{}}
+	var err error
+	for attempt := 0; attempt < 3; attempt++ {
+		err = db.AutoMigrate(models...)
+		if err == nil {
+			return nil
+		}
+		if !isConcurrentMigrationConflict(err) {
+			return err
+		}
+		time.Sleep(time.Duration(attempt+1) * 300 * time.Millisecond)
+	}
+	return err
+}
+
+func isConcurrentMigrationConflict(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := err.Error()
+	return strings.Contains(message, "pg_type_typname_nsp_index") ||
+		strings.Contains(message, "duplicate key value violates unique constraint")
+}
+
+func SyncExchangeMarkets(db *gorm.DB, markets []market.Market) error {
+	now := time.Now()
+	for _, item := range markets {
+		model := ExchangeMarket{
+			Symbol:     item.Symbol,
+			BaseAsset:  item.BaseAsset,
+			QuoteAsset: item.QuoteAsset,
+			ChainKeys:  "",
+			Enabled:    item.Enabled,
+			UpdatedAt:  now,
+		}
+
+		var existing ExchangeMarket
+		result := db.Where("symbol = ?", item.Symbol).Find(&existing)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected > 0 {
+			model.CreatedAt = existing.CreatedAt
+		} else {
+			model.CreatedAt = now
+		}
+
+		if err := db.Save(&model).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func backfillPoolAddresses(db *gorm.DB) error {
+	var pools []Pool
+	if err := db.Where("pool_address = ? OR pool_address IS NULL", "").Find(&pools).Error; err != nil {
+		return err
+	}
+	for i := range pools {
+		pools[i].PoolAddress = pools[i].ID
+		if err := db.Save(&pools[i]).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
