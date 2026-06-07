@@ -27,6 +27,9 @@ Runtime commands:
 - `go run ./cmd/executor`: starts the all-in-one runtime, including API, websocket listener, scanner, frontend dev server, and the placeholder exchange services
 - `go run ./cmd/scanner`: runs only the scanner
 - `go run ./cmd/api`: runs only the Fiber v3 HTTP API and websocket endpoint
+- `go run ./cmd/matcher`: runs the async matcher worker for `MATCHING_MODE=async`
+- `go run ./cmd/worker`: dispatches durable outbox events to delivery channels
+- `go run ./cmd/migrate`: runs database migrations/backfills as a standalone job
 
 ## Requirements
 
@@ -35,6 +38,7 @@ Runtime commands:
 - RPC endpoints for the chains you want to scan
 
 The app auto-migrates the `pools` table when `cmd/api` or `cmd/scanner` connects to Postgres.
+For production-style microservice deployments, run `cmd/migrate` first and start services with `AUTO_MIGRATE=false`.
 
 ## Environment
 
@@ -144,9 +148,9 @@ This starts:
 - Fiber v3 API
 - frontend dev server on `http://localhost:3001`
 - websocket price publisher
-- Postgres price update listener
+- event backend price/update listener
 - pool scanner
-- indexer, matcher, executor, settler, scheduler and worker heartbeat services
+- matcher worker, outbox worker plus indexer, executor, settler and scheduler heartbeat services
 
 Frontend options:
 
@@ -200,7 +204,42 @@ SCANNER_MODE=full go run ./cmd/scanner
 
 Full scan is only supported by scanners that can enumerate factories efficiently, such as Uniswap V2-compatible factories and Aerodrome. Uniswap V1 and V3 use tracked registry scans because the scanner asks the factory directly for pools matching registered assets.
 
-The scanner writes pools to Postgres and sends Postgres `NOTIFY` messages on the `price_updates` channel. The API listens to that channel and publishes websocket messages to clients.
+The scanner writes pools to Postgres and enqueues durable outbox events for the `price_updates` channel. The worker dispatches those events, and the API listens to the channel and publishes websocket messages to clients.
+
+For microservice-style deployments, scanner replicas coordinate with DB-backed leases by default. Disable with `SCANNER_LEASES=false` only for local troubleshooting. Price updates are written to the durable outbox; run `cmd/worker` to dispatch them to the `price_updates` delivery channel.
+
+## Start Matcher
+
+The API keeps synchronous matching by default. To run matching as a separate service, start the API and matcher with async matching enabled:
+
+```bash
+MATCHING_MODE=async go run ./cmd/api
+MATCHING_MODE=async go run ./cmd/matcher
+go run ./cmd/worker
+```
+
+In async mode the API accepts orders, reserves balances, writes `exchange_match_jobs`, and returns the order with `pending_match` status. The matcher claims jobs with `FOR UPDATE SKIP LOCKED`, executes the existing matching engine, and writes websocket payloads to the durable outbox. The worker dispatches outbox rows to the selected event backend.
+
+Production-style startup should run migrations once, then disable automatic migrations in service replicas:
+
+```bash
+go run ./cmd/migrate
+AUTO_MIGRATE=false MATCHING_MODE=async go run ./cmd/api
+AUTO_MIGRATE=false MATCHING_MODE=async go run ./cmd/matcher
+AUTO_MIGRATE=false SCANNER_INTERVAL=1s go run ./cmd/scanner
+AUTO_MIGRATE=false go run ./cmd/worker
+```
+
+Event delivery backend is selected with `EVENT_BACKEND`; supported values are `postgres`, `redis`, `nats`, and `kafka`. Use the same backend settings on API and worker:
+
+```bash
+EVENT_BACKEND=postgres
+EVENT_BACKEND=redis REDIS_URL=redis://localhost:6379/0
+EVENT_BACKEND=nats NATS_URL=nats://localhost:4222
+EVENT_BACKEND=kafka KAFKA_BROKERS=localhost:9092
+```
+
+See `docs/microservices.md` for full backend configuration.
 
 ## Start API
 
@@ -292,7 +331,7 @@ When the scanner saves pools, the API publishes messages like:
 }
 ```
 
-The websocket only publishes after scanner writes trigger Postgres `NOTIFY`. Start both processes for live updates:
+The websocket only publishes after scanner writes are dispatched by the outbox worker. Start API, scanner, and worker for live updates:
 
 ```bash
 go run ./cmd/api
@@ -302,6 +341,12 @@ In another terminal:
 
 ```bash
 SCANNER_INTERVAL=1s go run ./cmd/scanner
+```
+
+In another terminal:
+
+```bash
+go run ./cmd/worker
 ```
 
 ## Swap API
@@ -1045,7 +1090,7 @@ Do not duplicate token lists in scanner, API, or swap code. The registry is the 
 - EVM scanner reuses RPC and multicall clients per chain, so Ethereum Uniswap V1/V2/V3 do not reconnect for every venue.
 - Aerodrome Slipstream uses active factory `tickSpacings()` and stores each pool's `tick_spacing`, so quote and transaction calls can use the correct Slipstream pool route.
 - Solana public RPCs often throttle `getProgramAccounts`; use a paid/indexed Solana RPC for real-time operation.
-- Websocket publish happens after DB save and Postgres `NOTIFY`, so API and scanner should point to the same `DATABASE_URL`.
+- Websocket publish happens after DB save, outbox enqueue, and worker dispatch, so API, scanner, matcher, and worker should point to the same `DATABASE_URL`.
 
 ## Tests
 

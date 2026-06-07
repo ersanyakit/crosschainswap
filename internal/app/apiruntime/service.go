@@ -6,7 +6,9 @@ import (
 	"errors"
 	"log"
 	"os"
+	"time"
 
+	"exchange/internal/adapters/eventstream"
 	"exchange/internal/adapters/paymentgateway"
 	"exchange/internal/adapters/storage/postgres"
 	appauth "exchange/internal/app/auth"
@@ -34,6 +36,16 @@ func Run(ctx context.Context) error {
 	}
 	poolRepo := postgres.NewPoolRepository(db)
 	exchangeRepo := postgres.NewExchangeRepository(db)
+	outboxRepo := postgres.NewOutboxRepository(db)
+	eventBus, err := eventstream.NewFromEnv(db)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := eventBus.Close(); err != nil {
+			log.Printf("event backend close failed: %v", err)
+		}
+	}()
 	priceService := pricing.NewService(registries.Assets, poolRepo)
 	v3Quoter, closeV3Quoter, err := bootstrap.NewUniswapV3Quoter(registries.Chains, registries.Venues)
 	if err != nil {
@@ -64,14 +76,28 @@ func Run(ctx context.Context) error {
 		log.Printf("OIDC auth disabled: set OIDC_ISSUER_URL, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET and OIDC_REDIRECT_URI to enable it")
 	}
 	server := rest.NewServer(priceService, swapService, orderService, oidcAuth)
-	orderService.SetPublisher(server.Publish)
+	orderService.SetPublisher(func(payload []byte) {
+		notifyCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := outboxRepo.Create(notifyCtx, orders.UpdatesChannel, "", payload); err != nil {
+			log.Printf("failed to enqueue exchange update: %v", err)
+		}
+	})
 
 	go func() {
-		if err := postgres.Listen(ctx, os.Getenv("DATABASE_URL"), pricing.UpdatesChannel, func(_ context.Context, payload []byte) error {
-			server.Publish(priceUpdateSocketPayload(ctx, priceService, payload))
+		topics := []string{pricing.UpdatesChannel, orders.UpdatesChannel}
+		if err := eventBus.Subscribe(ctx, topics, func(ctx context.Context, msg eventstream.Message) error {
+			switch msg.Topic {
+			case pricing.UpdatesChannel:
+				server.Publish(priceUpdateSocketPayload(ctx, priceService, msg.Payload))
+			case orders.UpdatesChannel:
+				server.Publish(msg.Payload)
+			default:
+				server.Publish(msg.Payload)
+			}
 			return nil
 		}); err != nil && !errors.Is(err, context.Canceled) {
-			log.Printf("price update listener stopped: %v", err)
+			log.Printf("event backend listener stopped: %v", err)
 		}
 	}()
 

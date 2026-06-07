@@ -34,6 +34,8 @@ var (
 	ErrPriceBandExceeded  = errors.New("price band exceeded")
 )
 
+const UpdatesChannel = "exchange_updates"
+
 type Service struct {
 	markets      market.Registry
 	repo         *postgres.ExchangeRepository
@@ -205,6 +207,19 @@ func (s *Service) Place(ctx context.Context, req PlaceRequest) (*MatchResult, er
 		}
 		if err := tx.CreateOrderEvents(ctx, []order.Event{newOrderEvent(item, order.EventOrderAccepted, "")}); err != nil {
 			return err
+		}
+		if item.Status != order.StatusPendingStop && asyncMatchingEnabled() {
+			item.Status = order.StatusPendingMatch
+			item.UpdatedAt = time.Now()
+			if err := tx.SaveOrder(ctx, item); err != nil {
+				return err
+			}
+			if err := tx.CreateMatchJob(ctx, item.ID, item.Market); err != nil {
+				return err
+			}
+			result.Order = item
+			publishResults = append(publishResults, MatchResult{Order: item})
+			return nil
 		}
 		if item.Status == order.StatusPendingStop {
 			result.Order = item
@@ -414,6 +429,68 @@ func (s *Service) TriggerStops(ctx context.Context, req TriggerRequest) ([]Match
 		s.publishOrderUpdate("exchange.order_updated", result.Order, result.Trades)
 	}
 	return results, nil
+}
+
+func (s *Service) MatchOrder(ctx context.Context, id order.ID) (*MatchResult, error) {
+	var result MatchResult
+	publishResults := make([]MatchResult, 0, 1)
+	err := s.repo.Transaction(ctx, func(tx *postgres.ExchangeRepository) error {
+		item, err := tx.GetOrderForUpdate(ctx, id)
+		if err != nil {
+			return fmt.Errorf("%w: %s", ErrOrderNotFound, id)
+		}
+		switch item.Status {
+		case order.StatusPendingMatch:
+			item.Status = order.StatusOpen
+			item.UpdatedAt = time.Now()
+		case order.StatusOpen, order.StatusPartiallyFilled:
+		default:
+			result.Order = *item
+			return nil
+		}
+
+		levels := newLevelTracker()
+		updated, trades, err := s.match(ctx, tx, *item, levels)
+		if err != nil {
+			return err
+		}
+		if err := tx.SaveOrder(ctx, updated); err != nil {
+			return err
+		}
+		if err := tx.SettleTrades(ctx, trades); err != nil {
+			return err
+		}
+		if shouldReleaseUnfilled(updated) {
+			if err := tx.ReleaseOrderFunds(ctx, updated, balance.EventID(idgen.New("bev"))); err != nil {
+				return err
+			}
+		}
+		if err := tx.CreateTrades(ctx, trades); err != nil {
+			return err
+		}
+		if err := tx.CreateOrderEvents(ctx, terminalEvents(updated, trades)); err != nil {
+			return err
+		}
+		activated, err := s.activateTriggeredStops(ctx, tx, updated.Market, lastTradePrice(trades), levels)
+		if err != nil {
+			return err
+		}
+		if err := tx.RefreshPriceLevels(ctx, levels.keys()); err != nil {
+			return err
+		}
+		result.Order = updated
+		result.Trades = trades
+		publishResults = append(publishResults, MatchResult{Order: updated, Trades: trades})
+		publishResults = append(publishResults, activated...)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, publishResult := range publishResults {
+		s.publishOrderUpdate("exchange.order_updated", publishResult.Order, publishResult.Trades)
+	}
+	return &result, nil
 }
 
 func (s *Service) Markets() []market.Market {
@@ -648,7 +725,7 @@ func lastTradePrice(trades []trade.Trade) string {
 
 func cancelable(status order.Status) bool {
 	switch status {
-	case order.StatusOpen, order.StatusPartiallyFilled, order.StatusPendingStop:
+	case order.StatusPendingMatch, order.StatusOpen, order.StatusPartiallyFilled, order.StatusPendingStop:
 		return true
 	default:
 		return false
@@ -664,7 +741,7 @@ func oppositeSide(side order.Side) order.Side {
 
 func knownStatus(status order.Status) bool {
 	switch status {
-	case order.StatusPendingStop, order.StatusOpen, order.StatusPartiallyFilled, order.StatusFilled, order.StatusCanceled, order.StatusExpired, order.StatusRejected:
+	case order.StatusPendingMatch, order.StatusPendingStop, order.StatusOpen, order.StatusPartiallyFilled, order.StatusFilled, order.StatusCanceled, order.StatusExpired, order.StatusRejected:
 		return true
 	default:
 		return false
@@ -684,6 +761,10 @@ func isImmediateOnly(item order.Order) bool {
 
 func shouldReleaseUnfilled(item order.Order) bool {
 	return isImmediateOnly(item) && item.Status == order.StatusExpired && decimal.Cmp(item.RemainingQuantity, "0") > 0
+}
+
+func asyncMatchingEnabled() bool {
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("MATCHING_MODE")), "async")
 }
 
 func (s *Service) requiredMarket(value string) (string, error) {

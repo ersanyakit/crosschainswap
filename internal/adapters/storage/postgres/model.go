@@ -155,3 +155,40 @@ type ExchangeMarket struct {
 	CreatedAt  time.Time `gorm:"default:current_timestamp"`
 	UpdatedAt  time.Time `gorm:"default:current_timestamp"`
 }
+
+type ExchangeMatchJob struct {
+	ID          string    `gorm:"primaryKey;type:varchar(64)"`
+	OrderID     string    `gorm:"uniqueIndex;type:varchar(64);not null"`
+	Market      string    `gorm:"index;type:varchar(64);not null"`
+	Status      string    `gorm:"index;type:varchar(32);not null"`
+	Attempts    int       `gorm:"not null;default:0"`
+	AvailableAt time.Time `gorm:"index;default:current_timestamp"`
+	LockedBy    string    `gorm:"index;type:varchar(128)"`
+	LockedAt    time.Time `gorm:"index"`
+	LastError   string    `gorm:"type:text"`
+	CreatedAt   time.Time `gorm:"index;default:current_timestamp"`
+	UpdatedAt   time.Time `gorm:"default:current_timestamp"`
+}
+
+type ExchangeOutboxEvent struct {
+	ID          string    `gorm:"primaryKey;type:varchar(64)"`
+	Topic       string    `gorm:"index;type:varchar(128);not null"`
+	EventKey    string    `gorm:"index;type:varchar(255)"`
+	Payload     string    `gorm:"type:jsonb;not null"`
+	Status      string    `gorm:"index;type:varchar(32);not null"`
+	Attempts    int       `gorm:"not null;default:0"`
+	AvailableAt time.Time `gorm:"index;default:current_timestamp"`
+	LockedBy    string    `gorm:"index;type:varchar(128)"`
+	LockedAt    time.Time `gorm:"index"`
+	LastError   string    `gorm:"type:text"`
+	CreatedAt   time.Time `gorm:"index;default:current_timestamp"`
+	UpdatedAt   time.Time `gorm:"default:current_timestamp"`
+	PublishedAt time.Time `gorm:"index"`
+}
+
+type ServiceLease struct {
+	Name      string    `gorm:"primaryKey;type:varchar(255)"`
+	Owner     string    `gorm:"index;type:varchar(128);not null"`
+	ExpiresAt time.Time `gorm:"index;not null"`
+	UpdatedAt time.Time `gorm:"default:current_timestamp"`
+}

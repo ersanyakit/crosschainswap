@@ -38,6 +38,16 @@ func (r *ExchangeRepository) Transaction(ctx context.Context, fn func(*ExchangeR
 	})
 }
 
+func (r *ExchangeRepository) Notify(ctx context.Context, channel string, payload []byte) error {
+	if channel == "" || len(payload) == 0 {
+		return nil
+	}
+	if err := r.db.WithContext(ctx).Exec("SELECT pg_notify(?, ?)", channel, string(payload)).Error; err != nil {
+		return fmt.Errorf("failed to notify %s: %w", channel, err)
+	}
+	return nil
+}
+
 func (r *ExchangeRepository) BalanceEventExists(ctx context.Context, id balance.EventID) (bool, error) {
 	if strings.TrimSpace(string(id)) == "" {
 		return false, nil

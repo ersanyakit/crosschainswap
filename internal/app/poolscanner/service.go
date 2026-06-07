@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/big"
 	"os"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -44,6 +45,9 @@ func Run(ctx context.Context) error {
 	}
 	regs := config.LoadDefaultRegistries()
 	repo := postgres.NewPoolRepository(db)
+	outboxRepo := postgres.NewOutboxRepository(db)
+	leaseRepo := postgres.NewLeaseRepository(db)
+	leaseOwner := scannerLeaseOwner()
 	priceService := pricing.NewService(regs.Assets, repo)
 	bus := eventbus.NewInMemory()
 	bus.Subscribe(event.PoolBatchScanned, func(ctx context.Context, evt event.Event) error {
@@ -54,7 +58,7 @@ func Run(ctx context.Context) error {
 		if err := repo.SavePools(ctx, payload.Pools); err != nil {
 			return err
 		}
-		return publishPriceUpdates(ctx, repo, priceService, payload.Pools)
+		return publishPriceUpdates(ctx, outboxRepo, priceService, payload.Pools)
 	})
 
 	venuesList := regs.Venues.All()
@@ -102,10 +106,14 @@ func Run(ctx context.Context) error {
 					continue
 				}
 				if trackedScanEnabled() {
-					scanTrackedAndSave(ctx, bus, scanner, v.Key, trackedAssetIDs(regs.Assets, v.ChainKey))
+					runVenueScan(ctx, leaseRepo, v, leaseOwner, func() {
+						scanTrackedAndSave(ctx, bus, scanner, v.Key, trackedAssetIDs(regs.Assets, v.ChainKey))
+					})
 					continue
 				}
-				scanAndSave(ctx, bus, scanner, v.Key)
+				runVenueScan(ctx, leaseRepo, v, leaseOwner, func() {
+					scanAndSave(ctx, bus, scanner, v.Key)
+				})
 				continue
 			}
 
@@ -179,7 +187,9 @@ func Run(ctx context.Context) error {
 			}
 
 			if trackedScanEnabled() {
-				scanTrackedAndSave(ctx, bus, scanner, v.Key, trackedAssetIDs(regs.Assets, v.ChainKey))
+				runVenueScan(ctx, leaseRepo, v, leaseOwner, func() {
+					scanTrackedAndSave(ctx, bus, scanner, v.Key, trackedAssetIDs(regs.Assets, v.ChainKey))
+				})
 				continue
 			}
 
@@ -201,7 +211,9 @@ func Run(ctx context.Context) error {
 			}
 
 			fmt.Printf("Total pairs found in factory: %s\n", total.String())
-			scanAndSave(ctx, bus, scanner, v.Key)
+			runVenueScan(ctx, leaseRepo, v, leaseOwner, func() {
+				scanAndSave(ctx, bus, scanner, v.Key)
+			})
 		}
 
 		interval := scannerInterval()
@@ -400,7 +412,7 @@ func publishPools(ctx context.Context, bus event.Bus, venueKey venue.VenueKey, p
 
 func publishPriceUpdates(
 	ctx context.Context,
-	repo *postgres.PoolRepository,
+	outbox *postgres.OutboxRepository,
 	priceService *pricing.Service,
 	pools []venue.Pool,
 ) error {
@@ -409,7 +421,7 @@ func publishPriceUpdates(
 		if err != nil {
 			return err
 		}
-		if err := repo.Notify(ctx, pricing.UpdatesChannel, payload); err != nil {
+		if err := outbox.Create(ctx, pricing.UpdatesChannel, symbol, payload); err != nil {
 			return err
 		}
 	}
@@ -453,4 +465,98 @@ func scannerInterval() time.Duration {
 		return 0
 	}
 	return interval
+}
+
+func runVenueScan(ctx context.Context, leases *postgres.LeaseRepository, v venue.Venue, owner string, scan func()) {
+	if scan == nil {
+		return
+	}
+	if !scannerLeasesEnabled() || leases == nil {
+		scan()
+		return
+	}
+
+	name := scannerLeaseName(v)
+	ttl := scannerLeaseTTL()
+	acquired, err := leases.TryAcquire(ctx, name, owner, ttl)
+	if err != nil {
+		log.Printf("Error: failed to acquire scanner lease %s: %v", name, err)
+		return
+	}
+	if !acquired {
+		fmt.Printf("Skipping %s: scanner lease %s is held by another instance\n", v.Key, name)
+		return
+	}
+
+	stopRenewal := startLeaseRenewal(ctx, leases, name, owner, ttl)
+	defer func() {
+		stopRenewal()
+		if err := leases.Release(context.Background(), name, owner); err != nil {
+			log.Printf("Warning: failed to release scanner lease %s: %v", name, err)
+		}
+	}()
+	scan()
+}
+
+func startLeaseRenewal(ctx context.Context, leases *postgres.LeaseRepository, name string, owner string, ttl time.Duration) func() {
+	interval := ttl / 3
+	if interval <= 0 {
+		interval = time.Minute
+	}
+	renewCtx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-renewCtx.Done():
+				return
+			case <-ticker.C:
+				acquired, err := leases.TryAcquire(renewCtx, name, owner, ttl)
+				if err != nil {
+					log.Printf("Warning: failed to renew scanner lease %s: %v", name, err)
+					continue
+				}
+				if !acquired {
+					log.Printf("Warning: scanner lease %s was lost by %s", name, owner)
+					return
+				}
+			}
+		}
+	}()
+	return func() {
+		cancel()
+		<-done
+	}
+}
+
+func scannerLeaseName(v venue.Venue) string {
+	return fmt.Sprintf("scanner:%s:%s", v.ChainKey, v.Key)
+}
+
+func scannerLeaseOwner() string {
+	host, err := os.Hostname()
+	if err != nil || strings.TrimSpace(host) == "" {
+		host = "unknown-host"
+	}
+	return fmt.Sprintf("%s:%d", host, os.Getpid())
+}
+
+func scannerLeasesEnabled() bool {
+	return !strings.EqualFold(strings.TrimSpace(os.Getenv("SCANNER_LEASES")), "false")
+}
+
+func scannerLeaseTTL() time.Duration {
+	raw := strings.TrimSpace(os.Getenv("SCANNER_LEASE_TTL"))
+	if raw == "" {
+		return 5 * time.Minute
+	}
+	ttl, err := time.ParseDuration(raw)
+	if err != nil || ttl <= 0 {
+		log.Printf("Warning: invalid SCANNER_LEASE_TTL %q: %v", raw, err)
+		return 5 * time.Minute
+	}
+	return ttl
 }

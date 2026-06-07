@@ -27,6 +27,7 @@ const (
 type Status string
 
 const (
+	StatusPendingMatch    Status = "pending_match"
 	StatusPendingStop     Status = "pending_stop"
 	StatusOpen            Status = "open"
 	StatusPartiallyFilled Status = "partially_filled"

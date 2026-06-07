@@ -1,13 +1,21 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 
-	"exchange/internal/runtime"
+	"exchange/internal/app/matcher"
 )
 
 func main() {
-	if err := runtime.RunAll("matcher"); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := matcher.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
 		log.Fatal(err)
 	}
 }

@@ -14,7 +14,9 @@ import (
 
 	"exchange/internal/adapters/storage/postgres"
 	"exchange/internal/app/apiruntime"
+	appmatcher "exchange/internal/app/matcher"
 	"exchange/internal/app/poolscanner"
+	appworker "exchange/internal/app/worker"
 	"exchange/internal/config"
 )
 
@@ -37,6 +39,22 @@ func RunAll(processName string) error {
 	return RunAllWithOptions(processName, DefaultOptions(processName))
 }
 
+func RunPlaceholder(processName string, interval time.Duration) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := postgres.LoadEnv("."); err != nil {
+		slog.Warn("failed to load .env file", "error", err)
+	}
+	registries := config.LoadDefaultRegistries()
+	printRegistrySummary(processName, registries)
+	return runService(ctx, registries, Service{
+		Name:     processName,
+		Interval: interval,
+		RunOnce:  heartbeat(processName),
+	})
+}
+
 func RunAllWithOptions(processName string, opts Options) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -51,11 +69,11 @@ func RunAllWithOptions(processName string, opts Options) error {
 	services := []Service{
 		{Name: "api", Run: apiruntime.Run},
 		{Name: "indexer", Interval: 10 * time.Second, RunOnce: heartbeat("indexer")},
-		{Name: "matcher", Interval: 2 * time.Second, RunOnce: heartbeat("matcher")},
+		{Name: "matcher", Run: appmatcher.Run},
 		{Name: "executor", Interval: 3 * time.Second, RunOnce: heartbeat("executor")},
 		{Name: "settler", Interval: 5 * time.Second, RunOnce: heartbeat("settler")},
 		{Name: "scheduler", Interval: 15 * time.Second, RunOnce: heartbeat("scheduler")},
-		{Name: "worker", Interval: 20 * time.Second, RunOnce: heartbeat("worker")},
+		{Name: "worker", Run: appworker.Run},
 		{Name: "scanner", Run: runPoolScanner},
 	}
 	if frontendEnabled(opts.FrontendMode) {

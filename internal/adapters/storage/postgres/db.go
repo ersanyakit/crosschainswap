@@ -18,6 +18,10 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+type ConnectOptions struct {
+	AutoMigrate bool
+}
+
 // LoadEnv loads environment variables from a .env file if it exists.
 func LoadEnv(rootPath string) error {
 	envPath, err := findEnvPath(rootPath)
@@ -82,6 +86,10 @@ func findEnvPath(startPath string) (string, error) {
 
 // Connect establishes a PostgreSQL connection and syncs the GORM models.
 func Connect() (*gorm.DB, error) {
+	return ConnectWithOptions(ConnectOptions{AutoMigrate: autoMigrateEnabled()})
+}
+
+func ConnectWithOptions(opts ConnectOptions) (*gorm.DB, error) {
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
 		return nil, fmt.Errorf("DATABASE_URL environment variable is not set")
@@ -103,23 +111,33 @@ func Connect() (*gorm.DB, error) {
 
 	log.Println("GORM database connection established successfully.")
 
-	log.Println("Syncing GORM models...")
-	if err := autoMigrateWithRetry(db); err != nil {
-		return nil, fmt.Errorf("failed to sync GORM models: %w", err)
+	if !opts.AutoMigrate {
+		return db, nil
 	}
-	if err := backfillPoolAddresses(db); err != nil {
-		return nil, fmt.Errorf("failed to backfill pool addresses: %w", err)
+	if err := Migrate(db); err != nil {
+		return nil, err
 	}
-	if err := backfillOrderSequences(db); err != nil {
-		return nil, fmt.Errorf("failed to backfill order sequences: %w", err)
-	}
-
-	log.Println("GORM model sync completed successfully.")
 	return db, nil
 }
 
+func Migrate(db *gorm.DB) error {
+	log.Println("Syncing GORM models...")
+	if err := autoMigrateWithRetry(db); err != nil {
+		return fmt.Errorf("failed to sync GORM models: %w", err)
+	}
+	if err := backfillPoolAddresses(db); err != nil {
+		return fmt.Errorf("failed to backfill pool addresses: %w", err)
+	}
+	if err := backfillOrderSequences(db); err != nil {
+		return fmt.Errorf("failed to backfill order sequences: %w", err)
+	}
+
+	log.Println("GORM model sync completed successfully.")
+	return nil
+}
+
 func autoMigrateWithRetry(db *gorm.DB) error {
-	models := []any{&Pool{}, &ExchangeOrder{}, &ExchangeOrderSequence{}, &ExchangeTrade{}, &ExchangeCandle{}, &ExchangeOrderEvent{}, &ExchangeWallet{}, &ExchangeBalance{}, &ExchangeBalanceEvent{}, &ExchangeWithdrawal{}, &ExchangePriceLevel{}, &ExchangeMarket{}}
+	models := []any{&Pool{}, &ExchangeOrder{}, &ExchangeOrderSequence{}, &ExchangeTrade{}, &ExchangeCandle{}, &ExchangeOrderEvent{}, &ExchangeWallet{}, &ExchangeBalance{}, &ExchangeBalanceEvent{}, &ExchangeWithdrawal{}, &ExchangePriceLevel{}, &ExchangeMarket{}, &ExchangeMatchJob{}, &ExchangeOutboxEvent{}, &ServiceLease{}}
 	var err error
 	for attempt := 0; attempt < 3; attempt++ {
 		err = db.AutoMigrate(models...)
@@ -141,6 +159,18 @@ func isConcurrentMigrationConflict(err error) bool {
 	message := err.Error()
 	return strings.Contains(message, "pg_type_typname_nsp_index") ||
 		strings.Contains(message, "duplicate key value violates unique constraint")
+}
+
+func autoMigrateEnabled() bool {
+	raw := strings.ToLower(strings.TrimSpace(os.Getenv("AUTO_MIGRATE")))
+	switch raw {
+	case "", "1", "true", "yes", "on":
+		return true
+	case "0", "false", "no", "off":
+		return false
+	default:
+		return true
+	}
 }
 
 func SyncExchangeMarkets(db *gorm.DB, markets []market.Market) error {
