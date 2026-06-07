@@ -2,7 +2,7 @@
 
 Multi-chain DEX pool scanner, registry-based price API, websocket publisher and unsigned swap transaction builder.
 
-This backend currently focuses on registered assets only. If an asset is not in `internal/config/defaults.go`, the scanner and price API do not use it. This is intentional: when you request `PEPPER`, the API only returns prices from chains and pools that match the registry deployments.
+This backend currently focuses on registered assets only. Assets are loaded from the payment gateway registry first, with `internal/config/defaults.go` used as a local fallback. If an asset is not in the active registry, the scanner and price API do not use it. This is intentional: when you request `PEPPER`, the API only returns prices from chains and pools that match the registry deployments.
 
 ## What Is Included
 
@@ -1062,7 +1062,7 @@ curl -X POST http://localhost:8080/v1/swaps/quote \
 
 ## Registry Rules
 
-Assets live in `internal/config/defaults.go`.
+Assets are loaded from the payment gateway registry at `PAYMENT_GATEWAY_BASE_URL` (`/api/v1/common/assets`). The local list in `internal/config/defaults.go` is only a fallback when the gateway registry is unavailable.
 
 Current important symbols:
 
@@ -1075,13 +1075,13 @@ Current important symbols:
 
 To add a token:
 
-1. Add it to the `assets` slice.
-2. Add one deployment per chain with the correct address or Solana mint.
-3. Make sure decimals are correct.
-4. Add or update a market if you want it represented in market metadata.
+1. Add it to the gateway asset registry.
+2. Add one deployment per chain with the correct token address or Solana mint.
+3. Make sure decimals and logo URLs are correct.
+4. Restart the exchange services so they reload the gateway registry.
 5. Run the scanner again.
 
-Do not duplicate token lists in scanner, API, or swap code. The registry is the source of truth.
+Do not duplicate token lists in scanner, API, or swap code. The gateway registry is the source of truth; `defaults.go` remains the development fallback.
 
 ## Performance Notes
 

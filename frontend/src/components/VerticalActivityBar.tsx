@@ -158,11 +158,11 @@ export default function VerticalActivityBar({
         <button
           onClick={triggerRefresh}
           className="group relative p-2 text-gray-400 hover:text-accent-1 hover:bg-surface-3 rounded-lg transition-colors cursor-pointer"
-          title="Force System Rescan"
+          title="Refresh backend data"
         >
           <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
           <span className="absolute left-16 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 font-medium">
-            Rescan Node Tickers
+            Refresh Backend Data
           </span>
         </button>
 
@@ -187,10 +187,10 @@ export default function VerticalActivityBar({
           </div>
           {/* Tooltip */}
           <span className="absolute left-16 p-2 bg-gray-900 text-white text-xs rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 font-mono text-left leading-relaxed shadow-lg">
-            <span className="font-semibold block border-b border-gray-700 pb-1 mb-1">Node status</span>
-            Network: mainnet-london-v3<br/>
-            Ping: {latency}ms<br/>
-            Engine: Live Polling WS
+            <span className="font-semibold block border-b border-gray-700 pb-1 mb-1">Backend status</span>
+            Connection: {connectionStatus}<br/>
+            Latency: {latency}ms<br/>
+            Transport: REST/WS
           </span>
         </div>
 

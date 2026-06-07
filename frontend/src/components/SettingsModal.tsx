@@ -203,7 +203,7 @@ export default function SettingsView({
             <div>
               <span className="font-bold block text-gray-800 dark:text-gray-100 text-[11px] font-display">Clear Handled Sessions Cache</span>
               <span className="text-[10px] text-gray-400 block mt-0.5">
-                Purge pending orders, clear simulated wallet adjustments, and reload seed markets.
+                Clear local UI cache and request fresh backend data on the next refresh.
               </span>
             </div>
 

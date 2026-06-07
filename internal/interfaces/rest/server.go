@@ -98,6 +98,7 @@ func (s *Server) routes() {
 	s.app.Get("/v1/users/:user_id/balances", s.listBalances)
 	s.app.Post("/v1/users/:user_id/deposits/pending", s.markDepositPending)
 	s.app.Post("/v1/users/:user_id/deposits/settle", s.settleDeposit)
+	s.app.Post("/v1/users/:user_id/deposit-addresses", s.createDepositAddress)
 	s.app.Get("/v1/users/:user_id/withdrawals", s.listWithdrawals)
 	s.app.Post("/v1/users/:user_id/withdrawals", s.requestWithdrawal)
 	s.app.Post("/v1/withdrawals/:id/complete", s.completeWithdrawal)
@@ -105,6 +106,7 @@ func (s *Server) routes() {
 	s.app.Get("/v1/users/:user_id/wallets", s.listWallets)
 	s.app.Post("/v1/users/:user_id/wallets/sync", s.syncGatewayWallets)
 	s.app.Put("/v1/users/:user_id/wallets", s.registerGatewayWallet)
+	s.app.Get("/v1/payment-gateway/qrcode", s.gatewayQRCode)
 	s.app.Post("/v1/payment-gateway/callback", s.gatewayUnifiedCallback)
 	s.app.Post("/v1/payment-gateway/webhook", s.gatewayUnifiedCallback)
 	s.app.Post("/v1/payment-gateway/callbacks/deposit", s.gatewayDepositCallback)
@@ -369,6 +371,52 @@ func (s *Server) balanceMutation(c fiber.Ctx, fn func(context.Context, string, a
 		return orderError(c, err)
 	}
 	return c.JSON(result)
+}
+
+func (s *Server) createDepositAddress(c fiber.Ctx) error {
+	userID, err := s.requirePathUser(c)
+	if err != nil {
+		return err
+	}
+	var req apporders.DepositAddressRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(errorResponse{Error: err.Error()})
+	}
+	result, err := s.orders.DepositAddress(c.Context(), userID, req)
+	if err != nil {
+		if errors.Is(err, apporders.ErrInvalidOrder) {
+			return orderError(c, err)
+		}
+		return c.Status(fiber.StatusBadGateway).JSON(errorResponse{Error: err.Error()})
+	}
+	qrURL := "/v1/payment-gateway/qrcode?" + url.Values{
+		"address": []string{result.Address},
+		"size":    []string{"300"},
+	}.Encode()
+	return c.JSON(struct {
+		*apporders.DepositAddress
+		QRURL string `json:"qr_url"`
+	}{
+		DepositAddress: result,
+		QRURL:          qrURL,
+	})
+}
+
+func (s *Server) gatewayQRCode(c fiber.Ctx) error {
+	size, err := queryInt(c, "size", 300)
+	if err != nil {
+		return err
+	}
+	raw, err := s.orders.GatewayQRCode(c.Context(), c.Query("address"), size)
+	if err != nil {
+		if errors.Is(err, apporders.ErrInvalidOrder) {
+			return orderError(c, err)
+		}
+		return c.Status(fiber.StatusBadGateway).JSON(errorResponse{Error: err.Error()})
+	}
+	c.Set("Content-Type", "image/png")
+	c.Set("Cache-Control", "no-store")
+	return c.Send(raw)
 }
 
 func (s *Server) listWithdrawals(c fiber.Ctx) error {

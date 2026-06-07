@@ -46,7 +46,7 @@ func RunPlaceholder(processName string, interval time.Duration) error {
 	if err := postgres.LoadEnv("."); err != nil {
 		slog.Warn("failed to load .env file", "error", err)
 	}
-	registries := config.LoadDefaultRegistries()
+	registries := config.LoadRegistries(ctx)
 	printRegistrySummary(processName, registries)
 	return runService(ctx, registries, Service{
 		Name:     processName,
@@ -63,7 +63,7 @@ func RunAllWithOptions(processName string, opts Options) error {
 		slog.Warn("failed to load .env file", "error", err)
 	}
 
-	registries := config.LoadDefaultRegistries()
+	registries := config.LoadRegistries(ctx)
 	printRegistrySummary(processName, registries)
 
 	services := []Service{

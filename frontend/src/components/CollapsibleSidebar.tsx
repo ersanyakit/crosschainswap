@@ -50,7 +50,9 @@ export default function CollapsibleSidebar({
   });
 
   const favorites = markets.filter(m => m.isFavorite);
-  const trending = [...markets].sort((a,b) => Math.abs(b.change24h) - Math.abs(a.change24h)).slice(0, 3);
+  const trending = [...markets]
+    .sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h) || a.symbol.localeCompare(b.symbol))
+    .slice(0, 3);
 
   const toggleFolder = (folderKey: 'watchlist' | 'spotMarkets' | 'trending') => {
     setFoldersOpen(prev => ({ ...prev, [folderKey]: !prev[folderKey] }));

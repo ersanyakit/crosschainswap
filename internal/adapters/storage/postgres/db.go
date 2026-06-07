@@ -22,6 +22,8 @@ type ConnectOptions struct {
 	AutoMigrate bool
 }
 
+const migrationAdvisoryLockKey int64 = 840177031337
+
 // LoadEnv loads environment variables from a .env file if it exists.
 func LoadEnv(rootPath string) error {
 	envPath, err := findEnvPath(rootPath)
@@ -122,18 +124,32 @@ func ConnectWithOptions(opts ConnectOptions) (*gorm.DB, error) {
 
 func Migrate(db *gorm.DB) error {
 	log.Println("Syncing GORM models...")
-	if err := autoMigrateWithRetry(db); err != nil {
-		return fmt.Errorf("failed to sync GORM models: %w", err)
-	}
-	if err := backfillPoolAddresses(db); err != nil {
-		return fmt.Errorf("failed to backfill pool addresses: %w", err)
-	}
-	if err := backfillOrderSequences(db); err != nil {
-		return fmt.Errorf("failed to backfill order sequences: %w", err)
+	if err := withMigrationLock(db, func(tx *gorm.DB) error {
+		if err := autoMigrateWithRetry(tx); err != nil {
+			return fmt.Errorf("failed to sync GORM models: %w", err)
+		}
+		if err := backfillPoolAddresses(tx); err != nil {
+			return fmt.Errorf("failed to backfill pool addresses: %w", err)
+		}
+		if err := backfillOrderSequences(tx); err != nil {
+			return fmt.Errorf("failed to backfill order sequences: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	log.Println("GORM model sync completed successfully.")
 	return nil
+}
+
+func withMigrationLock(db *gorm.DB, fn func(*gorm.DB) error) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", migrationAdvisoryLockKey).Error; err != nil {
+			return fmt.Errorf("failed to acquire migration lock: %w", err)
+		}
+		return fn(tx)
+	})
 }
 
 func autoMigrateWithRetry(db *gorm.DB) error {

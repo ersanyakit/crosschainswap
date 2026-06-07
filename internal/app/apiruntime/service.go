@@ -30,7 +30,7 @@ func Run(ctx context.Context) error {
 		return err
 	}
 
-	registries := config.LoadDefaultRegistries()
+	registries := config.LoadRegistries(ctx)
 	if err := postgres.SyncExchangeMarkets(db, registries.Markets.All()); err != nil {
 		return err
 	}
@@ -63,10 +63,10 @@ func Run(ctx context.Context) error {
 	swapService := swap.NewService(registries.Assets, registries.Venues, poolRepo, swapEngine)
 	orderService := orders.NewService(registries.Markets, exchangeRepo)
 	gatewayClient := paymentgateway.NewClient(paymentgateway.ConfigFromEnv())
-	if gatewayClient.Enabled() {
+	if gatewayClient.Enabled() || gatewayClient.StaticAddressEnabled() || gatewayClient.QRCodeEnabled() {
 		orderService.SetGatewayWalletProvider(walletGatewayAdapter{client: gatewayClient})
 	} else {
-		log.Printf("Payment gateway wallet sync disabled: set PAYMENT_GATEWAY_MERCHANT_ID, PAYMENT_GATEWAY_DOMAIN_ID and PAYMENT_GATEWAY_PRODUCT_ID to enable it")
+		log.Printf("Payment gateway wallet sync disabled: set gateway merchant wallet or static address credentials to enable it")
 	}
 	oidcAuth, err := appauth.NewOIDCService(ctx, appauth.ConfigFromEnv())
 	if err != nil {
@@ -156,4 +156,28 @@ func (a walletGatewayAdapter) CreateUserWallet(ctx context.Context, userID strin
 		out = append(out, orders.GatewayWallet{ChainKey: item.ChainKey, Address: item.Address})
 	}
 	return out, nil
+}
+
+func (a walletGatewayAdapter) CreateStaticAddress(ctx context.Context, userID string, symbol string, chainID int64, label string) (*orders.GatewayStaticAddress, error) {
+	item, err := a.client.CreateStaticAddress(ctx, paymentgateway.StaticAddressRequest{
+		UserID:  userID,
+		Symbol:  symbol,
+		ChainID: chainID,
+		Label:   label,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &orders.GatewayStaticAddress{
+		WalletID: item.WalletID,
+		UserID:   item.UserID,
+		Symbol:   item.Symbol,
+		Chain:    item.Chain,
+		Address:  item.Address,
+		Label:    item.Label,
+	}, nil
+}
+
+func (a walletGatewayAdapter) QRCode(ctx context.Context, address string, size int) ([]byte, error) {
+	return a.client.QRCode(ctx, address, size)
 }

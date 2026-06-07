@@ -43,7 +43,7 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to initialize database: %w", err)
 	}
-	regs := config.LoadDefaultRegistries()
+	regs := config.LoadRegistries(ctx)
 	repo := postgres.NewPoolRepository(db)
 	outboxRepo := postgres.NewOutboxRepository(db)
 	leaseRepo := postgres.NewLeaseRepository(db)

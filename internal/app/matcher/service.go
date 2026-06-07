@@ -24,7 +24,7 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	registries := config.LoadDefaultRegistries()
+	registries := config.LoadRegistries(ctx)
 	repo := postgres.NewExchangeRepository(db)
 	outboxRepo := postgres.NewOutboxRepository(db)
 	orderService := orders.NewService(registries.Markets, repo)

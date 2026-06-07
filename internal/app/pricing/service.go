@@ -76,15 +76,16 @@ type AssetInfo struct {
 }
 
 type DeploymentInfo struct {
-	ChainKey chain.ChainKey `json:"chain_key"`
-	AssetID  venue.AssetID  `json:"asset_id"`
-	Address  string         `json:"address,omitempty"`
-	Mint     string         `json:"mint,omitempty"`
-	Symbol   string         `json:"symbol"`
-	Name     string         `json:"name"`
-	Decimals int            `json:"decimals"`
-	Enabled  bool           `json:"enabled"`
-	IconURL  string         `json:"icon_url,omitempty"`
+	ChainKey     chain.ChainKey `json:"chain_key"`
+	AssetID      venue.AssetID  `json:"asset_id"`
+	Address      string         `json:"address,omitempty"`
+	Mint         string         `json:"mint,omitempty"`
+	Symbol       string         `json:"symbol"`
+	Name         string         `json:"name"`
+	Decimals     int            `json:"decimals"`
+	Enabled      bool           `json:"enabled"`
+	IconURL      string         `json:"icon_url,omitempty"`
+	ChainLogoURL string         `json:"chain_logo_url,omitempty"`
 }
 
 type deploymentRef struct {
@@ -99,6 +100,7 @@ type deploymentRef struct {
 	Decimals         int
 	Enabled          bool
 	IconURL          string
+	ChainLogoURL     string
 }
 
 func NewService(assets asset.Registry, pools PoolStore) *Service {
@@ -523,6 +525,7 @@ func deploymentRefs(item asset.Asset) []deploymentRef {
 			Decimals:         decimals,
 			Enabled:          true,
 			IconURL:          effectiveIconURL(item.IconURL, deployment.IconURL),
+			ChainLogoURL:     deployment.ChainLogoURL,
 		})
 	}
 	return out
@@ -550,15 +553,16 @@ func deploymentInfos(item asset.Asset) []DeploymentInfo {
 
 func deploymentInfo(ref deploymentRef) DeploymentInfo {
 	return DeploymentInfo{
-		ChainKey: ref.ChainKey,
-		AssetID:  ref.AssetID,
-		Address:  ref.Address,
-		Mint:     ref.Mint,
-		Symbol:   ref.DeploymentSymbol,
-		Name:     ref.Name,
-		Decimals: ref.Decimals,
-		Enabled:  ref.Enabled,
-		IconURL:  ref.IconURL,
+		ChainKey:     ref.ChainKey,
+		AssetID:      ref.AssetID,
+		Address:      ref.Address,
+		Mint:         ref.Mint,
+		Symbol:       ref.DeploymentSymbol,
+		Name:         ref.Name,
+		Decimals:     ref.Decimals,
+		Enabled:      ref.Enabled,
+		IconURL:      ref.IconURL,
+		ChainLogoURL: ref.ChainLogoURL,
 	}
 }
 

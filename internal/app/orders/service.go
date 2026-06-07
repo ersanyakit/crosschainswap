@@ -48,11 +48,22 @@ type Publisher func([]byte)
 
 type GatewayWalletProvider interface {
 	CreateUserWallet(ctx context.Context, userID string) ([]GatewayWallet, error)
+	CreateStaticAddress(ctx context.Context, userID string, symbol string, chainID int64, label string) (*GatewayStaticAddress, error)
+	QRCode(ctx context.Context, address string, size int) ([]byte, error)
 }
 
 type GatewayWallet struct {
 	ChainKey string
 	Address  string
+}
+
+type GatewayStaticAddress struct {
+	WalletID string
+	UserID   string
+	Symbol   string
+	Chain    string
+	Address  string
+	Label    string
 }
 
 type PlaceRequest struct {
@@ -104,6 +115,22 @@ type WithdrawalRequest struct {
 type WalletRequest struct {
 	ChainKey string `json:"chain_key"`
 	Address  string `json:"address"`
+}
+
+type DepositAddressRequest struct {
+	Asset    string `json:"asset"`
+	ChainKey string `json:"chain_key"`
+	Label    string `json:"label"`
+}
+
+type DepositAddress struct {
+	UserID   string `json:"user_id"`
+	Asset    string `json:"asset"`
+	ChainKey string `json:"chain_key"`
+	ChainID  int64  `json:"chain_id"`
+	Address  string `json:"address"`
+	WalletID string `json:"wallet_id,omitempty"`
+	Label    string `json:"label,omitempty"`
 }
 
 type GatewayDepositCallback struct {
@@ -1275,6 +1302,77 @@ func (s *Service) EnsureGatewayWallets(ctx context.Context, userID string) ([]ba
 	return out, nil
 }
 
+func (s *Service) DepositAddress(ctx context.Context, userID string, req DepositAddressRequest) (*DepositAddress, error) {
+	userID = strings.TrimSpace(userID)
+	asset := strings.ToUpper(strings.TrimSpace(req.Asset))
+	chainKey := strings.ToLower(strings.TrimSpace(req.ChainKey))
+	label := strings.TrimSpace(req.Label)
+	if userID == "" {
+		return nil, fmt.Errorf("%w: user_id is required", ErrInvalidOrder)
+	}
+	if asset == "" {
+		return nil, fmt.Errorf("%w: asset is required", ErrInvalidOrder)
+	}
+	if chainKey == "" {
+		return nil, fmt.Errorf("%w: chain_key is required", ErrInvalidOrder)
+	}
+	chainID, ok := gatewayChainID(chainKey)
+	if !ok {
+		return nil, fmt.Errorf("%w: unsupported gateway chain_key %s", ErrInvalidOrder, chainKey)
+	}
+	if s.gateway == nil {
+		return nil, fmt.Errorf("payment gateway static address provider is not configured")
+	}
+	item, err := s.gateway.CreateStaticAddress(ctx, userID, asset, chainID, label)
+	if err != nil {
+		return nil, err
+	}
+	address := strings.TrimSpace(item.Address)
+	if address == "" {
+		return nil, fmt.Errorf("payment gateway static address response did not include an address")
+	}
+	if err := validateGatewayAddress(chainKey, address); err != nil {
+		return nil, err
+	}
+
+	err = s.repo.Transaction(ctx, func(tx *postgres.ExchangeRepository) error {
+		_, err := tx.UpsertWallet(ctx, balance.Wallet{UserID: userID, ChainKey: chainKey, Address: address})
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	out := &DepositAddress{
+		UserID:   userID,
+		Asset:    asset,
+		ChainKey: chainKey,
+		ChainID:  chainID,
+		Address:  address,
+		WalletID: strings.TrimSpace(item.WalletID),
+		Label:    firstNonEmptyString(label, strings.TrimSpace(item.Label)),
+	}
+	s.publishWalletUpdate("exchange.wallet_registered", &balance.Wallet{UserID: userID, ChainKey: chainKey, Address: address})
+	return out, nil
+}
+
+func (s *Service) GatewayQRCode(ctx context.Context, address string, size int) ([]byte, error) {
+	address = strings.TrimSpace(address)
+	if address == "" {
+		return nil, fmt.Errorf("%w: address is required", ErrInvalidOrder)
+	}
+	if size <= 0 {
+		size = 300
+	}
+	if size < 128 || size > 1024 {
+		return nil, fmt.Errorf("%w: qrcode size must be between 128 and 1024", ErrInvalidOrder)
+	}
+	if s.gateway == nil {
+		return nil, fmt.Errorf("payment gateway qrcode provider is not configured")
+	}
+	return s.gateway.QRCode(ctx, address, size)
+}
+
 func (s *Service) RegisterGatewayWallet(ctx context.Context, userID string, req WalletRequest) (*balance.Wallet, error) {
 	userID = strings.TrimSpace(userID)
 	chainKey := strings.ToLower(strings.TrimSpace(req.ChainKey))
@@ -1342,11 +1440,47 @@ func (s *Service) knownChain(chainKey string) bool {
 	return false
 }
 
+func gatewayChainID(chainKey string) (int64, bool) {
+	switch strings.ToLower(strings.TrimSpace(chainKey)) {
+	case "bitcoin":
+		return 0, true
+	case "ethereum":
+		return 1, true
+	case "binance_smart_chain", "bnbchain", "bsc":
+		return 56, true
+	case "unichain":
+		return 130, true
+	case "arbitrum":
+		return 42161, true
+	case "base":
+		return 8453, true
+	case "avalanche", "avax":
+		return 43114, true
+	case "chiliz":
+		return 88888, true
+	case "solana":
+		return 99999999, true
+	case "tron":
+		return 99999998, true
+	default:
+		return 0, false
+	}
+}
+
+func firstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
 func validateGatewayAddress(chainKey string, address string) error {
 	chainKey = strings.ToLower(strings.TrimSpace(chainKey))
 	address = strings.TrimSpace(address)
 	switch chainKey {
-	case "ethereum", "base", "chiliz", "avalanche", "avax", "unichain":
+	case "ethereum", "base", "chiliz", "avalanche", "avax", "unichain", "arbitrum", "binance_smart_chain", "bnbchain", "bsc":
 		if !strings.HasPrefix(address, "0x") || len(address) != 42 {
 			return fmt.Errorf("%w: address must be a 20-byte EVM address", ErrInvalidOrder)
 		}

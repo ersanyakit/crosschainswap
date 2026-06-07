@@ -40,15 +40,20 @@ export async function fetchAuthSession(): Promise<AuthSession> {
 }
 
 export async function logout(): Promise<AuthLogout> {
-  const redirect = typeof window === 'undefined' ? '/' : window.location.origin + window.location.pathname;
+  const redirect = currentBrowserURL();
   const query = new URLSearchParams({ redirect });
   return authJSON<AuthLogout>(`/auth/logout?${query.toString()}`, { method: 'POST' });
 }
 
 export function oidcLoginURL(): string {
-  const redirect = typeof window === 'undefined' ? '/' : window.location.origin + window.location.pathname;
+  const redirect = currentBrowserURL();
   const query = new URLSearchParams({ redirect });
   return `${exchangeConfig.apiBaseURL}/auth/oidc/login?${query.toString()}`;
+}
+
+function currentBrowserURL(): string {
+  if (typeof window === 'undefined') return '/';
+  return `${window.location.origin}${window.location.pathname}${window.location.search}${window.location.hash}`;
 }
 
 async function authJSON<T>(path: string, init: RequestInit = {}): Promise<T> {

@@ -6,14 +6,15 @@ import (
 )
 
 type Deployment struct {
-	ChainKey chain.ChainKey
-	Address  string
-	Name     string
-	Symbol   string
-	Mint     string
-	Decimals int
-	Enabled  bool
-	IconURL  string
+	ChainKey     chain.ChainKey
+	Address      string
+	Name         string
+	Symbol       string
+	Mint         string
+	Decimals     int
+	Enabled      bool
+	IconURL      string
+	ChainLogoURL string
 }
 
 func (d Deployment) Identifier() string {

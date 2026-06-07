@@ -77,6 +77,27 @@ type ApiBalance = {
   pending: string;
 };
 
+export type WithdrawalInfo = {
+  id: string;
+  asset: string;
+  amount: string;
+  chain_key: string;
+  address: string;
+  status: string;
+  created_at?: string;
+};
+
+export type DepositAddressInfo = {
+  user_id: string;
+  asset: string;
+  chain_key: string;
+  chain_id?: number;
+  address: string;
+  wallet_id?: string;
+  label?: string;
+  qr_url?: string;
+};
+
 export type AssetDeploymentInfo = {
   chain_key?: string;
   asset_id?: string;
@@ -87,10 +108,12 @@ export type AssetDeploymentInfo = {
   decimals?: number;
   enabled?: boolean;
   icon_url?: string;
+  chain_logo_url?: string;
 };
 
 export type AssetInfo = {
   symbol?: string;
+  registry_symbol?: string;
   name?: string;
   type?: string;
   decimals?: number;
@@ -218,9 +241,10 @@ export async function fetchBalances(userID: string): Promise<AssetBalance[]> {
   return balances.map(mapBalance);
 }
 
-export async function settleDeposit(userID: string, asset: string, amount: number): Promise<AssetBalance> {
+export async function settleDeposit(userID: string, asset: string, chainKey: string, amount: number): Promise<AssetBalance> {
   const body = JSON.stringify({
     asset,
+    chain_key: chainKey,
     amount: decimalString(amount),
   });
   const headers = gatewayHeaders();
@@ -235,6 +259,38 @@ export async function settleDeposit(userID: string, asset: string, amount: numbe
     body,
   });
   return mapBalance(settled);
+}
+
+export async function requestDepositAddress(userID: string, asset: string, chainKey: string): Promise<DepositAddressInfo> {
+  const result = await apiJSON<DepositAddressInfo>(`/v1/users/${encodeURIComponent(userID)}/deposit-addresses`, {
+    method: 'POST',
+    body: JSON.stringify({
+      asset,
+      chain_key: chainKey,
+      label: `${asset.toUpperCase()} ${chainKey}`,
+    }),
+  });
+  return {
+    ...result,
+    qr_url: result.qr_url ? apiResourceURL(result.qr_url) : depositQRCodeURL(result.address),
+  };
+}
+
+export function depositQRCodeURL(address: string, size = 300): string {
+  const query = new URLSearchParams({ address, size: String(size) });
+  return apiResourceURL(`/v1/payment-gateway/qrcode?${query.toString()}`);
+}
+
+export async function requestWithdrawal(userID: string, asset: string, chainKey: string, address: string, amount: number): Promise<WithdrawalInfo> {
+  return apiJSON<WithdrawalInfo>(`/v1/users/${encodeURIComponent(userID)}/withdrawals`, {
+    method: 'POST',
+    body: JSON.stringify({
+      asset,
+      chain_key: chainKey,
+      address,
+      amount: decimalString(amount),
+    }),
+  });
 }
 
 export async function fetchAssetPrices(symbol: string): Promise<AssetPriceResponse> {
@@ -322,8 +378,7 @@ function mapMarket(item: ApiMarket): MarketPair {
   const symbol = item.symbol || item.Symbol || '';
   const baseAsset = item.base_asset || item.BaseAsset || symbol.split('/')[0] || '';
   const quoteAsset = item.quote_asset || item.QuoteAsset || symbol.split('/')[1] || '';
-  const fallbackPrice = seedPrice(symbol, baseAsset);
-  const lastPrice = Number(item.last_price || fallbackPrice);
+  const lastPrice = Number(item.last_price || 0);
 
   return {
     symbol,
@@ -335,7 +390,7 @@ function mapMarket(item: ApiMarket): MarketPair {
     low24h: Number(item.low_24h || lastPrice),
     volume24h: Number(item.volume_24h || 0),
     liquidity: Number(item.liquidity || 0) / 1_000_000,
-    isFavorite: ['PEPPER/USD', 'CHZ/USD', 'SOL/USD'].includes(symbol),
+    isFavorite: false,
   };
 }
 
@@ -455,15 +510,6 @@ function mapOrderStatus(status: string): Order['status'] {
   }
 }
 
-function seedPrice(symbol: string, baseAsset: string): number {
-  if (symbol === 'PEPPER/USD') return 0.000000001;
-  if (baseAsset === 'CHZ') return 0.08;
-  if (baseAsset === 'SOL') return 184.25;
-  if (baseAsset === 'AVAX') return 32.4;
-  if (baseAsset === 'ETH') return 3412.8;
-  return 1;
-}
-
 function decimalString(value: number): string {
   if (!Number.isFinite(value)) return '0';
   return value.toLocaleString('en-US', {
@@ -477,6 +523,12 @@ function gatewayHeaders(): Record<string, string> {
   return {
     'X-Gateway-Secret': exchangeConfig.paymentGatewaySecret,
   };
+}
+
+function apiResourceURL(path: string): string {
+  if (/^https?:\/\//i.test(path)) return path;
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${exchangeConfig.apiBaseURL}${normalizedPath}`;
 }
 
 function stripTrailingSlash(value: string): string {

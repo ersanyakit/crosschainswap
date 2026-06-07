@@ -189,6 +189,15 @@ body {
   background: var(--color-accent-1);
 }
 
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* Subtle blinking green/red prices */
 @keyframes blink-green {
   0% { background-color: rgba(14, 203, 129, 0.25); }

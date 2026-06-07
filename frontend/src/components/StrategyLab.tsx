@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FileCode2, Play, Pause, RefreshCw, CheckCircle2, TrendingUp, Sliders, AlertCircle, Sparkles, Terminal } from 'lucide-react';
 import { TradingStrategy, MarketPair } from '../types/trading';
 import { BRAND_NAME } from '../constants/brand';
@@ -24,7 +24,7 @@ export default function StrategyLab({
   onAddSystemLog,
 }: StrategyLabProps) {
   const [selectedStratId, setSelectedStratId] = useState(strategies[0]?.id || '');
-  const [backtestPair, setBacktestPair] = useState('PEPPER/USD');
+  const [backtestPair, setBacktestPair] = useState(markets[0]?.symbol || '');
   const [startCapital, setStartCapital] = useState('10000');
   
   // Script compilation logs states
@@ -40,15 +40,47 @@ export default function StrategyLab({
 
   const activeStrategy = strategies.find(s => s.id === selectedStratId) || strategies[0];
 
+  useEffect(() => {
+    if (strategies.length === 0) {
+      setSelectedStratId('');
+    } else if (!strategies.some(strategy => strategy.id === selectedStratId)) {
+      setSelectedStratId(strategies[0].id);
+    }
+  }, [strategies, selectedStratId]);
+
+  useEffect(() => {
+    if (markets.length === 0) {
+      setBacktestPair('');
+    } else if (!markets.some(market => market.symbol === backtestPair)) {
+      setBacktestPair(markets[0].symbol);
+    }
+  }, [markets, backtestPair]);
+
+  if (!activeStrategy) {
+    return (
+      <div className="flex-1 overflow-y-auto p-4 sm:p-5 bg-[#fafbfc] dark:bg-[#070b0f] h-full max-w-7xl mx-auto">
+        <div className="bg-white dark:bg-[#0c1015] border border-[#e1e4e8] dark:border-[#21262d] rounded-lg shadow-sm p-6 text-center">
+          <FileCode2 className="w-8 h-8 text-accent-1 mx-auto mb-3" />
+          <h2 className="text-sm font-display font-semibold text-gray-900 dark:text-gray-100 mb-2">
+            No backend strategies
+          </h2>
+          <p className="text-xs font-mono text-gray-500 dark:text-gray-400">
+            Strategy records will appear here after they are returned by the backend.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const handleCompile = () => {
     setIsCompiling(true);
-    setCompilationLogs(['Initializing WebAssembly Strategy Sandbox...', 'Verifying JS syntax compliance...']);
+    setCompilationLogs(['Initializing strategy runtime...', 'Verifying JS syntax compliance...']);
     
     setTimeout(() => {
       setCompilationLogs(prev => [
         ...prev,
         'Compiling evaluation hook...',
-        'Linking historical market walk buffers...',
+        'Linking backend market data readers...',
         'SUCCESS: Compiled strategy bundle registered with VM engine.'
       ]);
       setIsCompiling(false);
@@ -58,35 +90,18 @@ export default function StrategyLab({
 
   const handleRunBacktest = () => {
     setIsCompiling(true);
-    setCompilationLogs(['Setting up backtest parameters...', `Loading historical ticks for ${backtestPair}...`]);
+    setCompilationLogs(['Preparing backtest request...', `Selected backend market ${backtestPair}.`]);
     setBacktestStats(null);
 
     setTimeout(() => {
-      const mockCapital = parseFloat(startCapital) || 10000;
-      // High profit bots for fun but realistic variation
-      const randomWinRate = 50 + Math.random() * 25;
-      const profitPctMultiplier = randomWinRate > 58 ? (1.1 + Math.random() * 0.4) : (0.8 + Math.random() * 0.3);
-      const randomProfitPct = (randomWinRate * 0.5 - 20) * profitPctMultiplier;
-      const finalCapital = mockCapital * (1 + randomProfitPct / 100);
-      const totalTradesCount = 18 + Math.floor(Math.random() * 60);
-
       setCompilationLogs(prev => [
         ...prev,
-        `Iterated evaluation hook over last 120 candles of ${backtestPair}...`,
-        `Fitted trade calculations: ${totalTradesCount} signals triggered.`,
-        'Simulation finalized without slippage faults.'
+        'Backend backtest endpoint is not configured for this workspace.',
+        'No generated performance metrics were created.'
       ]);
 
-      setBacktestStats({
-        ran: true,
-        profitPct: Number(randomProfitPct.toFixed(2)),
-        trades: totalTradesCount,
-        winRate: Number(randomWinRate.toFixed(1)),
-        finalCapital: Number(finalCapital.toFixed(2)),
-      });
-
       setIsCompiling(false);
-      onAddSystemLog(`Backtest of ${activeStrategy.name} on ${backtestPair} completed containing ${totalTradesCount} signals.`, 'STRATEGY', 'INFO');
+      onAddSystemLog(`Backtest request for ${activeStrategy.name} on ${backtestPair} requires a backend backtest endpoint.`, 'STRATEGY', 'WARNING');
     }, 1500);
   };
 
@@ -102,10 +117,10 @@ export default function StrategyLab({
         </div>
         <div className="space-y-1">
           <h2 className="text-xs font-bold uppercase tracking-wider text-accent-1 font-display">
-            {BRAND_NAME} Strategy Sandbox Lab
+            {BRAND_NAME} Strategy Lab
           </h2>
           <p className="text-[11px] text-gray-500 dark:text-gray-400 font-mono leading-relaxed max-w-3xl">
-            A real-time developer terminal interface. Edit strategy hooks using the visual JS compiler, run instant backtests on multi-day charts, and toggle automated trading bots on sandbox wallets.
+            A real-time developer terminal interface. Edit strategy hooks using the visual JS compiler, run backtests on backend market charts, and toggle automated trading bots.
           </p>
         </div>
       </div>
@@ -155,14 +170,14 @@ export default function StrategyLab({
                 ) : (
                   <>
                     <Play className="w-3 h-3 fill-white" />
-                    Deploy Bot Sandbox
+                    Deploy Bot
                   </>
                 )}
               </button>
             </div>
           </div>
 
-          {/* Simulated Code area */}
+          {/* Code area */}
           <div className="flex-1 flex relative">
             
             {/* Visual Line Numbers */}
@@ -182,7 +197,7 @@ export default function StrategyLab({
           </div>
 
           <div className="p-2 border-t border-[#e1e4e8] dark:border-[#21262d] bg-[#f9fafc] dark:bg-[#070b0f] font-mono text-[9px] text-gray-400 text-right">
-            Active workspace runtime: JS ESNext Sandbox
+            Active workspace runtime: JS ESNext
           </div>
 
         </div>
@@ -193,7 +208,7 @@ export default function StrategyLab({
           {/* Backtest Config Card */}
           <div className="bg-white dark:bg-[#0c1015] border border-[#e1e4e8] dark:border-[#21262d] rounded-lg shadow-sm p-4 space-y-3 shrink-0">
             <h3 className="text-xs font-bold font-display uppercase tracking-wider text-[#7e8c9a]">
-              Backtest Simulation Parameters
+              Backtest Parameters
             </h3>
 
             <div className="space-y-4 text-xs font-mono">
@@ -211,7 +226,7 @@ export default function StrategyLab({
               </div>
 
               <div>
-                <label className="block text-[9px] uppercase tracking-wider text-gray-400 mb-1">Backtest Simulated Starting Capital (USD)</label>
+                <label className="block text-[9px] uppercase tracking-wider text-gray-400 mb-1">Backtest Starting Capital (USD)</label>
                 <input
                   type="number"
                   value={startCapital}
@@ -222,11 +237,11 @@ export default function StrategyLab({
 
               <button
                 onClick={handleRunBacktest}
-                disabled={isCompiling}
+                disabled={isCompiling || !backtestPair}
                 className="w-full py-2.5 bg-accent-1 hover:bg-accent-1-hovered text-white text-[11px] font-bold rounded cursor-pointer transition-all flex items-center justify-center gap-1.5"
               >
                 <Play className="w-3.5 h-3.5 fill-white" />
-                EXECUTE SIMULATION WALK
+                REQUEST BACKTEST
               </button>
             </div>
           </div>
@@ -260,7 +275,7 @@ export default function StrategyLab({
               <div className="border-t border-[#e1e4e8] dark:border-[#21262d] pt-3.5 mt-3 text-xs space-y-2.5 font-mono">
                 <div className="flex items-center gap-1.5 text-xs text-trade-green font-display font-semibold uppercase">
                   <CheckCircle2 className="w-4 h-4 text-trade-green" />
-                  Simulation finalized
+                  Backtest finalized
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-[11px]">

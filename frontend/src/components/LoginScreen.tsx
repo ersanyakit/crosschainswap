@@ -8,7 +8,7 @@ interface LoginScreenProps {
   error?: string;
   onLogin: () => void;
   onRetry: () => void;
-  onContinueSandbox: () => void;
+  onContinueWithoutOIDC: () => void;
 }
 
 export default function LoginScreen({
@@ -18,7 +18,7 @@ export default function LoginScreen({
   error,
   onLogin,
   onRetry,
-  onContinueSandbox,
+  onContinueWithoutOIDC,
 }: LoginScreenProps) {
   return (
     <div className="w-full h-full bg-[#f6f8fa] dark:bg-[#040406] text-gray-800 dark:text-gray-200 flex items-center justify-center p-4 sm:p-6 select-none">
@@ -119,10 +119,10 @@ export default function LoginScreen({
             {!isLoading && !isOIDCEnabled && (
               <button
                 type="button"
-                onClick={onContinueSandbox}
+                onClick={onContinueWithoutOIDC}
                 className="w-full h-9 rounded border border-[#e1e4e8] dark:border-[#21262d] bg-white dark:bg-[#0c1015] hover:border-accent-1 text-gray-600 dark:text-gray-300 hover:text-accent-1 transition-colors text-[10px] font-mono font-bold uppercase cursor-pointer"
               >
-                Continue in local sandbox
+                Continue without OIDC
               </button>
             )}
 

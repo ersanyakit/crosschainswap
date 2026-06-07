@@ -5,19 +5,23 @@
 
 import { useState, useEffect } from 'react';
 import { ArrowDownLeft, ArrowUpRight, TrendingUp } from 'lucide-react';
-import { OrderBook, OrderBookLevel, MarketPair } from '../types/trading';
+import { OrderBook, MarketPair, Order, OrderBookLevel } from '../types/trading';
 import { formatPrice, formatQuantity } from '../utils/formatters';
 
 interface OrderBookProps {
   orderBook: OrderBook;
   pair: MarketPair;
   onSelectPrice: (price: number) => void;
+  myOpenOrders?: Order[];
+  myRecentOrders?: Order[];
 }
 
 export default function OrderBookView({
   orderBook,
   pair,
   onSelectPrice,
+  myOpenOrders = [],
+  myRecentOrders = [],
 }: OrderBookProps) {
   // Let's visual trim levels depending on screen sizes
   const bidsToRender = orderBook.bids.slice(0, 10);
@@ -41,8 +45,10 @@ export default function OrderBookView({
     }
   }, [pair.lastPrice, prevPrice]);
 
+  const visibleOrders = uniqueOrders([...myOpenOrders, ...myRecentOrders]).slice(0, 6);
+
   return (
-    <div className="bg-white dark:bg-[#0c1015] border border-[#e1e4e8] dark:border-[#21262d] rounded-lg shadow-sm flex flex-col h-[280px] sm:h-[350px] overflow-hidden text-gray-800 dark:text-gray-100 select-none">
+    <div className="bg-white dark:bg-[#0c1015] border border-[#e1e4e8] dark:border-[#21262d] rounded-lg shadow-sm flex flex-col h-[360px] sm:h-[430px] overflow-hidden text-gray-800 dark:text-gray-100 select-none">
       
       {/* Mini Titlebar */}
       <div className="flex items-center justify-between px-3 py-2 bg-[#f6f8fa] dark:bg-[#0d1117] border-b border-[#e1e4e8] dark:border-[#21262d]">
@@ -83,13 +89,13 @@ export default function OrderBookView({
             const levelPrice = ask.price;
             return (
               <div
-                key={`ask-${idx}`}
+                key={levelKey('ask', ask, idx)}
                 onClick={() => onSelectPrice(levelPrice)}
                 className="relative grid grid-cols-3 px-3 py-0.5 cursor-pointer hover:bg-surface-3 transition-colors group"
               >
                 {/* Visual bar width representing depth */}
                 <div
-                  className="absolute right-0 top-0 bottom-0 bg-trade-red/5 dark:bg-trade-red-bg transition-all duration-300 pointer-events-none"
+                  className="absolute right-0 top-0 bottom-0 bg-trade-red/5 dark:bg-trade-red-bg pointer-events-none"
                   style={{ width: `${Math.min(100, ask.depthPercent)}%` }}
                 />
                 
@@ -137,13 +143,13 @@ export default function OrderBookView({
             const levelPrice = bid.price;
             return (
               <div
-                key={`bid-${idx}`}
+                key={levelKey('bid', bid, idx)}
                 onClick={() => onSelectPrice(levelPrice)}
                 className="relative grid grid-cols-3 px-3 py-0.5 cursor-pointer hover:bg-surface-3 transition-colors group"
               >
                 {/* Visual bar width representing depth */}
                 <div
-                  className="absolute right-0 top-0 bottom-0 bg-trade-green/5 dark:bg-trade-green-bg transition-all duration-300 pointer-events-none"
+                  className="absolute right-0 top-0 bottom-0 bg-trade-green/5 dark:bg-trade-green-bg pointer-events-none"
                   style={{ width: `${Math.min(100, bid.depthPercent)}%` }}
                 />
                 
@@ -162,6 +168,71 @@ export default function OrderBookView({
         </div>
 
       </div>
+
+      <div className="border-t border-[#e1e4e8] dark:border-[#21262d] bg-[#f6f8fa] dark:bg-[#0d1117] px-3 py-2 min-h-[92px]">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-[10px] uppercase font-mono font-bold tracking-wide text-gray-500 dark:text-gray-400">
+            My Order Flow
+          </span>
+          <span className="text-[9px] font-mono text-gray-400">
+            {myOpenOrders.length} open / {myRecentOrders.length} recent
+          </span>
+        </div>
+
+        {visibleOrders.length === 0 ? (
+          <div className="h-12 flex items-center justify-center text-[10px] font-mono text-gray-400">
+            Select a pair and submit limit, stop-limit, or market orders to track them here.
+          </div>
+        ) : (
+          <div className="space-y-1 max-h-[60px] overflow-y-auto pr-1">
+            {visibleOrders.map((order) => (
+              <div
+                key={order.id}
+                className="grid grid-cols-[52px_58px_1fr_70px] items-center gap-1 text-[10px] font-mono"
+              >
+                <span className={`px-1.5 py-0.5 rounded text-center font-bold ${
+                  order.side === 'BUY'
+                    ? 'text-trade-green bg-trade-green-bg'
+                    : 'text-trade-red bg-trade-red-bg'
+                }`}>
+                  {order.side}
+                </span>
+                <span className="text-gray-500 dark:text-gray-400 font-semibold">
+                  {order.type === 'STOP_LIMIT' ? 'STOP' : order.type}
+                </span>
+                <span className="truncate text-gray-700 dark:text-gray-300">
+                  {order.type === 'MARKET'
+                    ? `Filled at ${formatPrice(order.price)}`
+                    : order.type === 'STOP_LIMIT'
+                      ? `Stop ${formatPrice(order.stopPrice || 0)} -> ${formatPrice(order.price)}`
+                      : `${formatPrice(order.price)} x ${formatQuantity(Math.max(0, order.amount - order.filled))}`}
+                </span>
+                <span className={`text-right text-[9px] font-bold ${
+                  order.status === 'FILLED' ? 'text-trade-green' : order.status === 'CANCELLED' ? 'text-gray-400' : 'text-accent-1'
+                }`}>
+                  {order.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
+}
+
+function uniqueOrders(orders: Order[]): Order[] {
+  const seen = new Set<string>();
+  return orders.filter((order) => {
+    if (seen.has(order.id)) return false;
+    seen.add(order.id);
+    return true;
+  });
+}
+
+function levelKey(side: 'ask' | 'bid', level: OrderBookLevel, index: number): string {
+  if (Number.isFinite(level.price) && level.price > 0) {
+    return `${side}-${level.price.toFixed(12)}`;
+  }
+  return `${side}-${index}`;
 }
