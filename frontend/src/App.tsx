@@ -26,6 +26,7 @@ import {
   INITIAL_ORDERS,
   INITIAL_LOGS,
   INITIAL_STRATEGIES,
+  generateCandles,
   generateRecentTrades
 } from './data/mockData';
 
@@ -48,6 +49,7 @@ import {
   openExchangeSocket,
   openPriceSocket,
   placeOrder as placeExchangeOrder,
+  settleDeposit as settleExchangeDeposit,
 } from './services/exchangeService';
 import {
   AuthUser,
@@ -105,6 +107,7 @@ export default function App() {
   const selectedMarketObj = markets.find(m => m.symbol === selectedPairSymbol) || markets[0];
   const [tradeHistory, setTradeHistory] = useState<Trade[]>(() => generateRecentTrades(selectedMarketObj.lastPrice));
   const [activeOrderBook, setActiveOrderBook] = useState<OrderBook>(() => emptyOrderBook());
+  const [orderSubmitError, setOrderSubmitError] = useState<string | null>(null);
   const [exchangeMode, setExchangeMode] = useState<ExchangeMode>('connecting');
   const [exchangeMessage, setExchangeMessage] = useState('Probing exchange API');
   const [protocolRevision, setProtocolRevision] = useState(0);
@@ -488,15 +491,20 @@ export default function App() {
         if (orderBookResult.status === 'fulfilled') {
           setActiveOrderBook(orderBookResult.value);
         }
-        if (candlesResult.status === 'fulfilled' && candlesResult.value.length > 0) {
-          setCandles(candlesResult.value);
-          const lastCandle = candlesResult.value[candlesResult.value.length - 1];
+        if (candlesResult.status === 'fulfilled') {
+          const nextCandles = candlesResult.value.length > 0
+            ? candlesResult.value
+            : generateCandles(selectedPairSymbol, timeframe, 120);
+          setCandles(nextCandles);
+          const lastCandle = nextCandles[nextCandles.length - 1];
           setMarkets(prev => prev.map(m => m.symbol === selectedPairSymbol ? {
             ...m,
             lastPrice: lastCandle.close,
             high24h: Math.max(m.high24h, lastCandle.high),
             low24h: Math.min(m.low24h, lastCandle.low),
           } : m));
+        } else {
+          setCandles(generateCandles(selectedPairSymbol, timeframe, 120));
         }
         if (marketTradesResult.status === 'fulfilled' || userTradesResult.status === 'fulfilled') {
           const marketTrades = marketTradesResult.status === 'fulfilled' ? marketTradesResult.value : [];
@@ -511,8 +519,10 @@ export default function App() {
           setOpenOrders(userOrdersResult.value.filter(o => o.status === 'PENDING'));
           setOrderHistory(userOrdersResult.value.filter(o => o.status !== 'PENDING'));
         }
-        if (balancesResult.status === 'fulfilled' && balancesResult.value.length > 0) {
+        if (balancesResult.status === 'fulfilled') {
           setBalances(balancesResult.value);
+        } else {
+          setBalances([]);
         }
         if (assetPricesResult.status === 'fulfilled') {
           setDexPrices(assetPricesResult.value);
@@ -611,6 +621,7 @@ export default function App() {
   }) => {
     if (exchangeMode === 'live') {
       try {
+        setOrderSubmitError(null);
         appendLog(`Submitting ${ordData.type} ${ordData.side} through exchange limit protocol.`, 'ORDER', 'INFO');
         const result = await placeExchangeOrder({
           market: selectedPairSymbol,
@@ -633,7 +644,9 @@ export default function App() {
         setProtocolRevision(rev => rev + 1);
         appendLog(`Exchange accepted ${result.order.id}: ${result.order.status} ${result.order.filled.toFixed(4)}/${result.order.amount.toFixed(4)}.`, 'ORDER', 'SUCCESS');
       } catch (err) {
-        appendLog(`Exchange order rejected: ${err instanceof Error ? err.message : 'unknown protocol error'}`, 'ORDER', 'ERROR');
+        const message = err instanceof Error ? err.message : 'unknown protocol error';
+        setOrderSubmitError(message);
+        appendLog(`Exchange order rejected: ${message}`, 'ORDER', 'ERROR');
       }
       return;
     }
@@ -842,7 +855,21 @@ export default function App() {
   };
 
   // Handle deposit funds
-  const handleDeposit = (asset: string, amount: number) => {
+  const handleDeposit = async (asset: string, amount: number) => {
+    if (exchangeMode === 'live') {
+      try {
+        const settled = await settleExchangeDeposit(activeUserID, asset, amount);
+        setBalances(prev => upsertBalance(prev, settled));
+        setProtocolRevision(rev => rev + 1);
+        const txId = `D-${Math.floor(10000 + Math.random() * 90000)}`;
+        setWalletTransactions(prev => [{ id: txId, type: 'DEPOSIT', asset, amount, time: new Date() }, ...prev]);
+        appendLog(`Gateway deposit settled on backend. +${amount} ${asset} credited to ${activeUserID}.`, 'SYSTEM', 'SUCCESS');
+      } catch (err) {
+        appendLog(`Gateway deposit rejected: ${err instanceof Error ? err.message : 'unknown settlement error'}`, 'SYSTEM', 'ERROR');
+      }
+      return;
+    }
+
     setBalances(prev => prev.map(b => {
       if (b.asset === asset) {
         const nextFree = b.free + amount;
@@ -1101,36 +1128,13 @@ export default function App() {
               {openTabs.map((tab) => {
                 const isActive = activeTabId === tab.id;
                 
-                // Render custom coin gradient tokens or file descriptors next to names
+                // Render registry-backed asset tokens or file descriptors next to names
                 const renderTabIcon = () => {
                   if (tab.type === 'MARKET' && tab.symbol) {
-                    const symbol = tab.symbol.toUpperCase();
-                    if (symbol.startsWith('BTC')) {
-                      return (
-                        <span className="w-4 h-4 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 text-[10px] text-white flex items-center justify-center font-bold font-sans shadow-xs shrink-0">
-                          ₿
-                        </span>
-                      );
-                    }
-                    if (symbol.startsWith('ETH')) {
-                      return (
-                        <span className="w-4 h-4 rounded-full bg-gradient-to-br from-purple-400 to-indigo-600 text-[9px] text-white flex items-center justify-center font-bold font-sans shadow-xs shrink-0">
-                          Ξ
-                        </span>
-                      );
-                    }
-                    if (symbol.startsWith('SOL')) {
-                      return (
-                        <span className="w-4 h-4 rounded-full bg-gradient-to-br from-teal-400 via-pink-400 to-indigo-600 text-[9px] text-white flex items-center justify-center font-bold font-sans shadow-xs shrink-0">
-                          S
-                        </span>
-                      );
-                    }
-                    const letter = symbol.charAt(0);
+                    const market = markets.find(item => item.symbol === tab.symbol);
+                    const baseAsset = market?.baseAsset || tab.symbol.split('/')[0] || tab.symbol;
                     return (
-                      <span className="w-4 h-4 rounded-full bg-gradient-to-br from-blue-400 to-cyan-600 text-[9px] text-white flex items-center justify-center font-bold font-sans shadow-xs shrink-0">
-                        {letter}
-                      </span>
+                      <AssetIcon symbol={baseAsset} iconURL={assetMetadata[baseAsset]?.icon_url} size="xs" />
                     );
                   } else if (tab.type === 'PORTFOLIO') {
                     return <Briefcase className="w-3.5 h-3.5 text-blue-500 shrink-0" />;
@@ -1342,6 +1346,7 @@ export default function App() {
                     onSubmitOrder={handleOrderSubmit}
                     selectedPrice={orderBookSelectedPrice}
                     clearSelectedPrice={() => setOrderBookSelectedPrice(null)}
+                    submitError={orderSubmitError}
                   />
                 </div>
 
@@ -1455,6 +1460,12 @@ function emptyOrderBook(): OrderBook {
     spread: 0,
     spreadPercent: 0,
   };
+}
+
+function upsertBalance(current: AssetBalance[], next: AssetBalance): AssetBalance[] {
+  const found = current.some(item => item.asset === next.asset);
+  if (!found) return [next, ...current];
+  return current.map(item => item.asset === next.asset ? next : item);
 }
 
 function assetMetadataBySymbol(assets: AssetInfo[]): Record<string, AssetInfo> {

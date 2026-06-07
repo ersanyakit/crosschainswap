@@ -103,7 +103,15 @@ func (s *Server) routes() {
 	s.app.Post("/v1/withdrawals/:id/complete", s.completeWithdrawal)
 	s.app.Post("/v1/withdrawals/:id/cancel", s.cancelWithdrawal)
 	s.app.Get("/v1/users/:user_id/wallets", s.listWallets)
+	s.app.Post("/v1/users/:user_id/wallets/sync", s.syncGatewayWallets)
 	s.app.Put("/v1/users/:user_id/wallets", s.registerGatewayWallet)
+	s.app.Post("/v1/payment-gateway/callback", s.gatewayUnifiedCallback)
+	s.app.Post("/v1/payment-gateway/webhook", s.gatewayUnifiedCallback)
+	s.app.Post("/v1/payment-gateway/callbacks/deposit", s.gatewayDepositCallback)
+	s.app.Post("/v1/payment-gateway/callbacks/withdrawal", s.gatewayWithdrawalCallback)
+	s.app.Post("/v1/gateway/webhook", s.gatewayUnifiedCallback)
+	s.app.Post("/v1/gateway/callbacks/deposits", s.gatewayDepositCallback)
+	s.app.Post("/v1/gateway/callbacks/withdrawals", s.gatewayWithdrawalCallback)
 	s.app.Get("/ws", s.hub.Handle)
 	s.app.Get("/ws/orders", s.hub.Handle)
 	s.app.Get("/ws/prices", s.hub.Handle)
@@ -425,6 +433,18 @@ func (s *Server) listWallets(c fiber.Ctx) error {
 	result, err := s.orders.ListWallets(c.Context(), userID)
 	if err != nil {
 		return orderError(c, err)
+	}
+	return c.JSON(result)
+}
+
+func (s *Server) syncGatewayWallets(c fiber.Ctx) error {
+	userID, err := s.requirePathUser(c)
+	if err != nil {
+		return err
+	}
+	result, err := s.orders.EnsureGatewayWallets(c.Context(), userID)
+	if err != nil {
+		return c.Status(fiber.StatusBadGateway).JSON(errorResponse{Error: err.Error()})
 	}
 	return c.JSON(result)
 }

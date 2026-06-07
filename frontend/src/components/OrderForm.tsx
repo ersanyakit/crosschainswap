@@ -21,6 +21,7 @@ interface OrderFormProps {
   }) => void;
   selectedPrice: number | null;
   clearSelectedPrice: () => void;
+  submitError?: string | null;
 }
 
 export default function OrderForm({
@@ -30,6 +31,7 @@ export default function OrderForm({
   onSubmitOrder,
   selectedPrice,
   clearSelectedPrice,
+  submitError,
 }: OrderFormProps) {
   const [side, setSide] = useState<OrderSide>('BUY');
   const [type, setType] = useState<OrderType>('LIMIT');
@@ -139,7 +141,7 @@ export default function OrderForm({
   const isPriceZero = type !== 'MARKET' && price <= 0;
   const isStopPriceNeeded = type === 'STOP_LIMIT' && stopPrice <= 0;
   
-  const isOrderInvalid = isBalanceExceeded || isAmountZero || isPriceZero || isStopPriceNeeded;
+  const isOrderInvalid = isAmountZero || isPriceZero || isStopPriceNeeded;
 
   // Risks analysis indicators
   const isSlippageRisk = total > 15000; // Big order impact
@@ -483,6 +485,16 @@ export default function OrderForm({
               {isSlippageRisk && <span>• Order block exceeds slippage hazard limits (${total.toLocaleString()}).</span>}
               {isLiquidityWarning && <span>• Size occupies high percentage of 24h liquidity pools. High price impact.</span>}
               {isPriceDeviationWarning && <span>• Entry deviates significantly (&gt;10%) from active market index price.</span>}
+            </div>
+          </div>
+        )}
+
+        {submitError && (
+          <div className="p-2.5 rounded bg-rose-50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/35 font-mono text-[9px] text-rose-600 dark:text-rose-400 leading-normal flex gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <div>
+              <span className="font-bold block uppercase">Backend Order Rejected:</span>
+              <span>{submitError}</span>
             </div>
           </div>
         )}

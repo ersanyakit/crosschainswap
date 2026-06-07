@@ -43,8 +43,15 @@ type ExchangeOrder struct {
 	Quantity          string    `gorm:"type:numeric(78,18);not null"`
 	FilledQuantity    string    `gorm:"type:numeric(78,18);not null;default:0"`
 	RemainingQuantity string    `gorm:"type:numeric(78,18);not null"`
-	CreatedAt         time.Time `gorm:"index:idx_orders_book,priority:5;default:current_timestamp"`
+	SequenceID        uint64    `gorm:"index:idx_orders_book,priority:5;not null;default:0"`
+	CreatedAt         time.Time `gorm:"index;default:current_timestamp"`
 	UpdatedAt         time.Time `gorm:"default:current_timestamp"`
+}
+
+type ExchangeOrderSequence struct {
+	Market       string    `gorm:"primaryKey;type:varchar(64)"`
+	NextSequence uint64    `gorm:"not null;default:1"`
+	UpdatedAt    time.Time `gorm:"default:current_timestamp"`
 }
 
 type ExchangeTrade struct {
@@ -130,12 +137,13 @@ type ExchangeWithdrawal struct {
 }
 
 type ExchangePriceLevel struct {
-	Market        string    `gorm:"primaryKey;type:varchar(64)"`
-	Side          string    `gorm:"primaryKey;type:varchar(16)"`
-	Price         string    `gorm:"primaryKey;type:numeric(78,18)"`
-	Quantity      string    `gorm:"type:numeric(78,18);not null"`
-	OrderCount    int64     `gorm:"not null;default:0"`
-	LastUpdatedAt time.Time `gorm:"default:current_timestamp"`
+	Market          string    `gorm:"primaryKey;type:varchar(64)"`
+	Side            string    `gorm:"primaryKey;type:varchar(16)"`
+	Price           string    `gorm:"primaryKey;type:numeric(78,18)"`
+	Quantity        string    `gorm:"type:numeric(78,18);not null"`
+	OrderCount      int64     `gorm:"not null;default:0"`
+	FirstSequenceID uint64    `gorm:"index;not null;default:0"`
+	LastUpdatedAt   time.Time `gorm:"default:current_timestamp"`
 }
 
 type ExchangeMarket struct {

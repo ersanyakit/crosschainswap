@@ -52,6 +52,63 @@ func TestMarketSummariesReturnUSDDefaultsWithoutRepository(t *testing.T) {
 	}
 }
 
+func TestCandlesReturnFallbackWithoutRepository(t *testing.T) {
+	service := NewService(market.NewRegistry([]market.Market{
+		{Symbol: "PEPPER/USD", BaseAsset: "PEPPER", QuoteAsset: "USD", Enabled: true},
+	}), nil)
+
+	candles, err := service.Candles(t.Context(), MarketHistoryRequest{
+		Market:   "PEPPER/USD",
+		Interval: "1m",
+		Limit:    5,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(candles) != 5 {
+		t.Fatalf("expected 5 fallback candles, got %d", len(candles))
+	}
+	last := candles[len(candles)-1]
+	if last.Market != "PEPPER/USD" || last.Interval != "1m" || last.Close != "0.000000001" {
+		t.Fatalf("unexpected fallback candle: %#v", last)
+	}
+}
+
+func TestGatewayDepositAmountFromRaw(t *testing.T) {
+	got, err := gatewayDepositAmount(GatewayDepositCallback{AmountRaw: "100250000", Decimals: 6})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "100.25" {
+		t.Fatalf("gatewayDepositAmount raw = %q, want 100.25", got)
+	}
+}
+
+func TestGatewayStatusNormalization(t *testing.T) {
+	cases := map[string]string{
+		"awaiting_payment": "pending",
+		"paid":             "settled",
+		"completed":        "settled",
+		"failed":           "canceled",
+	}
+	for input, want := range cases {
+		if got := normalizeGatewayStatus(input); got != want {
+			t.Fatalf("normalizeGatewayStatus(%q) = %q, want %q", input, got, want)
+		}
+	}
+}
+
+func TestGatewayBalanceEventIDIsDeterministicAndShort(t *testing.T) {
+	first := gatewayBalanceEventID("gwdep_s", "payment-1")
+	second := gatewayBalanceEventID("gwdep_s", "payment-1")
+	if first != second {
+		t.Fatalf("gatewayBalanceEventID is not deterministic: %q != %q", first, second)
+	}
+	if len(first) > 64 {
+		t.Fatalf("gatewayBalanceEventID length = %d, want <= 64", len(first))
+	}
+}
+
 func TestBuildMarketOrderDefaultsToIOC(t *testing.T) {
 	service := NewService(market.NewRegistry([]market.Market{
 		{Symbol: "PEPPER/USDC", BaseAsset: "PEPPER", QuoteAsset: "USDC", Enabled: true},

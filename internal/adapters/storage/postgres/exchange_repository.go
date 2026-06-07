@@ -38,12 +38,90 @@ func (r *ExchangeRepository) Transaction(ctx context.Context, fn func(*ExchangeR
 	})
 }
 
+func (r *ExchangeRepository) BalanceEventExists(ctx context.Context, id balance.EventID) (bool, error) {
+	if strings.TrimSpace(string(id)) == "" {
+		return false, nil
+	}
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&ExchangeBalanceEvent{}).
+		Where(&ExchangeBalanceEvent{ID: string(id)}).
+		Limit(1).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 func (r *ExchangeRepository) CreateOrder(ctx context.Context, item order.Order) error {
 	model := orderToModel(item)
 	if err := r.db.WithContext(ctx).Create(&model).Error; err != nil {
 		return fmt.Errorf("failed to create order %s: %w", item.ID, err)
 	}
 	return nil
+}
+
+func (r *ExchangeRepository) NextOrderSequence(ctx context.Context, market string) (uint64, error) {
+	market = strings.ToUpper(strings.TrimSpace(market))
+	if market == "" {
+		return 0, fmt.Errorf("market is required for order sequence")
+	}
+	for attempt := 0; attempt < 2; attempt++ {
+		var model ExchangeOrderSequence
+		err := r.db.WithContext(ctx).
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where(&ExchangeOrderSequence{Market: market}).
+			First(&model).Error
+		if err != nil {
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return 0, err
+			}
+			maxSeq, err := r.maxOrderSequence(ctx, market)
+			if err != nil {
+				return 0, err
+			}
+			seq := maxSeq + 1
+			if seq == 0 {
+				seq = 1
+			}
+			model = ExchangeOrderSequence{Market: market, NextSequence: seq + 1, UpdatedAt: time.Now()}
+			if createErr := r.db.WithContext(ctx).Create(&model).Error; createErr != nil {
+				if attempt == 0 {
+					continue
+				}
+				return 0, createErr
+			}
+			return seq, nil
+		}
+
+		seq := model.NextSequence
+		if seq == 0 {
+			seq = 1
+		}
+		model.NextSequence = seq + 1
+		model.UpdatedAt = time.Now()
+		if err := r.db.WithContext(ctx).Save(&model).Error; err != nil {
+			return 0, err
+		}
+		return seq, nil
+	}
+	return 0, fmt.Errorf("failed to allocate order sequence for %s", market)
+}
+
+func (r *ExchangeRepository) maxOrderSequence(ctx context.Context, market string) (uint64, error) {
+	var model ExchangeOrder
+	err := r.db.WithContext(ctx).
+		Where(&ExchangeOrder{Market: market}).
+		Clauses(clause.OrderBy{Columns: []clause.OrderByColumn{{Column: clause.Column{Name: "sequence_id"}, Desc: true}}}).
+		First(&model).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return model.SequenceID, nil
 }
 
 func (r *ExchangeRepository) SaveOrder(ctx context.Context, item order.Order) error {
@@ -480,12 +558,12 @@ func (r *ExchangeRepository) ListOpenOrders(ctx context.Context, market string, 
 	if side == order.SideBuy {
 		query = query.Clauses(clause.OrderBy{Columns: []clause.OrderByColumn{
 			{Column: clause.Column{Name: "price"}, Desc: true},
-			{Column: clause.Column{Name: "created_at"}},
+			{Column: clause.Column{Name: "sequence_id"}},
 		}})
 	} else {
 		query = query.Clauses(clause.OrderBy{Columns: []clause.OrderByColumn{
 			{Column: clause.Column{Name: "price"}},
-			{Column: clause.Column{Name: "created_at"}},
+			{Column: clause.Column{Name: "sequence_id"}},
 		}})
 	}
 
@@ -517,13 +595,13 @@ func (r *ExchangeRepository) ListMatchCandidates(ctx context.Context, market str
 		query = query.Where("price <= ?", takerPrice).
 			Clauses(clause.OrderBy{Columns: []clause.OrderByColumn{
 				{Column: clause.Column{Name: "price"}},
-				{Column: clause.Column{Name: "created_at"}},
+				{Column: clause.Column{Name: "sequence_id"}},
 			}})
 	} else {
 		query = query.Where("price >= ?", takerPrice).
 			Clauses(clause.OrderBy{Columns: []clause.OrderByColumn{
 				{Column: clause.Column{Name: "price"}, Desc: true},
-				{Column: clause.Column{Name: "created_at"}},
+				{Column: clause.Column{Name: "sequence_id"}},
 			}})
 	}
 
@@ -542,7 +620,7 @@ func (r *ExchangeRepository) ListPendingStops(ctx context.Context, market string
 	err := r.db.WithContext(ctx).
 		Where(&ExchangeOrder{Market: market, Status: string(order.StatusPendingStop)}).
 		Clauses(clause.Locking{Strength: "UPDATE"}).
-		Clauses(clause.OrderBy{Columns: []clause.OrderByColumn{{Column: clause.Column{Name: "created_at"}}}}).
+		Clauses(clause.OrderBy{Columns: []clause.OrderByColumn{{Column: clause.Column{Name: "sequence_id"}}}}).
 		Limit(limit).
 		Find(&models).Error
 	if err != nil {
@@ -560,7 +638,7 @@ func (r *ExchangeRepository) RefreshPriceLevels(ctx context.Context, keys []Pric
 
 		var models []ExchangeOrder
 		err := r.db.WithContext(ctx).
-			Select("remaining_quantity").
+			Select("remaining_quantity", "sequence_id").
 			Where(&ExchangeOrder{Market: key.Market, Side: string(key.Side), Price: key.Price}).
 			Where("status IN ?", openStatuses()).
 			Find(&models).Error
@@ -591,6 +669,9 @@ func (r *ExchangeRepository) RefreshPriceLevels(ctx context.Context, keys []Pric
 			}
 			level.Quantity = decimal.Add(level.Quantity, item.RemainingQuantity)
 			level.OrderCount++
+			if level.FirstSequenceID == 0 || (item.SequenceID != 0 && item.SequenceID < level.FirstSequenceID) {
+				level.FirstSequenceID = item.SequenceID
+			}
 		}
 		if level.OrderCount == 0 {
 			err := r.db.WithContext(ctx).
@@ -641,9 +722,15 @@ func (r *ExchangeRepository) ListPriceLevels(ctx context.Context, market string,
 	var models []ExchangePriceLevel
 	query := r.db.WithContext(ctx).Where(&ExchangePriceLevel{Market: market, Side: string(side)}).Limit(limit)
 	if side == order.SideBuy {
-		query = query.Clauses(clause.OrderBy{Columns: []clause.OrderByColumn{{Column: clause.Column{Name: "price"}, Desc: true}}})
+		query = query.Clauses(clause.OrderBy{Columns: []clause.OrderByColumn{
+			{Column: clause.Column{Name: "price"}, Desc: true},
+			{Column: clause.Column{Name: "first_sequence_id"}},
+		}})
 	} else {
-		query = query.Clauses(clause.OrderBy{Columns: []clause.OrderByColumn{{Column: clause.Column{Name: "price"}}}})
+		query = query.Clauses(clause.OrderBy{Columns: []clause.OrderByColumn{
+			{Column: clause.Column{Name: "price"}},
+			{Column: clause.Column{Name: "first_sequence_id"}},
+		}})
 	}
 	if err := query.Find(&models).Error; err != nil {
 		return nil, err
@@ -677,6 +764,7 @@ func orderToModel(item order.Order) ExchangeOrder {
 		Quantity:          item.Quantity,
 		FilledQuantity:    zeroIfEmpty(item.FilledQuantity),
 		RemainingQuantity: item.RemainingQuantity,
+		SequenceID:        item.SequenceID,
 		CreatedAt:         item.CreatedAt,
 		UpdatedAt:         item.UpdatedAt,
 	}
@@ -699,6 +787,7 @@ func modelToOrder(model ExchangeOrder) order.Order {
 		Quantity:          model.Quantity,
 		FilledQuantity:    model.FilledQuantity,
 		RemainingQuantity: model.RemainingQuantity,
+		SequenceID:        model.SequenceID,
 		CreatedAt:         model.CreatedAt,
 		UpdatedAt:         model.UpdatedAt,
 	}
@@ -836,12 +925,13 @@ func modelToWithdrawal(model ExchangeWithdrawal) balance.Withdrawal {
 
 func priceLevelToModel(level orderbook.PriceLevel) ExchangePriceLevel {
 	return ExchangePriceLevel{
-		Market:        level.Market,
-		Side:          string(level.Side),
-		Price:         level.Price,
-		Quantity:      level.Quantity,
-		OrderCount:    level.OrderCount,
-		LastUpdatedAt: level.LastUpdatedAt,
+		Market:          level.Market,
+		Side:            string(level.Side),
+		Price:           level.Price,
+		Quantity:        level.Quantity,
+		OrderCount:      level.OrderCount,
+		FirstSequenceID: level.FirstSequenceID,
+		LastUpdatedAt:   level.LastUpdatedAt,
 	}
 }
 
@@ -1091,12 +1181,13 @@ func orderReserveAssetAmount(item order.Order) (string, string) {
 
 func modelToPriceLevel(model ExchangePriceLevel) orderbook.PriceLevel {
 	return orderbook.PriceLevel{
-		Market:        model.Market,
-		Side:          order.Side(model.Side),
-		Price:         model.Price,
-		Quantity:      model.Quantity,
-		OrderCount:    model.OrderCount,
-		LastUpdatedAt: model.LastUpdatedAt,
+		Market:          model.Market,
+		Side:            order.Side(model.Side),
+		Price:           model.Price,
+		Quantity:        model.Quantity,
+		OrderCount:      model.OrderCount,
+		FirstSequenceID: model.FirstSequenceID,
+		LastUpdatedAt:   model.LastUpdatedAt,
 	}
 }
 
@@ -1112,17 +1203,21 @@ func aggregateLevels(market string, side order.Side, orders []order.Order) []ord
 		if !ok {
 			byPrice[item.Price] = len(levels)
 			levels = append(levels, orderbook.PriceLevel{
-				Market:        market,
-				Side:          side,
-				Price:         item.Price,
-				Quantity:      item.RemainingQuantity,
-				OrderCount:    1,
-				LastUpdatedAt: now,
+				Market:          market,
+				Side:            side,
+				Price:           item.Price,
+				Quantity:        item.RemainingQuantity,
+				OrderCount:      1,
+				FirstSequenceID: item.SequenceID,
+				LastUpdatedAt:   now,
 			})
 			continue
 		}
 		levels[idx].Quantity = decimal.Add(levels[idx].Quantity, item.RemainingQuantity)
 		levels[idx].OrderCount++
+		if levels[idx].FirstSequenceID == 0 || (item.SequenceID != 0 && item.SequenceID < levels[idx].FirstSequenceID) {
+			levels[idx].FirstSequenceID = item.SequenceID
+		}
 	}
 	return levels
 }

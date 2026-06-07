@@ -2,6 +2,8 @@ package orders
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -37,9 +39,19 @@ type Service struct {
 	repo         *postgres.ExchangeRepository
 	priceBandBps int64
 	publish      Publisher
+	gateway      GatewayWalletProvider
 }
 
 type Publisher func([]byte)
+
+type GatewayWalletProvider interface {
+	CreateUserWallet(ctx context.Context, userID string) ([]GatewayWallet, error)
+}
+
+type GatewayWallet struct {
+	ChainKey string
+	Address  string
+}
 
 type PlaceRequest struct {
 	ClientOrderID string `json:"client_order_id"`
@@ -92,6 +104,41 @@ type WalletRequest struct {
 	Address  string `json:"address"`
 }
 
+type GatewayDepositCallback struct {
+	EventID       string `json:"event_id"`
+	PaymentID     string `json:"payment_id"`
+	TrackID       string `json:"track_id"`
+	OrderID       string `json:"order_id"`
+	UserID        string `json:"user_id"`
+	Asset         string `json:"asset"`
+	Symbol        string `json:"symbol"`
+	SelectedAsset string `json:"selected_asset"`
+	Amount        string `json:"amount"`
+	AmountRaw     string `json:"amount_raw"`
+	Decimals      int    `json:"decimals"`
+	Status        string `json:"status"`
+	ChainKey      string `json:"chain_key"`
+	Chain         string `json:"chain"`
+	SelectedChain string `json:"selected_chain"`
+	TxHash        string `json:"tx_hash"`
+}
+
+type GatewayWithdrawalCallback struct {
+	EventID      string `json:"event_id"`
+	WithdrawalID string `json:"withdrawal_id"`
+	PayoutID     string `json:"payout_id"`
+	ID           string `json:"id"`
+	Status       string `json:"status"`
+	TxHash       string `json:"tx_hash"`
+}
+
+type GatewayCallbackResult struct {
+	Status     string              `json:"status"`
+	Action     string              `json:"action"`
+	Balance    *balance.Balance    `json:"balance,omitempty"`
+	Withdrawal *balance.Withdrawal `json:"withdrawal,omitempty"`
+}
+
 type MatchResult struct {
 	Order  order.Order   `json:"order"`
 	Trades []trade.Trade `json:"trades"`
@@ -119,6 +166,10 @@ func (s *Service) SetPublisher(publisher Publisher) {
 	s.publish = publisher
 }
 
+func (s *Service) SetGatewayWalletProvider(provider GatewayWalletProvider) {
+	s.gateway = provider
+}
+
 func (s *Service) Place(ctx context.Context, req PlaceRequest) (*MatchResult, error) {
 	item, err := s.buildOrder(req)
 	if err != nil {
@@ -141,6 +192,11 @@ func (s *Service) Place(ctx context.Context, req PlaceRequest) (*MatchResult, er
 		if err := s.validatePriceBand(ctx, tx, item); err != nil {
 			return err
 		}
+		seq, err := tx.NextOrderSequence(ctx, item.Market)
+		if err != nil {
+			return err
+		}
+		item.SequenceID = seq
 		if err := tx.CreateOrder(ctx, item); err != nil {
 			return err
 		}
@@ -254,6 +310,9 @@ func (s *Service) Book(ctx context.Context, marketSymbol string, depth int) (*or
 	if _, ok := s.markets.Get(marketSymbol); !ok {
 		return nil, fmt.Errorf("%w: %s", ErrUnknownMarket, marketSymbol)
 	}
+	if s.repo == nil {
+		return &orderbook.Snapshot{Market: marketSymbol, Bids: nil, Asks: nil}, nil
+	}
 	bids, err := s.repo.ListPriceLevels(ctx, marketSymbol, order.SideBuy, depth)
 	if err != nil {
 		return nil, err
@@ -306,14 +365,26 @@ func (s *Service) Candles(ctx context.Context, req MarketHistoryRequest) ([]trad
 	if err != nil {
 		return nil, err
 	}
+	marketDef, _ := s.markets.Get(marketSymbol)
 	interval := strings.ToLower(strings.TrimSpace(req.Interval))
 	if interval == "" {
 		interval = "1m"
 	}
-	if _, ok := trade.IntervalByKey(interval); !ok {
+	intervalDef, ok := trade.IntervalByKey(interval)
+	if !ok {
 		return nil, fmt.Errorf("%w: unsupported candle interval", ErrInvalidOrder)
 	}
-	return s.repo.ListCandles(ctx, marketSymbol, interval, req.Limit)
+	if s.repo == nil {
+		return fallbackCandles(marketSymbol, intervalDef, req.Limit, defaultMarketPrice(marketDef.BaseAsset)), nil
+	}
+	candles, err := s.repo.ListCandles(ctx, marketSymbol, interval, req.Limit)
+	if err != nil {
+		return nil, err
+	}
+	if len(candles) == 0 {
+		return fallbackCandles(marketSymbol, intervalDef, req.Limit, defaultMarketPrice(marketDef.BaseAsset)), nil
+	}
+	return candles, nil
 }
 
 func (s *Service) TriggerStops(ctx context.Context, req TriggerRequest) ([]MatchResult, error) {
@@ -639,8 +710,11 @@ func (s *Service) ListBalances(ctx context.Context, userID string) ([]balance.Ba
 }
 
 func (s *Service) MarkDepositPending(ctx context.Context, userID string, req BalanceAmountRequest) (*balance.Balance, error) {
-	out, err := s.applyBalanceAmount(ctx, userID, req, func(tx *postgres.ExchangeRepository, userID string, asset string, amount string) (*balance.Balance, error) {
-		return tx.MarkDepositPending(ctx, userID, asset, amount, balance.EventID(idgen.New("bev")))
+	out, err := s.applyBalanceAmountWithEvent(ctx, userID, req, "", func(tx *postgres.ExchangeRepository, userID string, asset string, amount string, eventID balance.EventID) (*balance.Balance, error) {
+		if eventID == "" {
+			eventID = balance.EventID(idgen.New("bev"))
+		}
+		return tx.MarkDepositPending(ctx, userID, asset, amount, eventID)
 	})
 	if err != nil {
 		return nil, err
@@ -650,14 +724,98 @@ func (s *Service) MarkDepositPending(ctx context.Context, userID string, req Bal
 }
 
 func (s *Service) SettleDeposit(ctx context.Context, userID string, req BalanceAmountRequest) (*balance.Balance, error) {
-	out, err := s.applyBalanceAmount(ctx, userID, req, func(tx *postgres.ExchangeRepository, userID string, asset string, amount string) (*balance.Balance, error) {
-		return tx.SettleDeposit(ctx, userID, asset, amount, balance.EventID(idgen.New("bev")))
+	out, err := s.applyBalanceAmountWithEvent(ctx, userID, req, "", func(tx *postgres.ExchangeRepository, userID string, asset string, amount string, eventID balance.EventID) (*balance.Balance, error) {
+		if eventID == "" {
+			eventID = balance.EventID(idgen.New("bev"))
+		}
+		return tx.SettleDeposit(ctx, userID, asset, amount, eventID)
 	})
 	if err != nil {
 		return nil, err
 	}
 	s.publishBalanceUpdate("exchange.deposit_settled", out)
 	return out, nil
+}
+
+func (s *Service) ApplyGatewayDepositCallback(ctx context.Context, req GatewayDepositCallback) (*GatewayCallbackResult, error) {
+	status := normalizeGatewayStatus(req.Status)
+	if status != "pending" && status != "settled" {
+		return &GatewayCallbackResult{Status: "ok", Action: "status_ignored"}, nil
+	}
+	userID := strings.TrimSpace(req.UserID)
+	asset := gatewayDepositAsset(req)
+	amount, err := gatewayDepositAmount(req)
+	if err != nil {
+		return nil, err
+	}
+	if userID == "" {
+		return nil, fmt.Errorf("%w: user_id is required", ErrInvalidOrder)
+	}
+	if asset == "" {
+		return nil, fmt.Errorf("%w: asset is required", ErrInvalidOrder)
+	}
+	if !s.knownAsset(asset) {
+		return nil, fmt.Errorf("%w: unknown asset %s", ErrInvalidOrder, asset)
+	}
+	ref := gatewayDepositReference(req)
+	if ref == "" {
+		return nil, fmt.Errorf("%w: gateway callback reference is required", ErrInvalidOrder)
+	}
+	pendingEventID := gatewayBalanceEventID("gwdep_p", ref)
+	settleEventID := gatewayBalanceEventID("gwdep_s", ref)
+
+	switch status {
+	case "pending":
+		out, processed, err := s.markDepositPendingOnce(ctx, userID, asset, amount, pendingEventID)
+		if err != nil {
+			return nil, err
+		}
+		action := "deposit_pending"
+		if !processed {
+			action = "duplicate_ignored"
+		}
+		return &GatewayCallbackResult{Status: "ok", Action: action, Balance: out}, nil
+	case "settled":
+		out, processed, err := s.settleGatewayDepositOnce(ctx, userID, asset, amount, pendingEventID, settleEventID)
+		if err != nil {
+			return nil, err
+		}
+		action := "deposit_settled"
+		if !processed {
+			action = "duplicate_ignored"
+		}
+		return &GatewayCallbackResult{Status: "ok", Action: action, Balance: out}, nil
+	default:
+		return &GatewayCallbackResult{Status: "ok", Action: "status_ignored"}, nil
+	}
+}
+
+func (s *Service) ApplyGatewayWithdrawalCallback(ctx context.Context, req GatewayWithdrawalCallback) (*GatewayCallbackResult, error) {
+	id := strings.TrimSpace(req.WithdrawalID)
+	if id == "" {
+		id = strings.TrimSpace(req.PayoutID)
+	}
+	if id == "" {
+		id = strings.TrimSpace(req.ID)
+	}
+	if id == "" {
+		return nil, fmt.Errorf("%w: withdrawal_id is required", ErrInvalidOrder)
+	}
+	status := normalizeGatewayStatus(req.Status)
+	var out *balance.Withdrawal
+	var err error
+	switch status {
+	case "settled":
+		out, err = s.CompleteWithdrawal(ctx, balance.WithdrawalID(id))
+	case "canceled":
+		out, err = s.CancelWithdrawal(ctx, balance.WithdrawalID(id))
+	default:
+		return &GatewayCallbackResult{Status: "ok", Action: "status_ignored"}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &GatewayCallbackResult{Status: "ok", Action: "withdrawal_" + string(out.Status), Withdrawal: out}, nil
 }
 
 func (s *Service) RequestWithdrawal(ctx context.Context, userID string, req WithdrawalRequest) (*balance.Withdrawal, error) {
@@ -763,7 +921,97 @@ func (s *Service) finalizeWithdrawal(ctx context.Context, id balance.WithdrawalI
 	return out, nil
 }
 
-func (s *Service) applyBalanceAmount(ctx context.Context, userID string, req BalanceAmountRequest, fn func(*postgres.ExchangeRepository, string, string, string) (*balance.Balance, error)) (*balance.Balance, error) {
+func (s *Service) markDepositPendingOnce(ctx context.Context, userID string, asset string, amount string, eventID balance.EventID) (*balance.Balance, bool, error) {
+	var out *balance.Balance
+	var processed bool
+	err := s.repo.Transaction(ctx, func(tx *postgres.ExchangeRepository) error {
+		exists, err := tx.BalanceEventExists(ctx, eventID)
+		if err != nil {
+			return err
+		}
+		if exists {
+			return nil
+		}
+		updated, err := tx.MarkDepositPending(ctx, userID, asset, amount, eventID)
+		if err != nil {
+			return err
+		}
+		out = updated
+		processed = true
+		return nil
+	})
+	if err != nil {
+		return nil, false, err
+	}
+	if processed {
+		s.publishBalanceUpdate("exchange.deposit_pending", out)
+		return out, true, nil
+	}
+	out, err = s.currentBalance(ctx, userID, asset)
+	return out, false, err
+}
+
+func (s *Service) settleGatewayDepositOnce(ctx context.Context, userID string, asset string, amount string, pendingEventID balance.EventID, settleEventID balance.EventID) (*balance.Balance, bool, error) {
+	var out *balance.Balance
+	var pendingOut *balance.Balance
+	var processed bool
+	var pendingCreated bool
+	err := s.repo.Transaction(ctx, func(tx *postgres.ExchangeRepository) error {
+		settled, err := tx.BalanceEventExists(ctx, settleEventID)
+		if err != nil {
+			return err
+		}
+		if settled {
+			return nil
+		}
+		pending, err := tx.BalanceEventExists(ctx, pendingEventID)
+		if err != nil {
+			return err
+		}
+		if !pending {
+			updated, err := tx.MarkDepositPending(ctx, userID, asset, amount, pendingEventID)
+			if err != nil {
+				return err
+			}
+			pendingOut = updated
+			pendingCreated = true
+		}
+		updated, err := tx.SettleDeposit(ctx, userID, asset, amount, settleEventID)
+		if err != nil {
+			return err
+		}
+		out = updated
+		processed = true
+		return nil
+	})
+	if err != nil {
+		return nil, false, err
+	}
+	if processed {
+		if pendingCreated {
+			s.publishBalanceUpdate("exchange.deposit_pending", pendingOut)
+		}
+		s.publishBalanceUpdate("exchange.deposit_settled", out)
+		return out, true, nil
+	}
+	out, err = s.currentBalance(ctx, userID, asset)
+	return out, false, err
+}
+
+func (s *Service) currentBalance(ctx context.Context, userID string, asset string) (*balance.Balance, error) {
+	items, err := s.repo.ListBalances(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range items {
+		if strings.EqualFold(item.Asset, asset) {
+			return &item, nil
+		}
+	}
+	return nil, nil
+}
+
+func (s *Service) applyBalanceAmountWithEvent(ctx context.Context, userID string, req BalanceAmountRequest, eventID balance.EventID, fn func(*postgres.ExchangeRepository, string, string, string, balance.EventID) (*balance.Balance, error)) (*balance.Balance, error) {
 	userID = strings.TrimSpace(userID)
 	asset := strings.ToUpper(strings.TrimSpace(req.Asset))
 	if userID == "" {
@@ -781,7 +1029,7 @@ func (s *Service) applyBalanceAmount(ctx context.Context, userID string, req Bal
 	}
 	var out *balance.Balance
 	err = s.repo.Transaction(ctx, func(tx *postgres.ExchangeRepository) error {
-		updated, err := fn(tx, userID, asset, decimal.String(amount))
+		updated, err := fn(tx, userID, asset, decimal.String(amount), eventID)
 		if err != nil {
 			return err
 		}
@@ -794,12 +1042,156 @@ func (s *Service) applyBalanceAmount(ctx context.Context, userID string, req Bal
 	return out, nil
 }
 
+func gatewayDepositAsset(req GatewayDepositCallback) string {
+	for _, raw := range []string{req.Asset, req.Symbol, req.SelectedAsset} {
+		if value := strings.ToUpper(strings.TrimSpace(raw)); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func gatewayDepositAmount(req GatewayDepositCallback) (string, error) {
+	if strings.TrimSpace(req.Amount) != "" {
+		amount, err := parsePositiveDecimal(req.Amount, "amount")
+		if err != nil {
+			return "", err
+		}
+		return decimal.String(amount), nil
+	}
+	if strings.TrimSpace(req.AmountRaw) == "" {
+		return "", fmt.Errorf("%w: amount is required", ErrInvalidOrder)
+	}
+	if req.Decimals < 0 {
+		return "", fmt.Errorf("%w: decimals must be non-negative", ErrInvalidOrder)
+	}
+	if req.Decimals == 0 {
+		amount, err := parsePositiveDecimal(req.AmountRaw, "amount_raw")
+		if err != nil {
+			return "", err
+		}
+		return decimal.String(amount), nil
+	}
+	return rawAmountToDecimal(req.AmountRaw, req.Decimals)
+}
+
+func rawAmountToDecimal(raw string, decimals int) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", fmt.Errorf("%w: amount_raw is required", ErrInvalidOrder)
+	}
+	for _, ch := range raw {
+		if ch < '0' || ch > '9' {
+			return "", fmt.Errorf("%w: amount_raw must contain digits only", ErrInvalidOrder)
+		}
+	}
+	raw = strings.TrimLeft(raw, "0")
+	if raw == "" {
+		return "", fmt.Errorf("%w: amount_raw must be positive", ErrInvalidOrder)
+	}
+	if decimals > 0 {
+		if len(raw) <= decimals {
+			raw = strings.Repeat("0", decimals-len(raw)+1) + raw
+		}
+		idx := len(raw) - decimals
+		raw = raw[:idx] + "." + raw[idx:]
+		raw = strings.TrimRight(raw, "0")
+		raw = strings.TrimRight(raw, ".")
+	}
+	amount, err := parsePositiveDecimal(raw, "amount_raw")
+	if err != nil {
+		return "", err
+	}
+	return decimal.String(amount), nil
+}
+
+func gatewayDepositReference(req GatewayDepositCallback) string {
+	for _, raw := range []string{req.EventID, req.PaymentID, req.TrackID, req.OrderID, req.TxHash} {
+		if value := strings.TrimSpace(raw); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func gatewayBalanceEventID(prefix string, ref string) balance.EventID {
+	sum := sha256.Sum256([]byte(strings.TrimSpace(ref)))
+	return balance.EventID(prefix + "_" + hex.EncodeToString(sum[:16]))
+}
+
+func normalizeGatewayStatus(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "", "pending", "awaiting_payment", "processing", "requested":
+		return "pending"
+	case "paid", "confirmed", "complete", "completed", "settled", "success", "succeeded":
+		return "settled"
+	case "cancelled", "canceled", "failed", "rejected", "expired":
+		return "canceled"
+	default:
+		return strings.ToLower(strings.TrimSpace(raw))
+	}
+}
+
 func (s *Service) ListWallets(ctx context.Context, userID string) ([]balance.Wallet, error) {
 	userID = strings.TrimSpace(userID)
 	if userID == "" {
 		return nil, fmt.Errorf("%w: user_id is required", ErrInvalidOrder)
 	}
-	return s.repo.ListWallets(ctx, userID)
+	items, err := s.repo.ListWallets(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if len(items) > 0 || s.gateway == nil {
+		return items, nil
+	}
+	synced, err := s.EnsureGatewayWallets(ctx, userID)
+	if err != nil {
+		return items, nil
+	}
+	return synced, nil
+}
+
+func (s *Service) EnsureGatewayWallets(ctx context.Context, userID string) ([]balance.Wallet, error) {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return nil, fmt.Errorf("%w: user_id is required", ErrInvalidOrder)
+	}
+	if s.gateway == nil {
+		return s.repo.ListWallets(ctx, userID)
+	}
+	gatewayWallets, err := s.gateway.CreateUserWallet(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	var out []balance.Wallet
+	err = s.repo.Transaction(ctx, func(tx *postgres.ExchangeRepository) error {
+		for _, item := range gatewayWallets {
+			chainKey := strings.ToLower(strings.TrimSpace(item.ChainKey))
+			address := strings.TrimSpace(item.Address)
+			if chainKey == "" || address == "" || !s.knownChain(chainKey) {
+				continue
+			}
+			if err := validateGatewayAddress(chainKey, address); err != nil {
+				continue
+			}
+			wallet, err := tx.UpsertWallet(ctx, balance.Wallet{UserID: userID, ChainKey: chainKey, Address: address})
+			if err != nil {
+				return err
+			}
+			out = append(out, *wallet)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	for i := range out {
+		s.publishWalletUpdate("exchange.wallet_registered", &out[i])
+	}
+	if len(out) == 0 {
+		return s.repo.ListWallets(ctx, userID)
+	}
+	return out, nil
 }
 
 func (s *Service) RegisterGatewayWallet(ctx context.Context, userID string, req WalletRequest) (*balance.Wallet, error) {
@@ -1149,6 +1541,69 @@ func defaultMarketPrice(baseAsset string) string {
 	default:
 		return "1"
 	}
+}
+
+func fallbackCandles(marketSymbol string, interval trade.Interval, limit int, price string) []trade.Candle {
+	if limit <= 0 || limit > 1000 {
+		limit = 120
+	}
+	if limit < 2 {
+		limit = 2
+	}
+	base := decimal.Parse(price)
+	if base.Sign() <= 0 {
+		base = big.NewRat(1, 1)
+	}
+	now := time.Now().UTC().Truncate(interval.Duration)
+	out := make([]trade.Candle, 0, limit)
+	prevClose := ratByBps(base, -5)
+	for i := 0; i < limit; i++ {
+		offset := time.Duration(limit-1-i) * interval.Duration
+		openTime := now.Add(-offset)
+		close := ratByBps(base, int64((i%11)-5))
+		if i == limit-1 {
+			close = new(big.Rat).Set(base)
+		}
+		high := maxRat(prevClose, close)
+		high = ratByBps(high, 2)
+		low := minRat(prevClose, close)
+		low = ratByBps(low, -2)
+		out = append(out, trade.Candle{
+			Market:      marketSymbol,
+			Interval:    interval.Key,
+			OpenTime:    openTime,
+			CloseTime:   openTime.Add(interval.Duration),
+			Open:        decimal.String(prevClose),
+			High:        decimal.String(high),
+			Low:         decimal.String(low),
+			Close:       decimal.String(close),
+			VolumeBase:  "1",
+			VolumeQuote: decimal.String(close),
+			TradeCount:  0,
+			LastTradeAt: openTime,
+		})
+		prevClose = close
+	}
+	return out
+}
+
+func ratByBps(value *big.Rat, bps int64) *big.Rat {
+	factor := big.NewRat(10000+bps, 10000)
+	return new(big.Rat).Mul(value, factor)
+}
+
+func maxRat(left *big.Rat, right *big.Rat) *big.Rat {
+	if left.Cmp(right) >= 0 {
+		return new(big.Rat).Set(left)
+	}
+	return new(big.Rat).Set(right)
+}
+
+func minRat(left *big.Rat, right *big.Rat) *big.Rat {
+	if left.Cmp(right) <= 0 {
+		return new(big.Rat).Set(left)
+	}
+	return new(big.Rat).Set(right)
 }
 
 func (s *Service) validatePriceBand(ctx context.Context, tx *postgres.ExchangeRepository, item order.Order) error {

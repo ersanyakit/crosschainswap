@@ -7,12 +7,13 @@ import (
 )
 
 type PriceLevel struct {
-	Market        string     `json:"market"`
-	Side          order.Side `json:"side"`
-	Price         string     `json:"price"`
-	Quantity      string     `json:"quantity"`
-	OrderCount    int64      `json:"order_count"`
-	LastUpdatedAt time.Time  `json:"last_updated_at"`
+	Market          string     `json:"market"`
+	Side            order.Side `json:"side"`
+	Price           string     `json:"price"`
+	Quantity        string     `json:"quantity"`
+	OrderCount      int64      `json:"order_count"`
+	FirstSequenceID uint64     `json:"first_sequence_id"`
+	LastUpdatedAt   time.Time  `json:"last_updated_at"`
 }
 
 type Snapshot struct {

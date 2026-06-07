@@ -59,6 +59,7 @@ type Order struct {
 	Quantity          string        `json:"quantity"`
 	FilledQuantity    string        `json:"filled_quantity"`
 	RemainingQuantity string        `json:"remaining_quantity"`
+	SequenceID        uint64        `json:"sequence_id"`
 	CreatedAt         time.Time     `json:"created_at"`
 	UpdatedAt         time.Time     `json:"updated_at"`
 }

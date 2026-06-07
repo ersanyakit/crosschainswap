@@ -1,7 +1,9 @@
 package rest
 
 import (
+	"context"
 	"errors"
+	"log"
 	"net/url"
 	"os"
 	"strings"
@@ -67,12 +69,27 @@ func (s *Server) oidcCallback(c fiber.Ctx) error {
 	}
 	s.clearCookie(c, oidcStateCookie)
 	s.setCookie(c, oidcSessionCookie, session, s.auth.SessionTTL())
+	s.ensureGatewayWalletsAfterLogin(claims.Subject)
 	redirectURL := sanitizeOIDCRedirect(c.Cookies(oidcRedirectCookie))
 	s.clearCookie(c, oidcRedirectCookie)
 	if redirectURL != "" {
 		return c.Redirect().To(redirectURL)
 	}
 	return c.JSON(fiber.Map{"authenticated": true, "user": claims})
+}
+
+func (s *Server) ensureGatewayWalletsAfterLogin(userID string) {
+	userID = strings.TrimSpace(userID)
+	if userID == "" || s.orders == nil {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if _, err := s.orders.EnsureGatewayWallets(ctx, userID); err != nil {
+			log.Printf("gateway wallet sync failed for oidc subject %s: %v", userID, err)
+		}
+	}()
 }
 
 func (s *Server) authMe(c fiber.Ctx) error {

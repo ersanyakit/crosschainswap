@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"bufio"
+	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -13,6 +15,7 @@ import (
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // LoadEnv loads environment variables from a .env file if it exists.
@@ -107,13 +110,16 @@ func Connect() (*gorm.DB, error) {
 	if err := backfillPoolAddresses(db); err != nil {
 		return nil, fmt.Errorf("failed to backfill pool addresses: %w", err)
 	}
+	if err := backfillOrderSequences(db); err != nil {
+		return nil, fmt.Errorf("failed to backfill order sequences: %w", err)
+	}
 
 	log.Println("GORM model sync completed successfully.")
 	return db, nil
 }
 
 func autoMigrateWithRetry(db *gorm.DB) error {
-	models := []any{&Pool{}, &ExchangeOrder{}, &ExchangeTrade{}, &ExchangeCandle{}, &ExchangeOrderEvent{}, &ExchangeWallet{}, &ExchangeBalance{}, &ExchangeBalanceEvent{}, &ExchangeWithdrawal{}, &ExchangePriceLevel{}, &ExchangeMarket{}}
+	models := []any{&Pool{}, &ExchangeOrder{}, &ExchangeOrderSequence{}, &ExchangeTrade{}, &ExchangeCandle{}, &ExchangeOrderEvent{}, &ExchangeWallet{}, &ExchangeBalance{}, &ExchangeBalanceEvent{}, &ExchangeWithdrawal{}, &ExchangePriceLevel{}, &ExchangeMarket{}}
 	var err error
 	for attempt := 0; attempt < 3; attempt++ {
 		err = db.AutoMigrate(models...)
@@ -161,6 +167,79 @@ func SyncExchangeMarkets(db *gorm.DB, markets []market.Market) error {
 		}
 
 		if err := db.Save(&model).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func backfillOrderSequences(db *gorm.DB) error {
+	var markets []string
+	if err := db.Model(&ExchangeOrder{}).Distinct().Pluck("market", &markets).Error; err != nil {
+		return err
+	}
+	repo := NewExchangeRepository(db)
+	for _, marketSymbol := range markets {
+		var last ExchangeOrder
+		maxSeq := uint64(0)
+		err := db.Where(&ExchangeOrder{Market: marketSymbol}).
+			Clauses(clause.OrderBy{Columns: []clause.OrderByColumn{{Column: clause.Column{Name: "sequence_id"}, Desc: true}}}).
+			First(&last).Error
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if err == nil {
+			maxSeq = last.SequenceID
+		}
+
+		var seq ExchangeOrderSequence
+		err = db.Where(&ExchangeOrderSequence{Market: marketSymbol}).First(&seq).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			seq = ExchangeOrderSequence{Market: marketSymbol, NextSequence: maxSeq + 1, UpdatedAt: time.Now()}
+			if seq.NextSequence == 0 {
+				seq.NextSequence = 1
+			}
+			if err := db.Create(&seq).Error; err != nil {
+				return err
+			}
+		} else if err != nil {
+			return err
+		} else if seq.NextSequence <= maxSeq {
+			seq.NextSequence = maxSeq + 1
+			seq.UpdatedAt = time.Now()
+			if err := db.Save(&seq).Error; err != nil {
+				return err
+			}
+		}
+
+		var zeroSeqOrders []ExchangeOrder
+		if err := db.Where(&ExchangeOrder{Market: marketSymbol, SequenceID: 0}).
+			Clauses(clause.OrderBy{Columns: []clause.OrderByColumn{
+				{Column: clause.Column{Name: "created_at"}},
+				{Column: clause.Column{Name: "id"}},
+			}}).
+			Find(&zeroSeqOrders).Error; err != nil {
+			return err
+		}
+		next := seq.NextSequence
+		if next == 0 {
+			next = 1
+		}
+		for _, item := range zeroSeqOrders {
+			item.SequenceID = next
+			next++
+			if err := db.Save(&item).Error; err != nil {
+				return err
+			}
+		}
+		if next != seq.NextSequence {
+			seq.NextSequence = next
+			seq.UpdatedAt = time.Now()
+			if err := db.Save(&seq).Error; err != nil {
+				return err
+			}
+		}
+		if err := repo.RebuildPriceLevels(context.Background(), marketSymbol); err != nil {
 			return err
 		}
 	}

@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 
+	"exchange/internal/adapters/paymentgateway"
 	"exchange/internal/adapters/storage/postgres"
 	appauth "exchange/internal/app/auth"
 	"exchange/internal/app/orders"
@@ -49,6 +50,12 @@ func Run(ctx context.Context) error {
 	}
 	swapService := swap.NewService(registries.Assets, registries.Venues, poolRepo, swapEngine)
 	orderService := orders.NewService(registries.Markets, exchangeRepo)
+	gatewayClient := paymentgateway.NewClient(paymentgateway.ConfigFromEnv())
+	if gatewayClient.Enabled() {
+		orderService.SetGatewayWalletProvider(walletGatewayAdapter{client: gatewayClient})
+	} else {
+		log.Printf("Payment gateway wallet sync disabled: set PAYMENT_GATEWAY_MERCHANT_ID, PAYMENT_GATEWAY_DOMAIN_ID and PAYMENT_GATEWAY_PRODUCT_ID to enable it")
+	}
 	oidcAuth, err := appauth.NewOIDCService(ctx, appauth.ConfigFromEnv())
 	if err != nil {
 		return err
@@ -107,4 +114,20 @@ func Addr() string {
 		return ":" + port
 	}
 	return ":8080"
+}
+
+type walletGatewayAdapter struct {
+	client *paymentgateway.Client
+}
+
+func (a walletGatewayAdapter) CreateUserWallet(ctx context.Context, userID string) ([]orders.GatewayWallet, error) {
+	items, err := a.client.CreateUserWallet(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]orders.GatewayWallet, 0, len(items))
+	for _, item := range items {
+		out = append(out, orders.GatewayWallet{ChainKey: item.ChainKey, Address: item.Address})
+	}
+	return out, nil
 }

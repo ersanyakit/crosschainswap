@@ -73,10 +73,13 @@ export default function OrderBookView({
 
       {/* Layout Containers */}
       <div className="flex-1 flex flex-col justify-between overflow-y-auto font-mono text-[11px] leading-relaxed">
-        
         {/* ASKS (SELL ORDERS) - Placed top */}
         <div className="flex flex-col justify-end flex-1 min-h-[90px]">
-          {asksToRender.map((ask, idx) => {
+          {asksToRender.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center px-3 text-center text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
+              No sell levels
+            </div>
+          ) : asksToRender.map((ask, idx) => {
             const levelPrice = ask.price;
             return (
               <div
@@ -126,7 +129,11 @@ export default function OrderBookView({
 
         {/* BIDS (BUY ORDERS) - Placed bottom */}
         <div className="flex flex-col justify-start flex-1 min-h-[90px]">
-          {bidsToRender.map((bid, idx) => {
+          {bidsToRender.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center px-3 text-center text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
+              No buy levels
+            </div>
+          ) : bidsToRender.map((bid, idx) => {
             const levelPrice = bid.price;
             return (
               <div

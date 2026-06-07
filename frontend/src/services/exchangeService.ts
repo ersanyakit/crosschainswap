@@ -155,6 +155,7 @@ export const exchangeConfig = {
   wsURL: env.VITE_EXCHANGE_WS_URL || defaultWebsocketURL('/ws/orders'),
   pricesWSURL: env.VITE_EXCHANGE_PRICES_WS_URL || defaultWebsocketURL('/ws/prices'),
   userID: env.VITE_EXCHANGE_USER_ID || 'demo-user',
+  paymentGatewaySecret: env.VITE_PAYMENT_GATEWAY_SECRET || '',
 };
 
 export async function healthCheck(): Promise<boolean> {
@@ -215,6 +216,25 @@ export async function fetchUserTrades(userID: string, market?: string, limit = 1
 export async function fetchBalances(userID: string): Promise<AssetBalance[]> {
   const balances = await apiJSON<ApiBalance[]>(`/v1/users/${encodeURIComponent(userID)}/balances`);
   return balances.map(mapBalance);
+}
+
+export async function settleDeposit(userID: string, asset: string, amount: number): Promise<AssetBalance> {
+  const body = JSON.stringify({
+    asset,
+    amount: decimalString(amount),
+  });
+  const headers = gatewayHeaders();
+  await apiJSON<ApiBalance>(`/v1/users/${encodeURIComponent(userID)}/deposits/pending`, {
+    method: 'POST',
+    headers,
+    body,
+  });
+  const settled = await apiJSON<ApiBalance>(`/v1/users/${encodeURIComponent(userID)}/deposits/settle`, {
+    method: 'POST',
+    headers,
+    body,
+  });
+  return mapBalance(settled);
 }
 
 export async function fetchAssetPrices(symbol: string): Promise<AssetPriceResponse> {
@@ -450,6 +470,13 @@ function decimalString(value: number): string {
     useGrouping: false,
     maximumFractionDigits: 18,
   });
+}
+
+function gatewayHeaders(): Record<string, string> {
+  if (!exchangeConfig.paymentGatewaySecret) return {};
+  return {
+    'X-Gateway-Secret': exchangeConfig.paymentGatewaySecret,
+  };
 }
 
 function stripTrailingSlash(value: string): string {

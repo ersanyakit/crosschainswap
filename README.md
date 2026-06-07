@@ -58,6 +58,17 @@ OIDC_SESSION_SECRET=
 OIDC_SESSION_TTL=12h
 OIDC_COOKIE_SECURE=false
 
+# Payment gateway integration. Gateway swagger is usually at http://localhost:3001/swagger/index.html.
+PAYMENT_GATEWAY_BASE_URL=http://localhost:3001
+PAYMENT_GATEWAY_MERCHANT_ID=
+PAYMENT_GATEWAY_DOMAIN_ID=
+PAYMENT_GATEWAY_PRODUCT_ID=
+PAYMENT_GATEWAY_API_KEY=
+PAYMENT_GATEWAY_API_SECRET=
+PAYMENT_GATEWAY_WEBHOOK_SECRET=
+PAYMENT_GATEWAY_TIMEOUT=10s
+PAYMENT_GATEWAY_SECRET=
+
 # Scanner mode:
 # - default/empty: only scan pairs containing registry assets
 # - full: scan full factories where the scanner supports full scans
@@ -543,6 +554,23 @@ Exchange balances are tracked per `user_id` and asset:
 
 The payment gateway owns wallet address generation. The exchange only stores the gateway-provided address:
 
+When OIDC login succeeds, the backend attempts to call the gateway `/merchant.wallet.create` endpoint and stores the returned chain addresses. This requires:
+
+- `PAYMENT_GATEWAY_BASE_URL`
+- `PAYMENT_GATEWAY_MERCHANT_ID`
+- `PAYMENT_GATEWAY_DOMAIN_ID`
+- `PAYMENT_GATEWAY_PRODUCT_ID`
+
+You can also trigger the same sync manually for the authenticated user:
+
+```bash
+curl -X POST -b cookies.txt http://localhost:8080/v1/users/YOUR_OIDC_SUB/wallets/sync
+```
+
+The exchange keeps only registry-known chains and validates address format before persisting.
+
+Manual gateway wallet registration is still supported:
+
 ```bash
 curl -X PUT http://localhost:8080/v1/users/user-a/wallets \
   -H 'X-Gateway-Secret: your-secret' \
@@ -589,6 +617,55 @@ curl -X POST http://localhost:8080/v1/users/user-a/deposits/settle \
   }'
 ```
 
+For production callbacks, set the gateway domain `WebhookURL` to the unified exchange endpoint. The gateway posts both raw deposit/transaction events and payment status events to this same URL and identifies the event with `X-Gateway-Event`.
+
+```text
+http://localhost:8080/v1/payment-gateway/callback
+```
+
+The integration guide requires signed webhooks and the exchange rejects unsigned callbacks. HMAC is verified with `PAYMENT_GATEWAY_WEBHOOK_SECRET`. The signature is `HMAC-SHA256(timestamp + raw_body)` and may include the `sha256=` prefix.
+
+Supported unified callback events:
+
+- `native_transfer`, `token_transfer`, `erc20_transfer`, `spl_transfer`, `deposit_detected`: marks deposit pending
+- `payment_succeeded`: settles the deposit
+- `payment_failed`, `payment_expired`: acknowledged and ignored for balances
+- `payout_completed`, `payout_succeeded`, `withdrawal_completed`: completes a withdrawal if the payload includes the exchange `withdrawal_id`
+- `payout_failed`, `payout_canceled`, `withdrawal_failed`, `withdrawal_canceled`: cancels a withdrawal if the payload includes the exchange `withdrawal_id`
+
+Deposit callback example:
+
+```bash
+BODY='{
+  "event_id": "gateway-event-1",
+  "payment_id": "payment-1",
+  "event_type": "payment_succeeded",
+  "user_id": "user-a",
+  "symbol": "USDC",
+  "expected_amount_raw": "100000000",
+  "decimals": 6,
+  "status": "paid",
+  "chain_id": 8453,
+  "tx_hash": "0xabc"
+}'
+TS=$(date +%s)
+SIG=$(printf "%s%s" "$TS" "$BODY" | openssl dgst -sha256 -hmac "$PAYMENT_GATEWAY_WEBHOOK_SECRET" -hex | awk '{print $2}')
+curl -X POST http://localhost:8080/v1/payment-gateway/callback \
+  -H "X-Gateway-Event: payment_succeeded" \
+  -H "X-Gateway-Timestamp: $TS" \
+  -H "X-Gateway-Signature: sha256=$SIG" \
+  -H 'Content-Type: application/json' \
+  -d "$BODY"
+```
+
+Accepted deposit statuses:
+
+- pending: `pending`, `awaiting_payment`, `processing`
+- settled: `paid`, `confirmed`, `complete`, `completed`, `settled`, `success`, `succeeded`
+- ignored/canceled: `cancelled`, `canceled`, `failed`, `rejected`, `expired`
+
+The deposit callback is idempotent. The exchange derives deterministic balance event IDs from `event_id`, `payment_id`, `track_id`, `order_id`, or `tx_hash`, so the same gateway event cannot credit funds twice. Prefer `amount` as a human decimal. If the gateway sends only raw token units, send `amount_raw` and `decimals`.
+
 Request a withdrawal. This moves the amount from `available` to `pending` until the payment gateway completes or cancels it:
 
 ```bash
@@ -615,6 +692,23 @@ Gateway cancels a withdrawal and returns the pending amount to available balance
 curl -X POST http://localhost:8080/v1/withdrawals/wd_your_withdrawal_id/cancel \
   -H 'X-Gateway-Secret: your-secret'
 ```
+
+Withdrawal callback example. The current gateway does not send payout webhooks yet, but the exchange endpoint is ready when that is added:
+
+```bash
+curl -X POST http://localhost:8080/v1/payment-gateway/callback \
+  -H "X-Gateway-Event: payout_completed" \
+  -H "X-Gateway-Timestamp: $TS" \
+  -H "X-Gateway-Signature: sha256=$SIG" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "withdrawal_id": "wd_your_withdrawal_id",
+    "status": "completed",
+    "tx_hash": "0xabc"
+  }'
+```
+
+Withdrawal callback statuses `completed`, `settled`, `success`, and `succeeded` complete the withdrawal. `canceled`, `cancelled`, `failed`, `rejected`, and `expired` cancel it and return the pending amount to available balance.
 
 Set `PAYMENT_GATEWAY_SECRET` in production so gateway mutation endpoints require `X-Gateway-Secret`.
 

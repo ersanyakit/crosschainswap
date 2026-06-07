@@ -20,6 +20,7 @@ const openAPISpec = `{
     { "name": "Deposits" },
     { "name": "Withdrawals" },
     { "name": "Wallets" },
+    { "name": "Gateway callbacks" },
     { "name": "Swaps" },
     { "name": "Prices" },
     { "name": "Websocket" }
@@ -276,6 +277,45 @@ const openAPISpec = `{
         "responses": { "200": { "description": "Wallet", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Wallet" } } } } }
       }
     },
+    "/v1/users/{user_id}/wallets/sync": {
+      "post": {
+        "tags": ["Wallets"],
+        "summary": "Create or sync gateway-generated wallet addresses for the authenticated user",
+        "security": [{ "oidcSession": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/UserID" }],
+        "responses": { "200": { "description": "Wallets", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Wallet" } } } } } }
+      }
+    },
+    "/v1/payment-gateway/callbacks/deposit": {
+      "post": {
+        "tags": ["Gateway callbacks"],
+        "summary": "Payment gateway deposit callback",
+        "description": "Idempotently marks a deposit pending or settled. HMAC uses X-Gateway-Timestamp + raw JSON body and PAYMENT_GATEWAY_WEBHOOK_SECRET or PAYMENT_GATEWAY_API_SECRET.",
+        "parameters": [{ "$ref": "#/components/parameters/GatewayTimestamp" }, { "$ref": "#/components/parameters/GatewaySignature" }, { "$ref": "#/components/parameters/GatewaySecret" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GatewayDepositCallback" } } } },
+        "responses": { "200": { "description": "Callback result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GatewayCallbackResult" } } } } }
+      }
+    },
+    "/v1/payment-gateway/callback": {
+      "post": {
+        "tags": ["Gateway callbacks"],
+        "summary": "Unified payment gateway webhook URL",
+        "description": "Use this as the single domain WebhookURL. Dispatches by X-Gateway-Event. Supported events include native_transfer, token_transfer, payment_succeeded, payment_failed, payment_expired and payout/withdrawal status events.",
+        "parameters": [{ "$ref": "#/components/parameters/GatewayEvent" }, { "$ref": "#/components/parameters/GatewayEventID" }, { "$ref": "#/components/parameters/GatewayTimestamp" }, { "$ref": "#/components/parameters/GatewaySignature" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } },
+        "responses": { "200": { "description": "Callback result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GatewayCallbackResult" } } } } }
+      }
+    },
+    "/v1/payment-gateway/callbacks/withdrawal": {
+      "post": {
+        "tags": ["Gateway callbacks"],
+        "summary": "Payment gateway withdrawal callback",
+        "description": "Completes or cancels a requested withdrawal from a gateway payout callback.",
+        "parameters": [{ "$ref": "#/components/parameters/GatewayTimestamp" }, { "$ref": "#/components/parameters/GatewaySignature" }, { "$ref": "#/components/parameters/GatewaySecret" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GatewayWithdrawalCallback" } } } },
+        "responses": { "200": { "description": "Callback result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GatewayCallbackResult" } } } } }
+      }
+    },
     "/v1/prices/{symbol}": {
       "get": {
         "tags": ["Prices"],
@@ -318,7 +358,11 @@ const openAPISpec = `{
       "MarketQuery": { "name": "market", "in": "query", "schema": { "type": "string", "example": "PEPPER/USD" } },
       "Limit": { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 100 } },
       "Depth": { "name": "depth", "in": "query", "schema": { "type": "integer", "default": 100 } },
-      "GatewaySecret": { "name": "X-Gateway-Secret", "in": "header", "schema": { "type": "string" }, "description": "Required when PAYMENT_GATEWAY_SECRET is set." }
+      "GatewaySecret": { "name": "X-Gateway-Secret", "in": "header", "schema": { "type": "string" }, "description": "Required when PAYMENT_GATEWAY_SECRET is set for legacy gateway mutation endpoints." },
+      "GatewayEvent": { "name": "X-Gateway-Event", "in": "header", "schema": { "type": "string", "example": "payment_succeeded" }, "description": "Gateway event name used by the unified callback dispatcher." },
+      "GatewayEventID": { "name": "X-Gateway-Event-Id", "in": "header", "schema": { "type": "string" }, "description": "Gateway webhook event id. The JSON event_id field is preferred when present." },
+      "GatewayTimestamp": { "name": "X-Gateway-Timestamp", "in": "header", "schema": { "type": "string" }, "description": "Unix timestamp used in HMAC signature." },
+      "GatewaySignature": { "name": "X-Gateway-Signature", "in": "header", "schema": { "type": "string" }, "description": "HMAC-SHA256 over timestamp + raw body. sha256= prefix is accepted." }
     },
     "securitySchemes": {
       "oidcSession": { "type": "apiKey", "in": "cookie", "name": "exchange_session" }
@@ -531,6 +575,49 @@ const openAPISpec = `{
           "address": { "type": "string" },
           "created_at": { "type": "string", "format": "date-time" },
           "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "GatewayDepositCallback": {
+        "type": "object",
+        "required": ["user_id", "status"],
+        "properties": {
+          "event_id": { "type": "string" },
+          "payment_id": { "type": "string" },
+          "track_id": { "type": "string" },
+          "order_id": { "type": "string" },
+          "user_id": { "type": "string", "example": "oidc-sub-or-customer-id" },
+          "asset": { "type": "string", "example": "USDC" },
+          "symbol": { "type": "string", "example": "USDC" },
+          "selected_asset": { "type": "string", "example": "USDC" },
+          "amount": { "type": "string", "example": "100.25" },
+          "amount_raw": { "type": "string", "example": "100250000" },
+          "decimals": { "type": "integer", "example": 6 },
+          "status": { "type": "string", "example": "paid" },
+          "chain_key": { "type": "string", "example": "base" },
+          "chain": { "type": "string", "example": "base" },
+          "selected_chain": { "type": "string", "example": "base" },
+          "tx_hash": { "type": "string" }
+        }
+      },
+      "GatewayWithdrawalCallback": {
+        "type": "object",
+        "required": ["withdrawal_id", "status"],
+        "properties": {
+          "event_id": { "type": "string" },
+          "withdrawal_id": { "type": "string", "example": "wd_..." },
+          "payout_id": { "type": "string" },
+          "id": { "type": "string" },
+          "status": { "type": "string", "example": "completed" },
+          "tx_hash": { "type": "string" }
+        }
+      },
+      "GatewayCallbackResult": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "example": "ok" },
+          "action": { "type": "string", "example": "deposit_settled" },
+          "balance": { "$ref": "#/components/schemas/Balance" },
+          "withdrawal": { "$ref": "#/components/schemas/Withdrawal" }
         }
       }
     }
