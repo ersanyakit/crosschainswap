@@ -46,6 +46,14 @@ export default function OrderForm({
   // Confirmation Modal
   const [showConfirm, setShowConfirm] = useState(false);
 
+  useEffect(() => {
+    setPriceInput(formatOrderNumberInput(pair.lastPrice));
+    setAmountInput('');
+    setStopPriceInput('');
+    setShowConfirm(false);
+    setActiveInput('amount');
+  }, [pair.symbol]);
+
   // Keypad processing engine
   const handleKeypadPress = (val: string) => {
     let currentVal = '';
@@ -93,7 +101,7 @@ export default function OrderForm({
   useEffect(() => {
     if (selectedPrice !== null) {
       if (type !== 'MARKET') {
-        setPriceInput(selectedPrice.toString());
+        setPriceInput(formatOrderNumberInput(selectedPrice));
       }
       clearSelectedPrice();
     }
@@ -102,7 +110,7 @@ export default function OrderForm({
   // Set default price inputs
   useEffect(() => {
     if (type === 'LIMIT' && !priceInput) {
-      setPriceInput(pair.lastPrice.toString());
+      setPriceInput(formatOrderNumberInput(pair.lastPrice));
     }
   }, [pair.lastPrice, type]);
 
@@ -574,4 +582,12 @@ export default function OrderForm({
 
     </div>
   );
+}
+
+function formatOrderNumberInput(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return '';
+  return value.toLocaleString('en-US', {
+    useGrouping: false,
+    maximumFractionDigits: 18,
+  });
 }

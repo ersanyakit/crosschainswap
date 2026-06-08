@@ -11,7 +11,7 @@ func TestSanitizeOIDCRedirect(t *testing.T) {
 		want string
 	}{
 		{name: "relative", raw: "/", want: "/"},
-		{name: "localhost", raw: "http://localhost:3001/", want: "http://localhost:3001/"},
+		{name: "localhost", raw: "http://localhost:3002/", want: "http://localhost:3002/"},
 		{name: "allowed origin", raw: "https://exchange.example/terminal", want: "https://exchange.example/terminal"},
 		{name: "protocol relative rejected", raw: "//evil.example", want: ""},
 		{name: "external rejected", raw: "https://evil.example", want: ""},
@@ -36,8 +36,8 @@ func TestDecodeMarketSymbol(t *testing.T) {
 }
 
 func TestSanitizeOIDCPostLogoutRedirect(t *testing.T) {
-	t.Setenv("OIDC_POST_LOGOUT_REDIRECT_URL", "http://localhost:3001/")
-	if got := sanitizeOIDCPostLogoutRedirect(""); got != "http://localhost:3001/" {
+	t.Setenv("OIDC_POST_LOGOUT_REDIRECT_URL", "http://localhost:3002/")
+	if got := sanitizeOIDCPostLogoutRedirect(""); got != "http://localhost:3002/" {
 		t.Fatalf("sanitizeOIDCPostLogoutRedirect default = %q, want localhost frontend", got)
 	}
 	if got := sanitizeOIDCPostLogoutRedirect("https://evil.example"); got != "" {

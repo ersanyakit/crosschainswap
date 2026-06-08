@@ -64,6 +64,7 @@ export interface OrderBookLevel {
 }
 
 export interface OrderBook {
+  market: string;
   bids: OrderBookLevel[];
   asks: OrderBookLevel[];
   spread: number;
@@ -75,6 +76,7 @@ export interface AssetBalance {
   name: string;
   free: number;
   locked: number;
+  frozen: number;
   valueUsd: number;
   change24h: number;
 }

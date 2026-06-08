@@ -66,7 +66,7 @@ func Run(ctx context.Context) error {
 	if gatewayClient.Enabled() || gatewayClient.StaticAddressEnabled() || gatewayClient.QRCodeEnabled() {
 		orderService.SetGatewayWalletProvider(walletGatewayAdapter{client: gatewayClient})
 	} else {
-		log.Printf("Payment gateway wallet sync disabled: set gateway merchant wallet or static address credentials to enable it")
+		log.Printf("Payment gateway deposit address support disabled: set static address or QR credentials to enable it")
 	}
 	oidcAuth, err := appauth.NewOIDCService(ctx, appauth.ConfigFromEnv())
 	if err != nil {
@@ -144,18 +144,6 @@ func Addr() string {
 
 type walletGatewayAdapter struct {
 	client *paymentgateway.Client
-}
-
-func (a walletGatewayAdapter) CreateUserWallet(ctx context.Context, userID string) ([]orders.GatewayWallet, error) {
-	items, err := a.client.CreateUserWallet(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]orders.GatewayWallet, 0, len(items))
-	for _, item := range items {
-		out = append(out, orders.GatewayWallet{ChainKey: item.ChainKey, Address: item.Address})
-	}
-	return out, nil
 }
 
 func (a walletGatewayAdapter) CreateStaticAddress(ctx context.Context, userID string, symbol string, chainID int64, label string) (*orders.GatewayStaticAddress, error) {

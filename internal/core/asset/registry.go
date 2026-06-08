@@ -13,6 +13,7 @@ type Deployment struct {
 	Mint         string
 	Decimals     int
 	Enabled      bool
+	Native       bool
 	IconURL      string
 	ChainLogoURL string
 }
@@ -40,6 +41,9 @@ func (d Deployment) AssetID() string {
 }
 
 func (d Deployment) Validate() error {
+	if d.Native {
+		return nil
+	}
 
 	switch d.ChainKey {
 	case chain.ChainKeySolana:

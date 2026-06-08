@@ -1522,6 +1522,11 @@ jws@^4.0.0:
     jwa "^2.0.1"
     safe-buffer "^5.0.1"
 
+klinecharts@10.0.0-beta3:
+  version "10.0.0-beta3"
+  resolved "https://registry.yarnpkg.com/klinecharts/-/klinecharts-10.0.0-beta3.tgz#1a7e8b2504dac519f90676d5bcd90ea9b0dfe661"
+  integrity sha512-ZDYcw0+QfIa6oqgj+yV3+BMFVMDxkyoWazfhuYqu0I6XOsK9ezccO19dRNBw3wSqzidcVmMS7LpiVkm5rfV9ow==
+
 lightningcss-android-arm64@1.32.0:
   version "1.32.0"
   resolved "https://registry.yarnpkg.com/lightningcss-android-arm64/-/lightningcss-android-arm64-1.32.0.tgz#f033885116dfefd9c6f54787523e3514b61e1968"

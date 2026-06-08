@@ -51,7 +51,7 @@ func runFrontend(ctx context.Context, opts Options) error {
 	}
 	port := strings.TrimSpace(opts.FrontendPort)
 	if port == "" {
-		port = "3001"
+		port = "3002"
 	}
 	return runFrontendCommand(ctx, absDir, packageManager, []string{"run", "dev", "--", "--host", host, "--port", port}, opts)
 }

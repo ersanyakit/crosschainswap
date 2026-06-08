@@ -66,9 +66,12 @@ OIDC_COOKIE_SECURE=false
 PAYMENT_GATEWAY_BASE_URL=http://localhost:3001
 PAYMENT_GATEWAY_MERCHANT_ID=
 PAYMENT_GATEWAY_DOMAIN_ID=
+# Optional legacy value. Wallet creation sends product_id equal to PAYMENT_GATEWAY_DOMAIN_ID.
 PAYMENT_GATEWAY_PRODUCT_ID=
 PAYMENT_GATEWAY_API_KEY=
 PAYMENT_GATEWAY_API_SECRET=
+# Alias accepted by the exchange backend for gateway X-API-Secret signing.
+PAYMENT_GATEWAY_SECRET_KEY=
 PAYMENT_GATEWAY_WEBHOOK_SECRET=
 PAYMENT_GATEWAY_TIMEOUT=10s
 PAYMENT_GATEWAY_SECRET=
@@ -146,7 +149,7 @@ go run ./cmd/executor
 This starts:
 
 - Fiber v3 API
-- frontend dev server on `http://localhost:3001`
+- frontend dev server on `http://localhost:3002`
 - websocket price publisher
 - event backend price/update listener
 - pool scanner
@@ -158,7 +161,7 @@ Frontend options:
 go run ./cmd/executor --frontend=dev
 go run ./cmd/executor --frontend=build
 go run ./cmd/executor --frontend=off
-go run ./cmd/executor --frontend=dev --frontend-port=3001
+go run ./cmd/executor --frontend=dev --frontend-port=3002
 ```
 
 The frontend directory is resolved from the repository root, so both commands below work:
@@ -597,16 +600,18 @@ Exchange balances are tracked per `user_id` and asset:
 - `locked`: reserved by open limit/stop-limit orders and in-flight market execution
 - `pending`: reported by the payment gateway before final settlement
 
-The payment gateway owns wallet address generation. The exchange only stores the gateway-provided address:
+The exchange database owns user balances. Gateway callbacks only move amounts between `pending`, `available`, and withdrawal state after the exchange verifies the callback.
 
-When OIDC login succeeds, the backend attempts to call the gateway `/merchant.wallet.create` endpoint and stores the returned chain addresses. This requires:
+The deposit screen can request a static deposit address from the payment gateway on demand. The exchange stores only that address metadata in its own wallet table so the user can reuse the same deposit address; it does not read balances from the gateway and it does not auto-create gateway wallets on login. Static deposit address generation requires:
 
 - `PAYMENT_GATEWAY_BASE_URL`
 - `PAYMENT_GATEWAY_MERCHANT_ID`
 - `PAYMENT_GATEWAY_DOMAIN_ID`
-- `PAYMENT_GATEWAY_PRODUCT_ID`
+- `PAYMENT_GATEWAY_API_SECRET` or `PAYMENT_GATEWAY_SECRET_KEY` when the gateway requires signed requests
 
-You can also trigger the same sync manually for the authenticated user:
+`PAYMENT_GATEWAY_MERCHANT_ID` and `PAYMENT_GATEWAY_DOMAIN_ID` must be UUIDs.
+
+The legacy wallet sync endpoint is kept for compatibility, but it only returns exchange-stored wallet address records and does not call the gateway:
 
 ```bash
 curl -X POST -b cookies.txt http://localhost:8080/v1/users/YOUR_OIDC_SUB/wallets/sync
@@ -672,8 +677,8 @@ The integration guide requires signed webhooks and the exchange rejects unsigned
 
 Supported unified callback events:
 
-- `native_transfer`, `token_transfer`, `erc20_transfer`, `spl_transfer`, `deposit_detected`: marks deposit pending
-- `payment_succeeded`: settles the deposit
+- `native_transfer`, `token_transfer`, `erc20_transfer`, `spl_transfer`, `deposit_detected`: marks deposit pending unless the payload status is settled
+- `deposit_confirmed`, `manual_test_deposit`, `payment_succeeded`: settles the deposit
 - `payment_failed`, `payment_expired`: acknowledged and ignored for balances
 - `payout_completed`, `payout_succeeded`, `withdrawal_completed`: completes a withdrawal if the payload includes the exchange `withdrawal_id`
 - `payout_failed`, `payout_canceled`, `withdrawal_failed`, `withdrawal_canceled`: cancels a withdrawal if the payload includes the exchange `withdrawal_id`
@@ -710,6 +715,19 @@ Accepted deposit statuses:
 - ignored/canceled: `cancelled`, `canceled`, `failed`, `rejected`, `expired`
 
 The deposit callback is idempotent. The exchange derives deterministic balance event IDs from `event_id`, `payment_id`, `track_id`, `order_id`, or `tx_hash`, so the same gateway event cannot credit funds twice. Prefer `amount` as a human decimal. If the gateway sends only raw token units, send `amount_raw` and `decimals`.
+
+Local smoke test without admin login:
+
+```bash
+./scripts/smoke_gateway_deposit.sh
+```
+
+The script reads the gateway domain from exchange `.env`, decrypts the gateway domain webhook secret with the gateway `MASTER_KEY`, sends a signed BTC `deposit_confirmed` callback to the configured domain webhook URL, then verifies the exchange DB balance increased. Useful overrides:
+
+```bash
+SMOKE_USER_ID=demo-user SMOKE_AMOUNT_RAW=10000 ./scripts/smoke_gateway_deposit.sh
+SMOKE_EVENT_TYPE=manual_test_deposit ./scripts/smoke_gateway_deposit.sh
+```
 
 Request a withdrawal. This moves the amount from `available` to `pending` until the payment gateway completes or cancels it:
 

@@ -14,6 +14,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const defaultBaseURL = "http://localhost:3001"
@@ -125,7 +127,7 @@ func ConfigFromEnv() Config {
 	return Config{
 		BaseURL:    envOrDefault("PAYMENT_GATEWAY_BASE_URL", defaultBaseURL),
 		APIKey:     strings.TrimSpace(os.Getenv("PAYMENT_GATEWAY_API_KEY")),
-		APISecret:  strings.TrimSpace(os.Getenv("PAYMENT_GATEWAY_API_SECRET")),
+		APISecret:  envFirst("PAYMENT_GATEWAY_API_SECRET", "PAYMENT_GATEWAY_SECRET_KEY", "PAYMENT_GATEWAY_API_SECRET_KEY"),
 		MerchantID: strings.TrimSpace(os.Getenv("PAYMENT_GATEWAY_MERCHANT_ID")),
 		DomainID:   strings.TrimSpace(os.Getenv("PAYMENT_GATEWAY_DOMAIN_ID")),
 		ProductID:  strings.TrimSpace(os.Getenv("PAYMENT_GATEWAY_PRODUCT_ID")),
@@ -150,7 +152,7 @@ func NewClient(cfg Config) *Client {
 }
 
 func (c *Client) Enabled() bool {
-	return c != nil && c.cfg.BaseURL != "" && c.cfg.MerchantID != "" && c.cfg.DomainID != "" && c.cfg.ProductID != ""
+	return c != nil && c.cfg.BaseURL != "" && c.cfg.MerchantID != "" && c.cfg.DomainID != ""
 }
 
 func (c *Client) StaticAddressEnabled() bool {
@@ -190,14 +192,12 @@ func (c *Client) CreateUserWallet(ctx context.Context, userID string) ([]WalletA
 	if userID == "" {
 		return nil, fmt.Errorf("gateway wallet user_id is required")
 	}
+	payload, err := c.walletCreatePayload(userID)
+	if err != nil {
+		return nil, err
+	}
 	if !c.Enabled() {
 		return nil, fmt.Errorf("payment gateway wallet client is not configured")
-	}
-	payload := walletCreateRequest{
-		MerchantID: c.cfg.MerchantID,
-		DomainID:   c.cfg.DomainID,
-		ProductID:  c.cfg.ProductID,
-		UserID:     userID,
 	}
 	var response walletCreateResponse
 	if err := c.postJSON(ctx, "/merchant.wallet.create", payload, &response); err != nil {
@@ -292,6 +292,32 @@ func (c *Client) QRCode(ctx context.Context, address string, size int) ([]byte, 
 		return nil, fmt.Errorf("payment gateway qrcode returned %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
 	}
 	return raw, nil
+}
+
+func (c *Client) walletCreatePayload(userID string) (walletCreateRequest, error) {
+	if c == nil || c.cfg.BaseURL == "" {
+		return walletCreateRequest{}, fmt.Errorf("payment gateway wallet client is not configured")
+	}
+	merchantID := strings.TrimSpace(c.cfg.MerchantID)
+	domainID := strings.TrimSpace(c.cfg.DomainID)
+	if merchantID == "" {
+		return walletCreateRequest{}, fmt.Errorf("gateway wallet merchant_id is required")
+	}
+	if domainID == "" {
+		return walletCreateRequest{}, fmt.Errorf("gateway wallet domain_id is required")
+	}
+	if _, err := uuid.Parse(merchantID); err != nil {
+		return walletCreateRequest{}, fmt.Errorf("gateway wallet merchant_id must be a UUID")
+	}
+	if _, err := uuid.Parse(domainID); err != nil {
+		return walletCreateRequest{}, fmt.Errorf("gateway wallet domain_id must be a UUID")
+	}
+	return walletCreateRequest{
+		MerchantID: merchantID,
+		DomainID:   domainID,
+		ProductID:  domainID,
+		UserID:     userID,
+	}, nil
 }
 
 func (c *Client) getJSON(ctx context.Context, path string, out any) error {
@@ -412,6 +438,15 @@ func envOrDefault(key string, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func envFirst(keys ...string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func durationFromEnv(key string, fallback time.Duration) time.Duration {

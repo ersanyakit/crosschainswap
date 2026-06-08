@@ -4,8 +4,8 @@
  */
 
 import { useState } from 'react';
-import { Trash2, CheckCircle, Info, XOctagon, AlertTriangle, Activity, Loader2, ChevronDown, ChevronsDown, ChevronsUp } from 'lucide-react';
-import { Order, Trade, SystemLog } from '../types/trading';
+import { Trash2, CheckCircle, Info, XOctagon, AlertTriangle, Activity, Loader2, ChevronDown, ChevronsDown, ChevronsUp, Flame } from 'lucide-react';
+import { Order, Trade, SystemLog, MarketPair } from '../types/trading';
 import { formatPrice, formatQuantity } from '../utils/formatters';
 import { type AssetInfo, type AssetDeploymentInfo, type AssetPriceResponse, type DexPoolPrice } from '../services/exchangeService';
 import AssetIcon from './AssetIcon';
@@ -14,7 +14,9 @@ interface TerminalPanelProps {
   openOrders: Order[];
   orderHistory: Order[];
   tradeHistory: Trade[];
+  recentTrades: Trade[];
   systemLogs: SystemLog[];
+  selectedMarket: MarketPair | null;
   selectedAssetSymbol: string;
   dexPrices: AssetPriceResponse | null;
   dexPricesLoading: boolean;
@@ -28,7 +30,9 @@ export default function TerminalPanel({
   openOrders,
   orderHistory,
   tradeHistory,
+  recentTrades,
   systemLogs,
+  selectedMarket,
   selectedAssetSymbol,
   dexPrices,
   dexPricesLoading,
@@ -37,7 +41,7 @@ export default function TerminalPanel({
   onCancelOrder,
   onCancelAllOrders,
 }: TerminalPanelProps) {
-  const [activeTab, setActiveTab] = useState<'OPEN_ORDERS' | 'ORDER_HISTORY' | 'TRADE_HISTORY' | 'SYSTEM_LOGS' | 'DEX_PRICES'>('OPEN_ORDERS');
+  const [activeTab, setActiveTab] = useState<'OPEN_ORDERS' | 'ORDER_HISTORY' | 'TRADE_HISTORY' | 'RECENT_TRADES' | 'SYSTEM_LOGS' | 'DEX_PRICES'>('OPEN_ORDERS');
   const [expandedDexPoolKeys, setExpandedDexPoolKeys] = useState<Set<string>>(() => new Set());
   const dexPools = dexPrices?.prices || [];
   const dexPoolKeys = dexPools.map(dexPoolKey);
@@ -83,6 +87,7 @@ export default function TerminalPanel({
             { id: 'OPEN_ORDERS', label: 'Open Orders', badge: openOrders.length },
             { id: 'ORDER_HISTORY', label: 'Order History', badge: orderHistory.length },
             { id: 'TRADE_HISTORY', label: 'Trade History', badge: undefined },
+            { id: 'RECENT_TRADES', label: 'Recent Trades', badge: recentTrades.length },
             { id: 'SYSTEM_LOGS', label: 'System Logs', badge: systemLogs.length },
             { id: 'DEX_PRICES', label: 'DEX Prices', badge: dexPrices?.prices.length },
           ] as const).map((tab) => (
@@ -302,7 +307,54 @@ export default function TerminalPanel({
           </div>
         )}
 
-        {/* VIEW 4: SYSTEM LOGS */}
+        {/* VIEW 4: RECENT MARKET TRADES */}
+        {activeTab === 'RECENT_TRADES' && (
+          <div className="min-w-[560px] p-2">
+            {recentTrades.length === 0 ? (
+              <div className="h-44 flex flex-col items-center justify-center text-gray-400 italic font-mono gap-1">
+                <Flame className="w-5 h-5 text-gray-300" />
+                No recent market executions.
+              </div>
+            ) : (
+              <table className="w-full text-left font-mono">
+                <thead>
+                  <tr className="text-[10px] uppercase text-gray-400 border-b border-[#e1e4e8]/50 dark:border-[#21262d]/50 pb-1">
+                    <th className="py-1.5 pl-2">Time</th>
+                    <th>Side</th>
+                    <th className="text-right">Price ({selectedMarket?.quoteAsset || 'Quote'})</th>
+                    <th className="text-right">Size ({selectedMarket?.baseAsset || 'Base'})</th>
+                    <th className="text-right pr-2">Total ({selectedMarket?.quoteAsset || 'Quote'})</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#e1e4e8]/45 dark:divide-[#21262d]/45">
+                  {recentTrades.map((trade) => (
+                    <tr key={trade.id} className="hover:bg-gray-50 dark:hover:bg-[#161b22]/30 transition-colors">
+                      <td className="py-2 pl-2 text-gray-400 text-[10px]">
+                        {trade.timestamp.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
+                      </td>
+                      <td>
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${trade.side === 'BUY' ? 'text-trade-green bg-trade-green-bg' : 'text-trade-red bg-trade-red-bg'}`}>
+                          {trade.side}
+                        </span>
+                      </td>
+                      <td className={`text-right font-semibold ${trade.side === 'BUY' ? 'text-trade-green' : 'text-trade-red'}`}>
+                        {formatPrice(trade.price)}
+                      </td>
+                      <td className="text-right text-gray-700 dark:text-gray-300">
+                        {formatQuantity(trade.amount)}
+                      </td>
+                      <td className="text-right pr-2 font-semibold text-gray-800 dark:text-gray-100">
+                        {trade.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
+        {/* VIEW 5: SYSTEM LOGS */}
         {activeTab === 'SYSTEM_LOGS' && (
           <div className="p-3 font-mono space-y-1 bg-slate-950 text-[#d1d5db] min-h-full leading-normal text-[11px] select-text selection:bg-accent-1/20 select-none">
             {systemLogs.map((log) => (
@@ -330,7 +382,7 @@ export default function TerminalPanel({
           </div>
         )}
 
-        {/* VIEW 5: CROSS-DEX PRICES */}
+        {/* VIEW 6: CROSS-DEX PRICES */}
         {activeTab === 'DEX_PRICES' && (
           <div className="min-w-0 bg-white dark:bg-[#0b1118] flex flex-col overflow-visible">
             <div className="shrink-0 flex flex-wrap items-center gap-2 px-3 sm:px-4 py-2.5 border-b border-[#e1e4e8] dark:border-[#21262d]">

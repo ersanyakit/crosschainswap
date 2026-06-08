@@ -80,7 +80,7 @@ func TestEndSessionURL(t *testing.T) {
 		enabled: true,
 	}
 
-	raw := service.EndSessionURL("http://localhost:3001/")
+	raw := service.EndSessionURL("http://localhost:3002/")
 	parsed, err := url.Parse(raw)
 	if err != nil {
 		t.Fatal(err)
@@ -92,7 +92,7 @@ func TestEndSessionURL(t *testing.T) {
 	if query.Get("client_id") != "kewlswap-exchange" {
 		t.Fatalf("unexpected client_id: %q", query.Get("client_id"))
 	}
-	if query.Get("post_logout_redirect_uri") != "http://localhost:3001/" {
+	if query.Get("post_logout_redirect_uri") != "http://localhost:3002/" {
 		t.Fatalf("unexpected post logout redirect: %q", query.Get("post_logout_redirect_uri"))
 	}
 }

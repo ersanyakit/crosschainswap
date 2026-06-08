@@ -1,9 +1,7 @@
 package rest
 
 import (
-	"context"
 	"errors"
-	"log"
 	"net/url"
 	"os"
 	"strings"
@@ -22,7 +20,7 @@ const (
 )
 
 func (s *Server) oidcStatus(c fiber.Ctx) error {
-	return c.JSON(fiber.Map{
+	return okJSON(c, fiber.Map{
 		"enabled":  s.auth != nil && s.auth.Enabled(),
 		"provider": s.authProviderName(),
 	})
@@ -69,27 +67,12 @@ func (s *Server) oidcCallback(c fiber.Ctx) error {
 	}
 	s.clearCookie(c, oidcStateCookie)
 	s.setCookie(c, oidcSessionCookie, session, s.auth.SessionTTL())
-	s.ensureGatewayWalletsAfterLogin(claims.Subject)
 	redirectURL := sanitizeOIDCRedirect(c.Cookies(oidcRedirectCookie))
 	s.clearCookie(c, oidcRedirectCookie)
 	if redirectURL != "" {
 		return c.Redirect().To(redirectURL)
 	}
-	return c.JSON(fiber.Map{"authenticated": true, "user": claims})
-}
-
-func (s *Server) ensureGatewayWalletsAfterLogin(userID string) {
-	userID = strings.TrimSpace(userID)
-	if userID == "" || s.orders == nil {
-		return
-	}
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		if _, err := s.orders.EnsureGatewayWallets(ctx, userID); err != nil {
-			log.Printf("gateway wallet sync failed for oidc subject %s: %v", userID, err)
-		}
-	}()
+	return okJSON(c, fiber.Map{"authenticated": true, "user": claims})
 }
 
 func (s *Server) authMe(c fiber.Ctx) error {
@@ -98,9 +81,9 @@ func (s *Server) authMe(c fiber.Ctx) error {
 		return err
 	}
 	if claims == nil {
-		return c.JSON(fiber.Map{"authenticated": false, "enabled": false})
+		return okJSON(c, fiber.Map{"authenticated": false, "enabled": false})
 	}
-	return c.JSON(fiber.Map{"authenticated": true, "user": claims})
+	return okJSON(c, fiber.Map{"authenticated": true, "user": claims})
 }
 
 func (s *Server) authLogout(c fiber.Ctx) error {
@@ -114,7 +97,7 @@ func (s *Server) authLogout(c fiber.Ctx) error {
 			response["logout_url"] = logoutURL
 		}
 	}
-	return c.JSON(response)
+	return okJSON(c, response)
 }
 
 func (s *Server) requirePathUser(c fiber.Ctx) (string, error) {

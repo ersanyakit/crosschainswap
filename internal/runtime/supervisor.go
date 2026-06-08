@@ -119,7 +119,7 @@ func DefaultOptions(processName string) Options {
 		FrontendMode:           mode,
 		FrontendDir:            envOrDefault("FRONTEND_DIR", "frontend"),
 		FrontendHost:           envOrDefault("FRONTEND_HOST", "0.0.0.0"),
-		FrontendPort:           envOrDefault("FRONTEND_PORT", "3001"),
+		FrontendPort:           envOrDefault("FRONTEND_PORT", "3002"),
 		FrontendPackageManager: envOrDefault("FRONTEND_PACKAGE_MANAGER", "npm"),
 	}
 }

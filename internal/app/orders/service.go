@@ -14,7 +14,9 @@ import (
 	"time"
 
 	"exchange/internal/adapters/storage/postgres"
+	"exchange/internal/core/asset"
 	"exchange/internal/core/balance"
+	"exchange/internal/core/chain"
 	"exchange/internal/core/decimal"
 	"exchange/internal/core/market"
 	"exchange/internal/core/matching"
@@ -38,6 +40,8 @@ const UpdatesChannel = "exchange_updates"
 
 type Service struct {
 	markets      market.Registry
+	assets       asset.Registry
+	hasAssets    bool
 	repo         *postgres.ExchangeRepository
 	priceBandBps int64
 	publish      Publisher
@@ -47,14 +51,8 @@ type Service struct {
 type Publisher func([]byte)
 
 type GatewayWalletProvider interface {
-	CreateUserWallet(ctx context.Context, userID string) ([]GatewayWallet, error)
 	CreateStaticAddress(ctx context.Context, userID string, symbol string, chainID int64, label string) (*GatewayStaticAddress, error)
 	QRCode(ctx context.Context, address string, size int) ([]byte, error)
-}
-
-type GatewayWallet struct {
-	ChainKey string
-	Address  string
 }
 
 type GatewayStaticAddress struct {
@@ -193,6 +191,11 @@ func NewService(markets market.Registry, repo *postgres.ExchangeRepository) *Ser
 
 func (s *Service) SetPublisher(publisher Publisher) {
 	s.publish = publisher
+}
+
+func (s *Service) SetAssetRegistry(registry asset.Registry) {
+	s.assets = registry
+	s.hasAssets = true
 }
 
 func (s *Service) SetGatewayWalletProvider(provider GatewayWalletProvider) {
@@ -422,9 +425,6 @@ func (s *Service) Candles(ctx context.Context, req MarketHistoryRequest) ([]trad
 	candles, err := s.repo.ListCandles(ctx, marketSymbol, interval, req.Limit)
 	if err != nil {
 		return nil, err
-	}
-	if len(candles) == 0 {
-		return fallbackCandles(marketSymbol, intervalDef, req.Limit, defaultMarketPrice(marketDef.BaseAsset)), nil
 	}
 	return candles, nil
 }
@@ -851,7 +851,7 @@ func (s *Service) ApplyGatewayDepositCallback(ctx context.Context, req GatewayDe
 		return &GatewayCallbackResult{Status: "ok", Action: "status_ignored"}, nil
 	}
 	userID := strings.TrimSpace(req.UserID)
-	asset := gatewayDepositAsset(req)
+	asset := s.gatewayDepositAsset(req)
 	amount, err := gatewayDepositAmount(req)
 	if err != nil {
 		return nil, err
@@ -862,8 +862,8 @@ func (s *Service) ApplyGatewayDepositCallback(ctx context.Context, req GatewayDe
 	if asset == "" {
 		return nil, fmt.Errorf("%w: asset is required", ErrInvalidOrder)
 	}
-	if !s.knownAsset(asset) {
-		return nil, fmt.Errorf("%w: unknown asset %s", ErrInvalidOrder, asset)
+	if !validGatewayAssetSymbol(asset) {
+		return nil, fmt.Errorf("%w: invalid asset %s", ErrInvalidOrder, asset)
 	}
 	ref := gatewayDepositReference(req)
 	if ref == "" {
@@ -1150,13 +1150,104 @@ func (s *Service) applyBalanceAmountWithEvent(ctx context.Context, userID string
 	return out, nil
 }
 
-func gatewayDepositAsset(req GatewayDepositCallback) string {
+func (s *Service) gatewayDepositAsset(req GatewayDepositCallback) string {
+	return s.canonicalGatewayAssetSymbol(gatewayDepositRawAsset(req))
+}
+
+func gatewayDepositRawAsset(req GatewayDepositCallback) string {
 	for _, raw := range []string{req.Asset, req.Symbol, req.SelectedAsset} {
 		if value := strings.ToUpper(strings.TrimSpace(raw)); value != "" {
 			return value
 		}
 	}
 	return ""
+}
+
+func (s *Service) canonicalGatewayAssetSymbol(symbol string) string {
+	symbol = strings.ToUpper(strings.TrimSpace(symbol))
+	if symbol == "" || !s.hasAssets {
+		return symbol
+	}
+	if _, ok := s.assets.Get(symbol); ok {
+		return symbol
+	}
+	for _, item := range s.assets.All() {
+		for _, deployment := range item.Deployments {
+			if strings.EqualFold(deployment.Symbol, symbol) {
+				return strings.ToUpper(strings.TrimSpace(item.Symbol))
+			}
+		}
+	}
+	return symbol
+}
+
+func (s *Service) gatewayDepositSymbol(symbol string, chainKey string) string {
+	symbol = strings.ToUpper(strings.TrimSpace(symbol))
+	if symbol == "" || !s.hasAssets {
+		return symbol
+	}
+	item, ok := s.assets.Get(symbol)
+	if !ok {
+		return symbol
+	}
+	targetChain := canonicalDepositChainKey(chainKey)
+	for _, deployment := range item.Deployments {
+		if !deployment.Enabled {
+			continue
+		}
+		if targetChain != "" && deployment.ChainKey != targetChain {
+			continue
+		}
+		if value := strings.ToUpper(strings.TrimSpace(deployment.Symbol)); value != "" {
+			return value
+		}
+		return symbol
+	}
+	return symbol
+}
+
+func canonicalDepositChainKey(value string) chain.ChainKey {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "bitcoin":
+		return chain.ChainKey("bitcoin")
+	case "ethereum":
+		return chain.ChainKeyEthereum
+	case "binance_smart_chain", "bnbchain", "bsc":
+		return chain.ChainKeyBinanceSmartChain
+	case "unichain":
+		return chain.ChainKeyUnichain
+	case "arbitrum":
+		return chain.ChainKeyArbitrum
+	case "base":
+		return chain.ChainKeyBase
+	case "avalanche", "avax":
+		return chain.ChainKeyAvalanche
+	case "chiliz":
+		return chain.ChainKeyChiliz
+	case "solana":
+		return chain.ChainKeySolana
+	case "tron":
+		return chain.ChainKey("tron")
+	default:
+		return chain.ChainKey(strings.ToLower(strings.TrimSpace(value)))
+	}
+}
+
+func validGatewayAssetSymbol(asset string) bool {
+	asset = strings.TrimSpace(asset)
+	if asset == "" || len(asset) > 32 {
+		return false
+	}
+	for _, ch := range asset {
+		switch {
+		case ch >= 'A' && ch <= 'Z':
+		case ch >= '0' && ch <= '9':
+		case ch == '.', ch == '-', ch == '_':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func gatewayDepositAmount(req GatewayDepositCallback) (string, error) {
@@ -1245,61 +1336,7 @@ func (s *Service) ListWallets(ctx context.Context, userID string) ([]balance.Wal
 	if userID == "" {
 		return nil, fmt.Errorf("%w: user_id is required", ErrInvalidOrder)
 	}
-	items, err := s.repo.ListWallets(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-	if len(items) > 0 || s.gateway == nil {
-		return items, nil
-	}
-	synced, err := s.EnsureGatewayWallets(ctx, userID)
-	if err != nil {
-		return items, nil
-	}
-	return synced, nil
-}
-
-func (s *Service) EnsureGatewayWallets(ctx context.Context, userID string) ([]balance.Wallet, error) {
-	userID = strings.TrimSpace(userID)
-	if userID == "" {
-		return nil, fmt.Errorf("%w: user_id is required", ErrInvalidOrder)
-	}
-	if s.gateway == nil {
-		return s.repo.ListWallets(ctx, userID)
-	}
-	gatewayWallets, err := s.gateway.CreateUserWallet(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-	var out []balance.Wallet
-	err = s.repo.Transaction(ctx, func(tx *postgres.ExchangeRepository) error {
-		for _, item := range gatewayWallets {
-			chainKey := strings.ToLower(strings.TrimSpace(item.ChainKey))
-			address := strings.TrimSpace(item.Address)
-			if chainKey == "" || address == "" || !s.knownChain(chainKey) {
-				continue
-			}
-			if err := validateGatewayAddress(chainKey, address); err != nil {
-				continue
-			}
-			wallet, err := tx.UpsertWallet(ctx, balance.Wallet{UserID: userID, ChainKey: chainKey, Address: address})
-			if err != nil {
-				return err
-			}
-			out = append(out, *wallet)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	for i := range out {
-		s.publishWalletUpdate("exchange.wallet_registered", &out[i])
-	}
-	if len(out) == 0 {
-		return s.repo.ListWallets(ctx, userID)
-	}
-	return out, nil
+	return s.repo.ListWallets(ctx, userID)
 }
 
 func (s *Service) DepositAddress(ctx context.Context, userID string, req DepositAddressRequest) (*DepositAddress, error) {
@@ -1323,7 +1360,8 @@ func (s *Service) DepositAddress(ctx context.Context, userID string, req Deposit
 	if s.gateway == nil {
 		return nil, fmt.Errorf("payment gateway static address provider is not configured")
 	}
-	item, err := s.gateway.CreateStaticAddress(ctx, userID, asset, chainID, label)
+	gatewaySymbol := s.gatewayDepositSymbol(asset, chainKey)
+	item, err := s.gateway.CreateStaticAddress(ctx, userID, gatewaySymbol, chainID, label)
 	if err != nil {
 		return nil, err
 	}
@@ -1430,14 +1468,16 @@ func (s *Service) knownChain(chainKey string) bool {
 	if len(markets) == 0 {
 		return true
 	}
+	hasChainMetadata := false
 	for _, item := range markets {
 		for _, key := range item.ChainKeys {
+			hasChainMetadata = true
 			if strings.EqualFold(key, chainKey) {
 				return true
 			}
 		}
 	}
-	return false
+	return !hasChainMetadata
 }
 
 func gatewayChainID(chainKey string) (int64, bool) {

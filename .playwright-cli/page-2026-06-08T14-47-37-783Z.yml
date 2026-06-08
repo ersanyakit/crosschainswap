@@ -1,0 +1,327 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - button "K Toggle Sidebar (Ctrl+B)" [ref=e7] [cursor=pointer]:
+          - generic [ref=e8]: K
+          - generic: Toggle Sidebar (Ctrl+B)
+        - generic [ref=e9]:
+          - button "Markets Explorer" [ref=e10] [cursor=pointer]:
+            - img [ref=e11]
+            - generic: Markets Explorer
+          - button "Trading Desk" [ref=e14] [cursor=pointer]:
+            - img [ref=e15]
+            - generic: Trading Desk
+          - button "Portfolio Analytics" [ref=e17] [cursor=pointer]:
+            - img [ref=e18]
+            - generic: Portfolio Analytics
+          - button "Orders Ledger" [ref=e22] [cursor=pointer]:
+            - img [ref=e23]
+            - generic: Orders Ledger
+          - button "Secured Wallet" [ref=e28] [cursor=pointer]:
+            - img [ref=e29]
+            - generic: Secured Wallet
+          - button "Dev Strategy Lab" [ref=e32] [cursor=pointer]:
+            - img [ref=e33]
+            - generic: Dev Strategy Lab
+      - generic [ref=e38]:
+        - button "Login" [ref=e39] [cursor=pointer]:
+          - img [ref=e40]
+          - generic: Login
+        - button "Refresh Backend Data" [ref=e43] [cursor=pointer]:
+          - img [ref=e44]
+          - generic: Refresh Backend Data
+        - generic [ref=e49]:
+          - generic:
+            - generic: Backend status
+            - text: "Connection: connected"
+            - text: "Latency: 0ms"
+            - text: "Transport: REST/WS"
+        - button "Terminal Preferences" [ref=e53] [cursor=pointer]:
+          - img [ref=e54]
+          - generic: Terminal Preferences
+    - generic [ref=e57]:
+      - generic [ref=e58]:
+        - generic [ref=e59]:
+          - heading "Spot Explorer" [level=2] [ref=e60]:
+            - img [ref=e61]
+            - text: Spot Explorer
+          - generic [ref=e62]: 0/0 pairs
+        - generic [ref=e63]:
+          - img [ref=e64]
+          - textbox "Search assets... (e.g. BTC)" [ref=e67]
+        - generic [ref=e68]:
+          - button "ALL" [ref=e69] [cursor=pointer]
+          - button "FAVORITES" [ref=e70] [cursor=pointer]
+          - button "TRENDING" [ref=e71] [cursor=pointer]
+      - generic [ref=e72]:
+        - generic [ref=e73]:
+          - generic [ref=e74] [cursor=pointer]:
+            - img [ref=e76]
+            - img [ref=e78]
+            - generic [ref=e80]: ★ Watchlist (0)
+          - generic [ref=e82]: Add pairs to Watchlist
+        - generic [ref=e83]:
+          - generic [ref=e84] [cursor=pointer]:
+            - img [ref=e86]
+            - img [ref=e88]
+            - generic [ref=e90]: 📁 Spot Markets (0)
+          - generic [ref=e92]: No matching assets
+        - generic [ref=e94] [cursor=pointer]:
+          - img [ref=e96]
+          - img [ref=e98]
+          - generic [ref=e100]: 🔥 Volatile Movers
+      - generic [ref=e101]:
+        - generic [ref=e102]:
+          - generic [ref=e103]: "Command Palette:"
+          - generic [ref=e104]: Ctrl+K
+        - generic [ref=e105]:
+          - generic [ref=e106]: "Toggle Sidebar:"
+          - generic [ref=e107]: Ctrl+B
+    - generic [ref=e108]:
+      - generic [ref=e110]:
+        - button "Portfolio.json" [ref=e111] [cursor=pointer]:
+          - img [ref=e112]
+          - generic [ref=e115]: Portfolio.json
+          - generic "Close Tab" [ref=e116]:
+            - img [ref=e117]
+        - button "strategy.ts" [ref=e120] [cursor=pointer]:
+          - img [ref=e121]
+          - generic [ref=e124]: strategy.ts
+          - generic "Close Tab" [ref=e125]:
+            - img [ref=e126]
+      - generic [ref=e129]:
+        - generic [ref=e130]:
+          - generic [ref=e131]:
+            - img [ref=e133]
+            - generic [ref=e136]:
+              - generic [ref=e137]: Estimated Balance (USD)
+              - generic [ref=e138]: $0,00
+            - generic [ref=e139]: 13 assets
+          - generic [ref=e140]:
+            - generic [ref=e141]:
+              - generic [ref=e142]: Available Balance (USD)
+              - generic [ref=e143]: $0,00
+            - generic [ref=e144]:
+              - img [ref=e145]
+              - text: Withdrawable balance across listed assets.
+          - generic [ref=e148]:
+            - generic [ref=e149]:
+              - generic [ref=e150]: Locked Balance (USD)
+              - generic [ref=e151]: $0,00
+            - generic [ref=e152]: Reserved by open orders.
+        - generic [ref=e153]:
+          - button "Holding Asset Allocations" [ref=e154] [cursor=pointer]:
+            - img [ref=e155]
+            - text: Holding Asset Allocations
+          - button "Deposit / Withdrawal" [ref=e158] [cursor=pointer]:
+            - img [ref=e159]
+            - text: Deposit / Withdrawal
+          - button "Ledger" [ref=e161] [cursor=pointer]:
+            - img [ref=e162]
+            - text: Ledger
+        - generic [ref=e165]:
+          - heading "Holding Asset Allocations (13)" [level=3] [ref=e166]
+          - table [ref=e168]:
+            - rowgroup [ref=e169]:
+              - row "Asset Locked Available Total Value (USD) Allocation" [ref=e170]:
+                - columnheader "Asset" [ref=e171]
+                - columnheader "Locked" [ref=e172]
+                - columnheader "Available" [ref=e173]
+                - columnheader "Total" [ref=e174]
+                - columnheader "Value (USD)" [ref=e175]
+                - columnheader "Allocation" [ref=e176]
+            - rowgroup [ref=e177]:
+              - row "AVAX AVAX Avalanche 0,00 0,00 0,00 $0,00 0.0%" [ref=e178]:
+                - cell "AVAX AVAX Avalanche" [ref=e179]:
+                  - generic [ref=e180]:
+                    - generic "AVAX" [ref=e181]:
+                      - img "AVAX" [ref=e182]
+                    - generic [ref=e183]:
+                      - generic [ref=e184]: AVAX
+                      - generic [ref=e185]: Avalanche
+                - cell "0,00" [ref=e186]
+                - cell "0,00" [ref=e187]
+                - cell "0,00" [ref=e188]
+                - cell "$0,00" [ref=e189]
+                - cell "0.0%" [ref=e190]:
+                  - generic [ref=e192]: 0.0%
+              - row "BNB BNB Binance Coin 0,00 0,00 0,00 $0,00 0.0%" [ref=e194]:
+                - cell "BNB BNB Binance Coin" [ref=e195]:
+                  - generic [ref=e196]:
+                    - generic "BNB" [ref=e197]:
+                      - img "BNB" [ref=e198]
+                    - generic [ref=e199]:
+                      - generic [ref=e200]: BNB
+                      - generic [ref=e201]: Binance Coin
+                - cell "0,00" [ref=e202]
+                - cell "0,00" [ref=e203]
+                - cell "0,00" [ref=e204]
+                - cell "$0,00" [ref=e205]
+                - cell "0.0%" [ref=e206]:
+                  - generic [ref=e208]: 0.0%
+              - row "BTC BTC Bitcoin 0,00 0,00 0,00 $0,00 0.0%" [ref=e210]:
+                - cell "BTC BTC Bitcoin" [ref=e211]:
+                  - generic [ref=e212]:
+                    - generic "BTC" [ref=e213]:
+                      - img "BTC" [ref=e214]
+                    - generic [ref=e215]:
+                      - generic [ref=e216]: BTC
+                      - generic [ref=e217]: Bitcoin
+                - cell "0,00" [ref=e218]
+                - cell "0,00" [ref=e219]
+                - cell "0,00" [ref=e220]
+                - cell "$0,00" [ref=e221]
+                - cell "0.0%" [ref=e222]:
+                  - generic [ref=e224]: 0.0%
+              - row "CHZ CHZ Chiliz 0,00 0,00 0,00 $0,00 0.0%" [ref=e226]:
+                - cell "CHZ CHZ Chiliz" [ref=e227]:
+                  - generic [ref=e228]:
+                    - generic "CHZ" [ref=e229]:
+                      - img "CHZ" [ref=e230]
+                    - generic [ref=e231]:
+                      - generic [ref=e232]: CHZ
+                      - generic [ref=e233]: Chiliz
+                - cell "0,00" [ref=e234]
+                - cell "0,00" [ref=e235]
+                - cell "0,00" [ref=e236]
+                - cell "$0,00" [ref=e237]
+                - cell "0.0%" [ref=e238]:
+                  - generic [ref=e240]: 0.0%
+              - row "CHZINU CHZINU ChilizINU 0,00 0,00 0,00 $0,00 0.0%" [ref=e242]:
+                - cell "CHZINU CHZINU ChilizINU" [ref=e243]:
+                  - generic [ref=e244]:
+                    - generic "CHZINU" [ref=e245]:
+                      - img "CHZINU" [ref=e246]
+                    - generic [ref=e247]:
+                      - generic [ref=e248]: CHZINU
+                      - generic [ref=e249]: ChilizINU
+                - cell "0,00" [ref=e250]
+                - cell "0,00" [ref=e251]
+                - cell "0,00" [ref=e252]
+                - cell "$0,00" [ref=e253]
+                - cell "0.0%" [ref=e254]:
+                  - generic [ref=e256]: 0.0%
+              - row "ETH ETH Ether 0,00 0,00 0,00 $0,00 0.0%" [ref=e258]:
+                - cell "ETH ETH Ether" [ref=e259]:
+                  - generic [ref=e260]:
+                    - generic "ETH" [ref=e261]:
+                      - img "ETH" [ref=e262]
+                    - generic [ref=e263]:
+                      - generic [ref=e264]: ETH
+                      - generic [ref=e265]: Ether
+                - cell "0,00" [ref=e266]
+                - cell "0,00" [ref=e267]
+                - cell "0,00" [ref=e268]
+                - cell "$0,00" [ref=e269]
+                - cell "0.0%" [ref=e270]:
+                  - generic [ref=e272]: 0.0%
+              - row "LGBT LGBT COOLVIBES 0,00 0,00 0,00 $0,00 0.0%" [ref=e274]:
+                - cell "LGBT LGBT COOLVIBES" [ref=e275]:
+                  - generic [ref=e276]:
+                    - generic "LGBT" [ref=e277]:
+                      - img "LGBT" [ref=e278]
+                    - generic [ref=e279]:
+                      - generic [ref=e280]: LGBT
+                      - generic [ref=e281]: COOLVIBES
+                - cell "0,00" [ref=e282]
+                - cell "0,00" [ref=e283]
+                - cell "0,00" [ref=e284]
+                - cell "$0,00" [ref=e285]
+                - cell "0.0%" [ref=e286]:
+                  - generic [ref=e288]: 0.0%
+              - row "PEPPER PEPPER PEPPER 0,00 0,00 0,00 $0,00 0.0%" [ref=e290]:
+                - cell "PEPPER PEPPER PEPPER" [ref=e291]:
+                  - generic [ref=e292]:
+                    - generic "PEPPER" [ref=e293]:
+                      - img "PEPPER" [ref=e294]
+                    - generic [ref=e295]:
+                      - generic [ref=e296]: PEPPER
+                      - generic [ref=e297]: PEPPER
+                - cell "0,00" [ref=e298]
+                - cell "0,00" [ref=e299]
+                - cell "0,00" [ref=e300]
+                - cell "$0,00" [ref=e301]
+                - cell "0.0%" [ref=e302]:
+                  - generic [ref=e304]: 0.0%
+              - row "SOL SOL Solana 0,00 0,00 0,00 $0,00 0.0%" [ref=e306]:
+                - cell "SOL SOL Solana" [ref=e307]:
+                  - generic [ref=e308]:
+                    - generic "SOL" [ref=e309]:
+                      - img "SOL" [ref=e310]
+                    - generic [ref=e311]:
+                      - generic [ref=e312]: SOL
+                      - generic [ref=e313]: Solana
+                - cell "0,00" [ref=e314]
+                - cell "0,00" [ref=e315]
+                - cell "0,00" [ref=e316]
+                - cell "$0,00" [ref=e317]
+                - cell "0.0%" [ref=e318]:
+                  - generic [ref=e320]: 0.0%
+              - row "TBT TBT TBT Token 0,00 0,00 0,00 $0,00 0.0%" [ref=e322]:
+                - cell "TBT TBT TBT Token" [ref=e323]:
+                  - generic [ref=e324]:
+                    - generic "TBT" [ref=e325]:
+                      - img "TBT" [ref=e326]
+                    - generic [ref=e327]:
+                      - generic [ref=e328]: TBT
+                      - generic [ref=e329]: TBT Token
+                - cell "0,00" [ref=e330]
+                - cell "0,00" [ref=e331]
+                - cell "0,00" [ref=e332]
+                - cell "$0,00" [ref=e333]
+                - cell "0.0%" [ref=e334]:
+                  - generic [ref=e336]: 0.0%
+              - row "TRX TRX Tron 0,00 0,00 0,00 $0,00 0.0%" [ref=e338]:
+                - cell "TRX TRX Tron" [ref=e339]:
+                  - generic [ref=e340]:
+                    - generic "TRX" [ref=e341]:
+                      - img "TRX" [ref=e342]
+                    - generic [ref=e343]:
+                      - generic [ref=e344]: TRX
+                      - generic [ref=e345]: Tron
+                - cell "0,00" [ref=e346]
+                - cell "0,00" [ref=e347]
+                - cell "0,00" [ref=e348]
+                - cell "$0,00" [ref=e349]
+                - cell "0.0%" [ref=e350]:
+                  - generic [ref=e352]: 0.0%
+              - row "USDC USDC USD Coin 0,00 0,00 0,00 $0,00 0.0%" [ref=e354]:
+                - cell "USDC USDC USD Coin" [ref=e355]:
+                  - generic [ref=e356]:
+                    - generic "USDC" [ref=e357]:
+                      - img "USDC" [ref=e358]
+                    - generic [ref=e359]:
+                      - generic [ref=e360]: USDC
+                      - generic [ref=e361]: USD Coin
+                - cell "0,00" [ref=e362]
+                - cell "0,00" [ref=e363]
+                - cell "0,00" [ref=e364]
+                - cell "$0,00" [ref=e365]
+                - cell "0.0%" [ref=e366]:
+                  - generic [ref=e368]: 0.0%
+              - row "USDT USDT Tether USD 0,00 0,00 0,00 $0,00 0.0%" [ref=e370]:
+                - cell "USDT USDT Tether USD" [ref=e371]:
+                  - generic [ref=e372]:
+                    - generic "USDT" [ref=e373]:
+                      - img "USDT" [ref=e374]
+                    - generic [ref=e375]:
+                      - generic [ref=e376]: USDT
+                      - generic [ref=e377]: Tether USD
+                - cell "0,00" [ref=e378]
+                - cell "0,00" [ref=e379]
+                - cell "0,00" [ref=e380]
+                - cell "$0,00" [ref=e381]
+                - cell "0.0%" [ref=e382]:
+                  - generic [ref=e384]: 0.0%
+  - contentinfo [ref=e386]:
+    - generic [ref=e387]:
+      - generic [ref=e388]: KEWL LIMIT PROTOCOL
+      - generic [ref=e390]: "Exchange: CONNECTING"
+      - generic [ref=e391]: "Fee rate: Maker 0.08% / Taker 0.10%"
+    - generic [ref=e392]:
+      - generic "Spot mode operates without liabilities" [ref=e393]: "Account: Unauthenticated"
+      - button "Login" [ref=e394] [cursor=pointer]
+      - generic [ref=e395]: "Latency API: 0ms"
+      - generic "Probing exchange API" [ref=e396]: "Protocol rev: 0"
+      - generic [ref=e397]: "UTC: 17:47:37"

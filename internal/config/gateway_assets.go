@@ -95,13 +95,19 @@ func gatewayDeploymentToRegistryDeployment(item paymentgateway.Asset, deployment
 
 	address := strings.TrimSpace(deployment.TokenAddress)
 	mint := strings.TrimSpace(deployment.MintAddress)
+	native := deployment.Native || strings.EqualFold(deployment.Type, "native")
 	if chainKey == chain.ChainKeySolana {
-		if mint == "" {
+		if !native && mint == "" {
 			return asset.Deployment{}, false
 		}
 		address = ""
-	} else if address == "" {
+		if native {
+			mint = ""
+		}
+	} else if !native && address == "" {
 		return asset.Deployment{}, false
+	} else if native {
+		address = ""
 	}
 
 	decimals := deployment.Decimals
@@ -117,6 +123,7 @@ func gatewayDeploymentToRegistryDeployment(item paymentgateway.Asset, deployment
 		Name:         deployment.Name,
 		Decimals:     decimals,
 		Enabled:      deployment.Enabled,
+		Native:       native,
 		IconURL:      gatewayAssetURL(gatewayBaseURL, firstNonEmpty(deployment.LogoURL, item.LogoURL)),
 		ChainLogoURL: gatewayAssetURL(gatewayBaseURL, deployment.ChainLogoURL),
 	}, true

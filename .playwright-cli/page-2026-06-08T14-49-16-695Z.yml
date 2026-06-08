@@ -1,0 +1,147 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - button "K Toggle Sidebar (Ctrl+B)" [ref=e7] [cursor=pointer]:
+          - generic [ref=e8]: K
+          - generic: Toggle Sidebar (Ctrl+B)
+        - generic [ref=e9]:
+          - button "Markets Explorer" [ref=e10] [cursor=pointer]:
+            - img [ref=e11]
+            - generic: Markets Explorer
+          - button "Trading Desk" [ref=e14] [cursor=pointer]:
+            - img [ref=e15]
+            - generic: Trading Desk
+          - button "Portfolio Analytics" [ref=e17] [cursor=pointer]:
+            - img [ref=e18]
+            - generic: Portfolio Analytics
+          - button "Orders Ledger" [ref=e22] [cursor=pointer]:
+            - img [ref=e23]
+            - generic: Orders Ledger
+          - button "Secured Wallet" [ref=e28] [cursor=pointer]:
+            - img [ref=e29]
+            - generic: Secured Wallet
+          - button "Dev Strategy Lab" [ref=e32] [cursor=pointer]:
+            - img [ref=e33]
+            - generic: Dev Strategy Lab
+      - generic [ref=e38]:
+        - button "Checking Auth..." [disabled] [ref=e39]:
+          - img [ref=e40]
+          - generic: Checking Auth...
+        - button "Refresh Backend Data" [ref=e43] [cursor=pointer]:
+          - img [ref=e44]
+          - generic: Refresh Backend Data
+        - generic [ref=e49]:
+          - generic:
+            - generic: Backend status
+            - text: "Connection: connected"
+            - text: "Latency: 0ms"
+            - text: "Transport: REST/WS"
+        - button "Terminal Preferences" [ref=e53] [cursor=pointer]:
+          - img [ref=e54]
+          - generic: Terminal Preferences
+    - generic [ref=e57]:
+      - generic [ref=e58]:
+        - generic [ref=e59]:
+          - heading "Spot Explorer" [level=2] [ref=e60]:
+            - img [ref=e61]
+            - text: Spot Explorer
+          - generic [ref=e62]: 0/0 pairs
+        - generic [ref=e63]:
+          - img [ref=e64]
+          - textbox "Search assets... (e.g. BTC)" [ref=e67]
+        - generic [ref=e68]:
+          - button "ALL" [ref=e69] [cursor=pointer]
+          - button "FAVORITES" [ref=e70] [cursor=pointer]
+          - button "TRENDING" [ref=e71] [cursor=pointer]
+      - generic [ref=e72]:
+        - generic [ref=e73]:
+          - generic [ref=e74] [cursor=pointer]:
+            - img [ref=e76]
+            - img [ref=e78]
+            - generic [ref=e80]: ★ Watchlist (0)
+          - generic [ref=e82]: Add pairs to Watchlist
+        - generic [ref=e83]:
+          - generic [ref=e84] [cursor=pointer]:
+            - img [ref=e86]
+            - img [ref=e88]
+            - generic [ref=e90]: 📁 Spot Markets (0)
+          - generic [ref=e92]: No matching assets
+        - generic [ref=e94] [cursor=pointer]:
+          - img [ref=e96]
+          - img [ref=e98]
+          - generic [ref=e100]: 🔥 Volatile Movers
+      - generic [ref=e101]:
+        - generic [ref=e102]:
+          - generic [ref=e103]: "Command Palette:"
+          - generic [ref=e104]: Ctrl+K
+        - generic [ref=e105]:
+          - generic [ref=e106]: "Toggle Sidebar:"
+          - generic [ref=e107]: Ctrl+B
+    - generic [ref=e108]:
+      - generic [ref=e110]:
+        - button "Portfolio.json" [ref=e111] [cursor=pointer]:
+          - img [ref=e112]
+          - generic [ref=e115]: Portfolio.json
+          - generic "Close Tab" [ref=e116]:
+            - img [ref=e117]
+        - button "strategy.ts" [ref=e120] [cursor=pointer]:
+          - img [ref=e121]
+          - generic [ref=e124]: strategy.ts
+          - generic "Close Tab" [ref=e125]:
+            - img [ref=e126]
+      - generic [ref=e129]:
+        - generic [ref=e130]:
+          - generic [ref=e131]:
+            - img [ref=e133]
+            - generic [ref=e136]:
+              - generic [ref=e137]: Estimated Balance (USD)
+              - generic [ref=e138]: $0,00
+            - generic [ref=e139]: 0 assets
+          - generic [ref=e140]:
+            - generic [ref=e141]:
+              - generic [ref=e142]: Available Balance (USD)
+              - generic [ref=e143]: $0,00
+            - generic [ref=e144]:
+              - img [ref=e145]
+              - text: Withdrawable balance across listed assets.
+          - generic [ref=e148]:
+            - generic [ref=e149]:
+              - generic [ref=e150]: Locked Balance (USD)
+              - generic [ref=e151]: $0,00
+            - generic [ref=e152]: Reserved by open orders.
+        - generic [ref=e153]:
+          - button "Holding Asset Allocations" [ref=e154] [cursor=pointer]:
+            - img [ref=e155]
+            - text: Holding Asset Allocations
+          - button "Deposit / Withdrawal" [ref=e158] [cursor=pointer]:
+            - img [ref=e159]
+            - text: Deposit / Withdrawal
+          - button "Ledger" [ref=e161] [cursor=pointer]:
+            - img [ref=e162]
+            - text: Ledger
+        - generic [ref=e165]:
+          - heading "Holding Asset Allocations (0)" [level=3] [ref=e166]
+          - table [ref=e168]:
+            - rowgroup [ref=e169]:
+              - row "Asset Locked Available Total Value (USD) Allocation" [ref=e170]:
+                - columnheader "Asset" [ref=e171]
+                - columnheader "Locked" [ref=e172]
+                - columnheader "Available" [ref=e173]
+                - columnheader "Total" [ref=e174]
+                - columnheader "Value (USD)" [ref=e175]
+                - columnheader "Allocation" [ref=e176]
+            - rowgroup [ref=e177]:
+              - row "No exchange balances registered for this account." [ref=e178]:
+                - cell "No exchange balances registered for this account." [ref=e179]
+  - contentinfo [ref=e180]:
+    - generic [ref=e181]:
+      - generic [ref=e182]: KEWL LIMIT PROTOCOL
+      - generic [ref=e184]: "Exchange: CONNECTING"
+      - generic [ref=e185]: "Fee rate: Maker 0.08% / Taker 0.10%"
+    - generic [ref=e186]:
+      - generic "Spot mode operates without liabilities" [ref=e187]: "Account: Unauthenticated"
+      - button "Auth..." [disabled] [ref=e188]
+      - generic [ref=e189]: "Latency API: 0ms"
+      - generic "Probing exchange API" [ref=e190]: "Protocol rev: 0"
+      - generic [ref=e191]: "UTC: 17:49:16"

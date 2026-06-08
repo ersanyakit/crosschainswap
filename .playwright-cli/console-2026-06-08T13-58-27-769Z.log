@@ -1,0 +1,13 @@
+[  630737ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:3002/api/auth/me:0
+[ 2750763ms] [ERROR] Failed to load resource: net::ERR_EMPTY_RESPONSE @ http://127.0.0.1:3002/api/v1/markets:0
+[ 2750763ms] [LOG] [vite] server connection lost. Polling for restart... @ http://127.0.0.1:3002/@vite/client:963
+[ 2750772ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3002/@vite/client:1034
+[ 2750779ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3002/api/health:0
+[ 2751780ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3002/@vite/client:1034
+[ 2752782ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3002/@vite/client:1034
+[ 2753785ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3002/@vite/client:1034
+[ 2755363ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:3002/node_modules/.vite/deps/react-dom_client.js?v=af5c7f7f:20100
+[ 2755451ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:3002/api/auth/me:0
+[ 2755451ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:3002/api/auth/me:0
+[ 2896614ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:3002/api/auth/me:0
+[ 2909745ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:3002/api/auth/me:0

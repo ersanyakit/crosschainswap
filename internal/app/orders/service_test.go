@@ -2,6 +2,7 @@ package orders
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"exchange/internal/core/balance"
@@ -84,6 +85,22 @@ func TestGatewayDepositAmountFromRaw(t *testing.T) {
 	}
 }
 
+func TestValidGatewayAssetSymbolAllowsUnlistedDepositAssets(t *testing.T) {
+	for _, asset := range []string{"BTC", "USDT", "USDC.E", "WBTC-OLD", "TOKEN_1"} {
+		if !validGatewayAssetSymbol(asset) {
+			t.Fatalf("expected gateway asset %q to be accepted", asset)
+		}
+	}
+}
+
+func TestValidGatewayAssetSymbolRejectsUnsafeValues(t *testing.T) {
+	for _, asset := range []string{"", "btc", "BTC/USD", "BTC ETH", "BTC;DROP", strings.Repeat("A", 33)} {
+		if validGatewayAssetSymbol(asset) {
+			t.Fatalf("expected gateway asset %q to be rejected", asset)
+		}
+	}
+}
+
 func TestGatewayStatusNormalization(t *testing.T) {
 	cases := map[string]string{
 		"awaiting_payment": "pending",
@@ -106,6 +123,29 @@ func TestGatewayBalanceEventIDIsDeterministicAndShort(t *testing.T) {
 	}
 	if len(first) > 64 {
 		t.Fatalf("gatewayBalanceEventID length = %d, want <= 64", len(first))
+	}
+}
+
+func TestKnownChainAllowsGatewayWalletsWhenMarketsHaveNoChainMetadata(t *testing.T) {
+	service := NewService(market.NewRegistry([]market.Market{
+		{Symbol: "SOL/USD", BaseAsset: "SOL", QuoteAsset: "USD", Enabled: true},
+	}), nil)
+
+	if !service.knownChain("solana") {
+		t.Fatal("knownChain rejected a gateway wallet chain when markets have no chain metadata")
+	}
+}
+
+func TestKnownChainUsesConfiguredChainMetadataWhenPresent(t *testing.T) {
+	service := NewService(market.NewRegistry([]market.Market{
+		{Symbol: "SOL/USD", BaseAsset: "SOL", QuoteAsset: "USD", ChainKeys: []string{"solana"}, Enabled: true},
+	}), nil)
+
+	if !service.knownChain("solana") {
+		t.Fatal("knownChain rejected configured chain")
+	}
+	if service.knownChain("base") {
+		t.Fatal("knownChain accepted unconfigured chain")
 	}
 }
 

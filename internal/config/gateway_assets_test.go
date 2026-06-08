@@ -42,6 +42,17 @@ func TestGatewayAssetsToRegistryAssetsMapsTokenDeployments(t *testing.T) {
 				{Symbol: "WCHZ", Name: "Wrapped Chiliz", Network: "chiliz", ChainID: 88888, Decimals: 18, Enabled: true, TokenAddress: "0x677f7e16c7dd57be1d4c8ad1244883214953dc47", LogoURL: "/static/coins/chz.svg"},
 			},
 		},
+		{
+			Symbol:   "btc",
+			Name:     "Bitcoin",
+			Type:     "native",
+			Decimals: 8,
+			LogoURL:  "/static/coins/btc.svg",
+			Deployments: []paymentgateway.AssetDeployment{
+				{Symbol: "BTC", Name: "Bitcoin", Network: "bitcoin", ChainID: 0, Decimals: 8, Native: true, Enabled: true, Identifier: "BTC", LogoURL: "/static/coins/btc.svg", ChainLogoURL: "/static/chains/bitcoinchain.svg"},
+				{Symbol: "WBTC", Name: "Wrapped BTC", Network: "ethereum", ChainID: 1, Decimals: 8, Enabled: true, TokenAddress: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", LogoURL: "/static/coins/btc.svg", ChainLogoURL: "/static/chains/ethereumchain.svg"},
+			},
+		},
 	}, "http://localhost:3001")
 
 	bySymbol := make(map[string]int, len(assets))
@@ -53,24 +64,38 @@ func TestGatewayAssetsToRegistryAssetsMapsTokenDeployments(t *testing.T) {
 	if eth.IconURL != "http://localhost:3001/static/coins/eth.svg" {
 		t.Fatalf("unexpected ETH icon URL: %q", eth.IconURL)
 	}
-	if len(eth.Deployments) != 1 {
-		t.Fatalf("expected only wrapped ETH deployment, got %#v", eth.Deployments)
+	if len(eth.Deployments) != 2 {
+		t.Fatalf("expected native and wrapped ETH deployments, got %#v", eth.Deployments)
 	}
-	if eth.Deployments[0].ChainKey != chain.ChainKeyBase || eth.Deployments[0].Symbol != "WETH" || eth.Deployments[0].Address != "0x4200000000000000000000000000000000000006" {
-		t.Fatalf("unexpected ETH deployment: %#v", eth.Deployments[0])
+	if eth.Deployments[0].ChainKey != chain.ChainKeyBase || eth.Deployments[0].Symbol != "ETH" || !eth.Deployments[0].Native || eth.Deployments[0].Address != "" {
+		t.Fatalf("unexpected native ETH deployment: %#v", eth.Deployments[0])
 	}
-	if eth.Deployments[0].ChainLogoURL != "http://localhost:3001/static/chains/base.svg" {
-		t.Fatalf("unexpected ETH deployment chain logo URL: %q", eth.Deployments[0].ChainLogoURL)
+	if eth.Deployments[1].ChainKey != chain.ChainKeyBase || eth.Deployments[1].Symbol != "WETH" || eth.Deployments[1].Address != "0x4200000000000000000000000000000000000006" {
+		t.Fatalf("unexpected wrapped ETH deployment: %#v", eth.Deployments[1])
+	}
+	if eth.Deployments[1].ChainLogoURL != "http://localhost:3001/static/chains/base.svg" {
+		t.Fatalf("unexpected ETH deployment chain logo URL: %q", eth.Deployments[1].ChainLogoURL)
 	}
 
 	sol := assets[bySymbol["SOL"]]
-	if len(sol.Deployments) != 1 || sol.Deployments[0].Mint != "So11111111111111111111111111111111111111112" {
-		t.Fatalf("expected only wrapped SOL mint deployment, got %#v", sol.Deployments)
+	if len(sol.Deployments) != 2 || !sol.Deployments[0].Native || sol.Deployments[1].Mint != "So11111111111111111111111111111111111111112" {
+		t.Fatalf("expected native SOL and wrapped SOL mint deployments, got %#v", sol.Deployments)
 	}
 
 	chz := assets[bySymbol["CHZ"]]
 	if len(chz.Deployments) != 1 || chz.Deployments[0].ChainKey != chain.ChainKeyChiliz {
 		t.Fatalf("expected only mainnet CHZ token deployment, got %#v", chz.Deployments)
+	}
+
+	btc := assets[bySymbol["BTC"]]
+	if len(btc.Deployments) != 2 {
+		t.Fatalf("expected native and wrapped BTC deployments, got %#v", btc.Deployments)
+	}
+	if btc.Deployments[0].ChainKey != chain.ChainKey("bitcoin") || !btc.Deployments[0].Native || btc.Deployments[0].Address != "" {
+		t.Fatalf("expected native Bitcoin deployment first, got %#v", btc.Deployments[0])
+	}
+	if btc.Deployments[1].ChainKey != chain.ChainKeyEthereum || btc.Deployments[1].Symbol != "WBTC" {
+		t.Fatalf("unexpected wrapped BTC deployment: %#v", btc.Deployments[1])
 	}
 }
 

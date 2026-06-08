@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Eye, TrendingUp, Sliders, ChevronDown } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Activity, Eye } from 'lucide-react';
+import { dispose, init, type Chart, type DataLoader, type KLineData, type Period } from 'klinecharts';
 import { Candle, Timeframe, MarketPair } from '../types/trading';
 import { formatPrice } from '../utils/formatters';
 import { type AssetInfo } from '../services/exchangeService';
@@ -25,139 +26,96 @@ export default function MarketChart({
   setTimeframe,
   assetMetadata,
 }: MarketChartProps) {
-  const [hoveredCandle, setHoveredCandle] = useState<Candle | null>(null);
-  const [crosshair, setCrosshair] = useState<{ x: number; y: number; price: number; time: string } | null>(null);
-  const [showEMA, setShowEMA] = useState(true);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 600, height: 350 });
+  const chartHostRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<Chart | null>(null);
+  const [showMA, setShowMA] = useState(true);
+  const timeframes: Timeframe[] = ['1m', '5m', '15m', '1h', '4h', '1d'];
+  const klineData = useMemo(() => candles.map(candleToKLineData), [candles]);
+  const latestCandle = candles[candles.length - 1] || null;
+  const displayPrice = latestCandle?.close ?? pair.lastPrice;
+  const displayHigh = latestCandle?.high ?? pair.high24h;
+  const displayLow = latestCandle?.low ?? pair.low24h;
+  const displayVolume = latestCandle?.volume ?? pair.volume24h;
+  const candleIsUp = latestCandle ? latestCandle.close >= latestCandle.open : pair.change24h >= 0;
+  const pricePrecision = pricePrecisionFor(pair, candles);
 
-  // Update dimensions based on parent container sizes
   useEffect(() => {
-    if (!containerRef.current) return;
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (let entry of entries) {
-        if (entry.contentRect) {
-          // Grant padding margins
-          setDimensions({
-            width: Math.max(300, entry.contentRect.width),
-            height: Math.max(220, entry.contentRect.height),
-          });
-        }
-      }
+    if (!chartHostRef.current || chartRef.current) return;
+
+    const chart = init(chartHostRef.current, {
+      locale: 'en-US',
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      layout: {
+        basicParams: {
+          yAxisPosition: 'right',
+          yAxisInside: false,
+          barSpaceLimitMin: 3,
+          barSpaceLimitMax: 18,
+        },
+        panes: [
+          {
+            type: 'candle',
+            content: [],
+            options: { id: 'candle_pane', minHeight: 220 },
+          },
+          {
+            type: 'indicator',
+            content: ['VOL'],
+            options: { id: 'volume_pane', height: 74, minHeight: 56 },
+          },
+          { type: 'xAxis', options: { id: 'x_axis_pane', height: 24 } },
+        ],
+      },
+      styles: chartStyles,
+      formatter: {
+        formatDate: ({ dateTimeFormat, timestamp, template }) => {
+          if (template.includes('HH:mm')) {
+            return dateTimeFormat.format(new Date(timestamp));
+          }
+          return dateTimeFormat.format(new Date(timestamp));
+        },
+      },
+      zoomAnchor: 'last_bar',
     });
-    resizeObserver.observe(containerRef.current);
-    return () => resizeObserver.disconnect();
+
+    if (!chart) return;
+    chartRef.current = chart;
+    chart.setBarSpace(7);
+    chart.setScrollEnabled(true);
+    chart.setZoomEnabled(true);
+
+    return () => {
+      dispose(chart);
+      chartRef.current = null;
+    };
   }, []);
 
-  const timeframes: Timeframe[] = ['1m', '5m', '15m', '1h', '4h', '1d'];
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
 
-  if (candles.length === 0) {
-    return (
-      <div className="w-full h-80 flex flex-col items-center justify-center text-gray-400 font-mono text-xs">
-        <Sliders className="w-6 h-6 animate-spin mb-2 text-accent-1" />
-        Prefetching historical blocks...
-      </div>
-    );
-  }
+    const loader: DataLoader = {
+      getBars: ({ callback }) => {
+        callback(klineData, { backward: false, forward: false });
+      },
+    };
 
-  // Calculate EMA helper
-  const calculateEMA = (data: Candle[], period: number): number[] => {
-    const k = 2 / (period + 1);
-    const ema: number[] = [];
-    if (data.length === 0) return [];
-    
-    let currentEma = data[0].close;
-    ema.push(currentEma);
-    
-    for (let i = 1; i < data.length; i++) {
-      currentEma = data[i].close * k + currentEma * (1 - k);
-      ema.push(currentEma);
+    chart.setDataLoader(loader);
+    chart.setSymbol({
+      ticker: pair.symbol,
+      pricePrecision,
+      volumePrecision: 6,
+    });
+    chart.setPeriod(periodForTimeframe(timeframe));
+    chart.removeIndicator({ name: 'MA' });
+    if (showMA) {
+      chart.createIndicator('MA', { pane: { id: 'candle_pane' }, isStack: true });
     }
-    return ema;
-  };
-
-  const ema9 = calculateEMA(candles, 9);
-  const ema21 = calculateEMA(candles, 21);
-
-  // SVG dimensions configs
-  const paddingLeft = 10;
-  const paddingRight = 65; // Price scale container
-  const paddingTop = 25;
-  const paddingBottom = 25; // Time x-scale
-  
-  const plotWidth = dimensions.width - paddingLeft - paddingRight;
-  const plotHeight = dimensions.height - paddingTop - paddingBottom;
-
-  // Extents
-  const closes = candles.map(c => c.close);
-  const highs = candles.map(c => c.high);
-  const lows = candles.map(c => c.low);
-  const maxPrice = Math.max(...highs) * 1.002;
-  const minPrice = Math.min(...lows) * 0.998;
-  const priceRange = maxPrice - minPrice;
-
-  const maxVolume = Math.max(...candles.map(c => c.volume));
-
-  // Render variables
-  const numCandles = candles.length;
-  const candleWidth = plotWidth / numCandles;
-
-  // Coordinates converters
-  const getX = (index: number) => paddingLeft + index * candleWidth + candleWidth / 2;
-  const getY = (price: number) => paddingTop + plotHeight - ((price - minPrice) / priceRange) * plotHeight;
-  const getVolHeight = (volume: number) => (volume / maxVolume) * (plotHeight * 0.15); // max 15% chart height
-
-  // Interactive crosshair handling
-  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    // Convert x back to candle index
-    const relativeX = x - paddingLeft;
-    const index = Math.min(
-      numCandles - 1,
-      Math.max(0, Math.floor(relativeX / candleWidth))
-    );
-
-    const candle = candles[index];
-    if (candle) {
-      setHoveredCandle(candle);
-
-      // Convert y back to price
-      const relativeY = y - paddingTop;
-      const pctY = 1 - relativeY / plotHeight;
-      const hoverPrice = minPrice + pctY * priceRange;
-
-      const candleDate = new Date(candle.time * 1000);
-      const timeStr = timeframe.endsWith('d')
-        ? candleDate.toLocaleDateString()
-        : candleDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-      setCrosshair({
-        x: getX(index),
-        y,
-        price: hoverPrice,
-        time: timeStr,
-      });
-    }
-  };
-
-  const handleMouseLeave = () => {
-    setHoveredCandle(null);
-    setCrosshair(null);
-  };
-
-  const candleToDisplay = hoveredCandle || candles[candles.length - 1];
-  const isUpClose = candleToDisplay.close >= candleToDisplay.open;
-
-  // Render price grid ticks (4 horizontal lines)
-  const priceTicks = [0.15, 0.45, 0.75, 0.95].map(pct => minPrice + pct * priceRange);
+    chart.scrollToRealTime(0);
+  }, [klineData, pair.symbol, pricePrecision, timeframe, showMA]);
 
   return (
-    <div className="flex flex-col bg-white dark:bg-[#0c1015] border border-[#e1e4e8] dark:border-[#21262d] rounded-lg shadow-sm overflow-hidden text-gray-800 dark:text-gray-100 relative">
-      
-      {/* 24h Ticker Summary Widget Bar */}
+    <div className="flex flex-col bg-white dark:bg-[#0c1015] border border-[#e1e4e8] dark:border-[#21262d] rounded-lg shadow-sm overflow-hidden text-gray-800 dark:text-gray-100 relative min-h-[430px]">
       <div className="flex flex-wrap items-center justify-between gap-4 p-3 border-b border-[#e1e4e8] dark:border-[#21262d] bg-[#fafbfc] dark:bg-[#090d12] text-xs font-mono select-none">
         <div className="flex items-center gap-3">
           <div className="font-display font-medium text-sm text-gray-950 dark:text-gray-50 flex items-center gap-2">
@@ -167,43 +125,22 @@ export default function MarketChart({
             </span>
             {pair.symbol}
           </div>
-          <div className={`font-mono font-bold text-base ${isUpClose ? 'text-trade-green' : 'text-trade-red'}`}>
-            {formatPrice(pair.lastPrice)}
+          <div className={`font-mono font-bold text-base ${candleIsUp ? 'text-trade-green' : 'text-trade-red'}`}>
+            {formatPrice(displayPrice)}
           </div>
           <div className={`text-[11px] font-semibold flex items-center ${pair.change24h >= 0 ? 'text-trade-green' : 'text-trade-red'}`}>
-            {pair.change24h >= 0 ? '▲' : '▼'} {Math.abs(pair.change24h).toFixed(2)}%
+            {pair.change24h >= 0 ? '+' : ''}{pair.change24h.toFixed(2)}%
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[11px] text-gray-500 dark:text-gray-400">
-          <div>
-            <span className="block text-[9px] uppercase tracking-wider text-gray-400">24h High</span>
-            <span className="font-semibold text-gray-700 dark:text-gray-200">
-              {formatPrice(pair.high24h)}
-            </span>
-          </div>
-          <div>
-            <span className="block text-[9px] uppercase tracking-wider text-gray-400">24h Low</span>
-            <span className="font-semibold text-gray-700 dark:text-gray-200">
-              {formatPrice(pair.low24h)}
-            </span>
-          </div>
-          <div>
-            <span className="block text-[9px] uppercase tracking-wider text-gray-400">24h Vol ({pair.baseAsset})</span>
-            <span className="font-semibold text-gray-700 dark:text-gray-200">
-              {pair.volume24h.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-            </span>
-          </div>
-          <div className="hidden md:block">
-            <span className="block text-[9px] uppercase tracking-wider text-gray-400">Net Depth Liquidity</span>
-            <span className="font-semibold text-accent-1 font-mono">
-              ${pair.liquidity.toFixed(1)}M USD
-            </span>
-          </div>
+          <Metric label="High" value={formatPrice(displayHigh)} />
+          <Metric label="Low" value={formatPrice(displayLow)} />
+          <Metric label={`Vol (${pair.baseAsset})`} value={displayVolume.toLocaleString(undefined, { maximumFractionDigits: 2 })} />
+          <Metric label="Candles" value={String(candles.length)} accent />
         </div>
       </div>
 
-      {/* Candlestick Control Settings Bar */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-[#f6f8fa] dark:bg-[#0d1117] border-b border-[#e1e4e8] dark:border-[#21262d] text-xs font-mono text-gray-500">
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide py-0.5">
           {timeframes.map((tf) => (
@@ -221,261 +158,177 @@ export default function MarketChart({
           ))}
         </div>
 
-        {/* Indicator Controls */}
         <div className="flex items-center gap-3 shrink-0">
           <label className="flex items-center gap-1.5 text-[11px] cursor-pointer">
             <input
               type="checkbox"
-              checked={showEMA}
-              onChange={() => setShowEMA(!showEMA)}
+              checked={showMA}
+              onChange={() => setShowMA((value) => !value)}
               className="accent-accent-1 rounded border-gray-300 dark:border-gray-700"
             />
-            <span>EMA (9,21)</span>
+            <span>MA</span>
           </label>
           <span className="text-gray-300 dark:text-gray-700">|</span>
           <span className="text-[10px] bg-slate-100 dark:bg-slate-800/80 px-1.5 py-0.5 rounded flex items-center gap-1 font-medium text-gray-600 dark:text-gray-300">
             <Eye className="w-3 h-3 text-accent-1" />
-            Spot Core
+            KLine
           </span>
         </div>
       </div>
 
-      {/* Dynamic OHLCV stats row floating inside the graph */}
-      <div className="absolute top-[85px] left-3 z-10 flex flex-wrap gap-x-3 gap-y-0.5 pointer-events-none bg-white/80 dark:bg-slate-950/80 backdrop-blur-xs p-1.5 rounded-md border border-[#e1e4e8]/60 dark:border-[#21262d]/60 font-mono text-[10px] text-gray-500 shadow-xs">
-        <span className="text-gray-700 dark:text-gray-300 font-semibold">{pair.symbol} ({timeframe})</span>
-        <span>O:<span className={isUpClose ? 'text-trade-green' : 'text-trade-red'}> {formatPrice(candleToDisplay.open)}</span></span>
-        <span>H:<span className="text-gray-800 dark:text-gray-200"> {formatPrice(candleToDisplay.high)}</span></span>
-        <span>L:<span className="text-gray-800 dark:text-gray-200"> {formatPrice(candleToDisplay.low)}</span></span>
-        <span>C:<span className={isUpClose ? 'text-trade-green' : 'text-trade-red'}> {formatPrice(candleToDisplay.close)}</span></span>
-        <span>V:<span className="text-accent-1"> {candleToDisplay.volume.toFixed(2)}</span></span>
-        {showEMA && (
-          <>
-            <span className="text-[#3b82f6]">EMA(9): {formatPrice(ema9[ema9.length - 1])}</span>
-            <span className="text-[#f59e0b]">EMA(21): {formatPrice(ema21[ema21.length - 1])}</span>
-          </>
+      <div className="relative flex-1 min-h-[320px] bg-white dark:bg-[#070b0f]">
+        <div ref={chartHostRef} className="absolute inset-0" />
+        {candles.length === 0 && (
+          <div className="absolute inset-x-0 top-3 flex justify-center pointer-events-none">
+            <div className="flex items-center gap-2 rounded border border-[#e1e4e8] dark:border-[#263241] bg-white/90 dark:bg-[#0d1117]/90 px-2.5 py-1 text-[10px] font-mono text-gray-500 dark:text-gray-400 shadow-sm">
+              <Activity className="w-3 h-3 text-accent-1" />
+              No KLINE data for {pair.symbol} {timeframe}
+            </div>
+          </div>
         )}
       </div>
-
-      {/* Main Graph Area */}
-      <div ref={containerRef} className="flex-1 min-h-[220px] bg-white dark:bg-[#070b0f] relative cursor-crosshair">
-        
-        {/* SVG Drawing Canvas */}
-        <svg
-          width={dimensions.width}
-          height={dimensions.height}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={handleMouseLeave}
-          className="block overflow-hidden"
-        >
-          {/* Horizontal Gridlines & Price Tick Markers */}
-          {priceTicks.map((p, idx) => {
-            const gy = getY(p);
-            return (
-              <g key={idx} className="opacity-40">
-                <line
-                  x1={paddingLeft}
-                  y1={gy}
-                  x2={dimensions.width - paddingRight}
-                  y2={gy}
-                  stroke="#e1e4e8"
-                  strokeWidth="0.5"
-                  className="dark:stroke-[#21262d]"
-                  strokeDasharray="2,2"
-                />
-                <text
-                  x={dimensions.width - paddingRight + 5}
-                  y={gy + 4}
-                  fill="#858585"
-                  fontSize="9"
-                  fontFamily="Google Sans"
-                  textAnchor="start"
-                >
-                  {p.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
-                </text>
-              </g>
-            );
-          })}
-
-          {/* Render Volume Bars (drawn at the base behind candlesticks) */}
-          {candles.map((candle, i) => {
-            const cx = getX(i) - candleWidth / 2;
-            const barWidth = Math.max(1, candleWidth - 1);
-            const vh = getVolHeight(candle.volume);
-            const vy = paddingTop + plotHeight - vh;
-            const candleUp = candle.close >= candle.open;
-
-            return (
-              <rect
-                key={`v-${i}`}
-                x={cx}
-                y={vy}
-                width={barWidth}
-                height={vh}
-                fill={candleUp ? 'var(--color-trade-green)' : 'var(--color-trade-red)'}
-                opacity="0.15"
-              />
-            );
-          })}
-
-          {/* Render EMA9 Indicator Path */}
-          {showEMA && ema9.length > 1 && (
-            <path
-              d={ema9.map((val, idx) => `${idx === 0 ? 'M' : 'L'} ${getX(idx)} ${getY(val)}`).join(' ')}
-              fill="none"
-              stroke="#3b82f6"
-              strokeWidth="1"
-              opacity="0.8"
-            />
-          )}
-
-          {/* Render EMA21 Indicator Path */}
-          {showEMA && ema21.length > 1 && (
-            <path
-              d={ema21.map((val, idx) => `${idx === 0 ? 'M' : 'L'} ${getX(idx)} ${getY(val)}`).join(' ')}
-              fill="none"
-              stroke="#f59e0b"
-              strokeWidth="1"
-              opacity="0.8"
-            />
-          )}
-
-          {/* Render Candlesticks (Wicks and Bodies) */}
-          {candles.map((candle, i) => {
-            const cx = getX(i);
-            const cyOpen = getY(candle.open);
-            const cyClose = getY(candle.close);
-            const cyHigh = getY(candle.high);
-            const cyLow = getY(candle.low);
-            
-            const isBullish = candle.close >= candle.open;
-            const color = isBullish ? 'var(--color-trade-green)' : 'var(--color-trade-red)';
-            
-            const boxY = Math.min(cyOpen, cyClose);
-            const boxH = Math.max(1.5, Math.abs(cyOpen - cyClose));
-            const barWidth = Math.max(1, candleWidth - 2);
-
-            return (
-              <g key={`candle-${i}`}>
-                {/* Wick line */}
-                <line
-                  x1={cx}
-                  y1={cyHigh}
-                  x2={cx}
-                  y2={cyLow}
-                  stroke={color}
-                  strokeWidth="1.2"
-                />
-                {/* Real body */}
-                <rect
-                  x={cx - barWidth / 2}
-                  y={boxY}
-                  width={barWidth}
-                  height={boxH}
-                  fill={color}
-                  stroke={color}
-                  strokeWidth="0.5"
-                />
-              </g>
-            );
-          })}
-
-          {/* Interactive Crosshair Layers */}
-          {crosshair && (
-            <g>
-              {/* Vertical crosshair line */}
-              <line
-                x1={crosshair.x}
-                y1={paddingTop}
-                x2={crosshair.x}
-                y2={paddingTop + plotHeight}
-                stroke="var(--color-accent-1)"
-                strokeWidth="0.8"
-                strokeDasharray="3,3"
-                opacity="0.7"
-              />
-              {/* Horizontal crosshair line */}
-              <line
-                x1={paddingLeft}
-                y1={crosshair.y}
-                x2={dimensions.width - paddingRight}
-                y2={crosshair.y}
-                stroke="var(--color-accent-1)"
-                strokeWidth="0.8"
-                strokeDasharray="3,3"
-                opacity="0.7"
-              />
-              
-              {/* Floating crosshair details on vertical/horizontal ticks */}
-              {/* Price level on Y-Scale margin block */}
-              <rect
-                x={dimensions.width - paddingRight}
-                y={crosshair.y - 8}
-                width={paddingRight}
-                height={16}
-                fill="var(--color-accent-1)"
-                rx="2"
-              />
-              <text
-                x={dimensions.width - paddingRight + 5}
-                y={crosshair.y + 3}
-                fill="#ffffff"
-                fontSize="8.5"
-                fontFamily="Google Sans"
-                fontWeight="bold"
-              >
-                {crosshair.price.toFixed(2)}
-              </text>
-
-              {/* Time tick on X-Scale base block */}
-              <rect
-                x={crosshair.x - 35}
-                y={paddingTop + plotHeight}
-                width={70}
-                height={15}
-                fill="#343a40"
-                rx="2"
-              />
-              <text
-                x={crosshair.x}
-                y={paddingTop + plotHeight + 11}
-                fill="#ffffff"
-                fontSize="8"
-                fontFamily="Google Sans"
-                textAnchor="middle"
-              >
-                {crosshair.time}
-              </text>
-            </g>
-          )}
-
-          {/* Simple Time X-Scale Ticks (3 ticks spaced across sequence) */}
-          {candles.length > 2 && [0.1, 0.5, 0.9].map((pct, i) => {
-            const index = Math.floor(pct * numCandles);
-            const candle = candles[index];
-            if (!candle) return null;
-            const cx = getX(index);
-            const date = new Date(candle.time * 1000);
-            const label = timeframe.endsWith('d') 
-              ? date.toLocaleDateString(undefined, {month: 'short', day: 'numeric'})
-              : date.toLocaleTimeString(undefined, {hour: '2-digit', minute: '2-digit'});
-
-            return (
-              <text
-                key={`lbl-${i}`}
-                x={cx}
-                y={dimensions.height - 10}
-                fill="#7e8c9a"
-                fontSize="8.5"
-                fontFamily="Google Sans"
-                textAnchor="middle"
-              >
-                {label}
-              </text>
-            );
-          })}
-        </svg>
-      </div>
-
     </div>
   );
 }
+
+function Metric({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div>
+      <span className="block text-[9px] uppercase tracking-wider text-gray-400">{label}</span>
+      <span className={`font-semibold ${accent ? 'text-accent-1' : 'text-gray-700 dark:text-gray-200'}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function candleToKLineData(candle: Candle): KLineData {
+  return {
+    timestamp: candle.time * 1000,
+    open: candle.open,
+    high: candle.high,
+    low: candle.low,
+    close: candle.close,
+    volume: candle.volume,
+    turnover: candle.close * candle.volume,
+  };
+}
+
+function periodForTimeframe(timeframe: Timeframe): Period {
+  switch (timeframe) {
+    case '1m':
+      return { type: 'minute', span: 1 };
+    case '5m':
+      return { type: 'minute', span: 5 };
+    case '15m':
+      return { type: 'minute', span: 15 };
+    case '1h':
+      return { type: 'hour', span: 1 };
+    case '4h':
+      return { type: 'hour', span: 4 };
+    case '1d':
+      return { type: 'day', span: 1 };
+  }
+}
+
+function pricePrecisionFor(pair: MarketPair, candles: Candle[]): number {
+  const values = [
+    pair.lastPrice,
+    ...candles.flatMap((candle) => [candle.open, candle.high, candle.low, candle.close]),
+  ].filter((value) => Number.isFinite(value) && value > 0);
+  const min = Math.min(...values, pair.lastPrice || 1);
+  if (min >= 100) return 2;
+  if (min >= 1) return 4;
+  if (min >= 0.01) return 6;
+  if (min >= 0.0001) return 8;
+  return 12;
+}
+
+const chartStyles = {
+  grid: {
+    horizontal: {
+      show: true,
+      style: 'dashed' as const,
+      size: 1,
+      color: '#263241',
+      dashedValue: [2, 2],
+    },
+    vertical: {
+      show: true,
+      style: 'dashed' as const,
+      size: 1,
+      color: '#1f2937',
+      dashedValue: [2, 3],
+    },
+  },
+  candle: {
+    type: 'candle_solid' as const,
+    bar: {
+      compareRule: 'current_open' as const,
+      upColor: '#10b981',
+      downColor: '#f6465d',
+      noChangeColor: '#7e8c9a',
+      upBorderColor: '#10b981',
+      downBorderColor: '#f6465d',
+      noChangeBorderColor: '#7e8c9a',
+      upWickColor: '#10b981',
+      downWickColor: '#f6465d',
+      noChangeWickColor: '#7e8c9a',
+    },
+    priceMark: {
+      high: { color: '#9ca3af' },
+      low: { color: '#9ca3af' },
+      last: {
+        show: true,
+        line: { show: true, style: 'dashed' as const, size: 1, dashedValue: [3, 3] },
+        text: { show: true, color: '#ffffff', backgroundColor: '#1677ff' },
+      },
+    },
+  },
+  indicator: {
+    bars: [
+      {
+        style: 'fill' as const,
+        color: '#10b981',
+        borderColor: '#10b981',
+      },
+      {
+        style: 'fill' as const,
+        color: '#f6465d',
+        borderColor: '#f6465d',
+      },
+    ],
+    lines: [
+      { color: '#3b82f6', size: 1, style: 'solid' as const },
+      { color: '#f59e0b', size: 1, style: 'solid' as const },
+      { color: '#8b5cf6', size: 1, style: 'solid' as const },
+    ],
+  },
+  xAxis: {
+    axisLine: { show: true, color: '#263241' },
+    tickLine: { show: false },
+    tickText: { color: '#7e8c9a', size: 10 },
+  },
+  yAxis: {
+    axisLine: { show: true, color: '#263241' },
+    tickLine: { show: false },
+    tickText: { color: '#7e8c9a', size: 10 },
+  },
+  separator: {
+    size: 1,
+    color: '#21262d',
+    fill: true,
+    activeBackgroundColor: '#1677ff',
+  },
+  crosshair: {
+    show: true,
+    horizontal: {
+      line: { show: true, style: 'dashed' as const, size: 1, color: '#1677ff', dashedValue: [3, 3] },
+      text: { show: true, color: '#ffffff', backgroundColor: '#1677ff' },
+    },
+    vertical: {
+      line: { show: true, style: 'dashed' as const, size: 1, color: '#1677ff', dashedValue: [3, 3] },
+      text: { show: true, color: '#ffffff', backgroundColor: '#343a40' },
+    },
+  },
+};

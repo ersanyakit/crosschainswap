@@ -39,8 +39,8 @@ func (s *Server) gatewayUnifiedCallback(c fiber.Ctx) error {
 		if err != nil {
 			return orderError(c, err)
 		}
-		return c.JSON(result)
-	case "native_transfer", "token_transfer", "erc20_transfer", "spl_transfer", "deposit_detected", "deposit_confirmed":
+		return c.Status(fiber.StatusOK).JSON(result)
+	case "native_transfer", "token_transfer", "erc20_transfer", "spl_transfer", "deposit_detected", "deposit_confirmed", "manual_test_deposit":
 		req, err := gatewayDepositCallbackFromBody(eventType, body)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(errorResponse{Error: err.Error()})
@@ -52,7 +52,7 @@ func (s *Server) gatewayUnifiedCallback(c fiber.Ctx) error {
 		if err != nil {
 			return orderError(c, err)
 		}
-		return c.JSON(result)
+		return c.Status(fiber.StatusOK).JSON(result)
 	case "payout_completed", "payout_succeeded", "payout_failed", "payout_canceled", "withdrawal_completed", "withdrawal_failed", "withdrawal_canceled":
 		req, err := gatewayWithdrawalCallbackFromBody(eventType, body)
 		if err != nil {
@@ -65,9 +65,9 @@ func (s *Server) gatewayUnifiedCallback(c fiber.Ctx) error {
 		if err != nil {
 			return orderError(c, err)
 		}
-		return c.JSON(result)
+		return c.Status(fiber.StatusOK).JSON(result)
 	default:
-		return c.JSON(fiber.Map{"status": "ok", "action": "event_ignored", "event": eventType})
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{"status": "ok", "action": "event_ignored", "event": eventType})
 	}
 }
 
@@ -84,7 +84,7 @@ func (s *Server) gatewayDepositCallback(c fiber.Ctx) error {
 	if err != nil {
 		return orderError(c, err)
 	}
-	return c.JSON(result)
+	return c.Status(fiber.StatusOK).JSON(result)
 }
 
 func (s *Server) gatewayWithdrawalCallback(c fiber.Ctx) error {
@@ -100,7 +100,7 @@ func (s *Server) gatewayWithdrawalCallback(c fiber.Ctx) error {
 	if err != nil {
 		return orderError(c, err)
 	}
-	return c.JSON(result)
+	return c.Status(fiber.StatusOK).JSON(result)
 }
 
 func requireGatewayCallbackSignature(c fiber.Ctx, body []byte) error {
@@ -230,7 +230,7 @@ func decodeGatewayPayload(body []byte) (map[string]any, error) {
 
 func statusForGatewayEvent(eventType string, fallback string) string {
 	switch strings.ToLower(strings.TrimSpace(eventType)) {
-	case "payment_succeeded", "deposit_confirmed", "payout_completed", "payout_succeeded", "withdrawal_completed":
+	case "payment_succeeded", "deposit_confirmed", "manual_test_deposit", "payout_completed", "payout_succeeded", "withdrawal_completed":
 		return "completed"
 	case "payment_failed", "payment_expired", "payout_failed", "payout_canceled", "withdrawal_failed", "withdrawal_canceled":
 		return "failed"

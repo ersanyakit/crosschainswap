@@ -71,10 +71,16 @@ type ApiCandle = {
 };
 
 type ApiBalance = {
-  asset: string;
-  available: string;
-  locked: string;
-  pending: string;
+  asset?: string;
+  Asset?: string;
+  available?: string | number;
+  Available?: string | number;
+  locked?: string | number;
+  Locked?: string | number;
+  pending?: string | number;
+  Pending?: string | number;
+  frozen?: string | number;
+  Frozen?: string | number;
 };
 
 export type WithdrawalInfo = {
@@ -107,6 +113,7 @@ export type AssetDeploymentInfo = {
   name?: string;
   decimals?: number;
   enabled?: boolean;
+  native?: boolean;
   icon_url?: string;
   chain_logo_url?: string;
 };
@@ -178,7 +185,6 @@ export const exchangeConfig = {
   wsURL: env.VITE_EXCHANGE_WS_URL || defaultWebsocketURL('/ws/orders'),
   pricesWSURL: env.VITE_EXCHANGE_PRICES_WS_URL || defaultWebsocketURL('/ws/prices'),
   userID: env.VITE_EXCHANGE_USER_ID || 'demo-user',
-  paymentGatewaySecret: env.VITE_PAYMENT_GATEWAY_SECRET || '',
 };
 
 export async function healthCheck(): Promise<boolean> {
@@ -237,28 +243,10 @@ export async function fetchUserTrades(userID: string, market?: string, limit = 1
 }
 
 export async function fetchBalances(userID: string): Promise<AssetBalance[]> {
-  const balances = await apiJSON<ApiBalance[]>(`/v1/users/${encodeURIComponent(userID)}/balances`);
-  return balances.map(mapBalance);
-}
-
-export async function settleDeposit(userID: string, asset: string, chainKey: string, amount: number): Promise<AssetBalance> {
-  const body = JSON.stringify({
-    asset,
-    chain_key: chainKey,
-    amount: decimalString(amount),
-  });
-  const headers = gatewayHeaders();
-  await apiJSON<ApiBalance>(`/v1/users/${encodeURIComponent(userID)}/deposits/pending`, {
-    method: 'POST',
-    headers,
-    body,
-  });
-  const settled = await apiJSON<ApiBalance>(`/v1/users/${encodeURIComponent(userID)}/deposits/settle`, {
-    method: 'POST',
-    headers,
-    body,
-  });
-  return mapBalance(settled);
+  const payload = await apiJSON<unknown>(`/v1/users/${encodeURIComponent(userID)}/balances`);
+  return unwrapArrayPayload<ApiBalance>(payload, ['balances', 'Balances'])
+    .map(mapBalance)
+    .filter((item) => item.asset);
 }
 
 export async function requestDepositAddress(userID: string, asset: string, chainKey: string): Promise<DepositAddressInfo> {
@@ -429,16 +417,20 @@ function mapTrade(item: ApiTrade): Trade {
   };
 }
 
-function mapBalance(item: ApiBalance): AssetBalance {
-  const free = Number(item.available || 0);
-  const locked = Number(item.locked || 0);
+function mapBalance(item: unknown): AssetBalance {
+  const record = isRecord(item) ? item : {};
+  const asset = stringField(record, ['asset', 'Asset']).toUpperCase();
+  const free = numberField(record, ['available', 'Available']);
+  const locked = numberField(record, ['locked', 'Locked']);
+  const frozen = numberField(record, ['frozen', 'Frozen', 'pending', 'Pending']);
 
   return {
-    asset: item.asset,
-    name: item.asset,
+    asset,
+    name: asset,
     free,
     locked,
-    valueUsd: free + locked,
+    frozen,
+    valueUsd: free + locked + frozen,
     change24h: 0,
   };
 }
@@ -452,6 +444,7 @@ function mapOrderBook(snapshot: ApiOrderBook): OrderBook {
   const spreadPercent = bestAsk > 0 ? (spread / bestAsk) * 100 : 0;
 
   return {
+    market: snapshot.market || '',
     bids,
     asks,
     spread,
@@ -518,17 +511,59 @@ function decimalString(value: number): string {
   });
 }
 
-function gatewayHeaders(): Record<string, string> {
-  if (!exchangeConfig.paymentGatewaySecret) return {};
-  return {
-    'X-Gateway-Secret': exchangeConfig.paymentGatewaySecret,
-  };
-}
-
 function apiResourceURL(path: string): string {
   if (/^https?:\/\//i.test(path)) return path;
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   return `${exchangeConfig.apiBaseURL}${normalizedPath}`;
+}
+
+type UnknownRecord = Record<string, unknown>;
+
+function unwrapArrayPayload<T>(payload: unknown, keys: string[]): T[] {
+  if (Array.isArray(payload)) return payload as T[];
+  if (!isRecord(payload)) return [];
+
+  for (const key of [...keys, 'items', 'Items']) {
+    const direct = payload[key];
+    if (Array.isArray(direct)) return direct as T[];
+  }
+
+  for (const wrapperKey of ['data', 'Data', 'result', 'Result', 'payload', 'Payload']) {
+    const wrapped = payload[wrapperKey];
+    if (Array.isArray(wrapped)) return wrapped as T[];
+    if (!isRecord(wrapped)) continue;
+    for (const key of [...keys, 'items', 'Items']) {
+      const nested = wrapped[key];
+      if (Array.isArray(nested)) return nested as T[];
+    }
+  }
+
+  return [];
+}
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function stringField(record: UnknownRecord, keys: string[]): string {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'string') return value.trim();
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  }
+  return '';
+}
+
+function numberField(record: UnknownRecord, keys: string[]): number {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string' && value.trim() !== '') {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return 0;
 }
 
 function stripTrailingSlash(value: string): string {

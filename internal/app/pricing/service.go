@@ -84,6 +84,7 @@ type DeploymentInfo struct {
 	Name         string         `json:"name"`
 	Decimals     int            `json:"decimals"`
 	Enabled      bool           `json:"enabled"`
+	Native       bool           `json:"native,omitempty"`
 	IconURL      string         `json:"icon_url,omitempty"`
 	ChainLogoURL string         `json:"chain_logo_url,omitempty"`
 }
@@ -99,6 +100,7 @@ type deploymentRef struct {
 	Mint             string
 	Decimals         int
 	Enabled          bool
+	Native           bool
 	IconURL          string
 	ChainLogoURL     string
 }
@@ -524,6 +526,7 @@ func deploymentRefs(item asset.Asset) []deploymentRef {
 			Mint:             deployment.Mint,
 			Decimals:         decimals,
 			Enabled:          true,
+			Native:           deployment.Native,
 			IconURL:          effectiveIconURL(item.IconURL, deployment.IconURL),
 			ChainLogoURL:     deployment.ChainLogoURL,
 		})
@@ -543,10 +546,25 @@ func assetInfo(item asset.Asset) AssetInfo {
 }
 
 func deploymentInfos(item asset.Asset) []DeploymentInfo {
-	refs := deploymentRefs(item)
-	out := make([]DeploymentInfo, 0, len(refs))
-	for _, ref := range refs {
-		out = append(out, deploymentInfo(ref))
+	out := make([]DeploymentInfo, 0, len(item.Deployments))
+	for _, deployment := range item.Deployments {
+		decimals := deployment.Decimals
+		if decimals == 0 {
+			decimals = item.Decimals
+		}
+		out = append(out, DeploymentInfo{
+			ChainKey:     deployment.ChainKey,
+			AssetID:      venue.AssetID(strings.TrimSpace(deployment.AssetID())),
+			Address:      deployment.Address,
+			Mint:         deployment.Mint,
+			Symbol:       effectiveSymbol(item.Symbol, deployment.Symbol),
+			Name:         effectiveName(item.Name, deployment.Name),
+			Decimals:     decimals,
+			Enabled:      true,
+			Native:       deployment.Native,
+			IconURL:      effectiveIconURL(item.IconURL, deployment.IconURL),
+			ChainLogoURL: deployment.ChainLogoURL,
+		})
 	}
 	return out
 }
@@ -561,6 +579,7 @@ func deploymentInfo(ref deploymentRef) DeploymentInfo {
 		Name:         ref.Name,
 		Decimals:     ref.Decimals,
 		Enabled:      ref.Enabled,
+		Native:       ref.Native,
 		IconURL:      ref.IconURL,
 		ChainLogoURL: ref.ChainLogoURL,
 	}

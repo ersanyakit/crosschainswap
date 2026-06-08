@@ -41,8 +41,18 @@ func NewServer(prices *pricing.Service, swaps *appswap.Service, orders *apporder
 		orders: orders,
 		auth:   oidcAuth,
 	}
+	server.app.Use(resetResponseStatus)
 	server.routes()
 	return server
+}
+
+func resetResponseStatus(c fiber.Ctx) error {
+	c.Status(fiber.StatusOK)
+	return c.Next()
+}
+
+func okJSON(c fiber.Ctx, value any) error {
+	return c.Status(fiber.StatusOK).JSON(value)
 }
 
 func (s *Server) Listen(ctx context.Context, addr string) error {
@@ -120,7 +130,7 @@ func (s *Server) routes() {
 }
 
 func (s *Server) health(c fiber.Ctx) error {
-	return c.JSON(fiber.Map{"status": "ok"})
+	return okJSON(c, fiber.Map{"status": "ok"})
 }
 
 func (s *Server) assetPrices(c fiber.Ctx) error {
@@ -128,11 +138,11 @@ func (s *Server) assetPrices(c fiber.Ctx) error {
 	if err != nil {
 		return pricingError(c, err)
 	}
-	return c.JSON(result)
+	return okJSON(c, result)
 }
 
 func (s *Server) listAssets(c fiber.Ctx) error {
-	return c.JSON(s.prices.Assets())
+	return okJSON(c, s.prices.Assets())
 }
 
 func (s *Server) swapQuote(c fiber.Ctx) error {
@@ -144,7 +154,7 @@ func (s *Server) swapQuote(c fiber.Ctx) error {
 	if err != nil {
 		return swapError(c, err)
 	}
-	return c.JSON(result)
+	return okJSON(c, result)
 }
 
 func (s *Server) swapTransaction(c fiber.Ctx) error {
@@ -156,7 +166,7 @@ func (s *Server) swapTransaction(c fiber.Ctx) error {
 	if err != nil {
 		return swapError(c, err)
 	}
-	return c.JSON(result)
+	return okJSON(c, result)
 }
 
 func (s *Server) swapApprove(c fiber.Ctx) error {
@@ -168,7 +178,7 @@ func (s *Server) swapApprove(c fiber.Ctx) error {
 	if err != nil {
 		return swapError(c, err)
 	}
-	return c.JSON(result)
+	return okJSON(c, result)
 }
 
 func bindSwapRequest(c fiber.Ctx) (appswap.Request, error) {
@@ -206,7 +216,7 @@ func (s *Server) getOrder(c fiber.Ctx) error {
 	if err := s.requireOrderOwner(c, result.UserID); err != nil {
 		return err
 	}
-	return c.JSON(result)
+	return okJSON(c, result)
 }
 
 func (s *Server) cancelOrder(c fiber.Ctx) error {
@@ -224,7 +234,7 @@ func (s *Server) cancelOrder(c fiber.Ctx) error {
 	if err != nil {
 		return orderError(c, err)
 	}
-	return c.JSON(result)
+	return okJSON(c, result)
 }
 
 func (s *Server) triggerStops(c fiber.Ctx) error {
@@ -236,7 +246,7 @@ func (s *Server) triggerStops(c fiber.Ctx) error {
 	if err != nil {
 		return orderError(c, err)
 	}
-	return c.JSON(result)
+	return okJSON(c, result)
 }
 
 func (s *Server) listMarkets(c fiber.Ctx) error {
@@ -244,7 +254,7 @@ func (s *Server) listMarkets(c fiber.Ctx) error {
 	if err != nil {
 		return orderError(c, err)
 	}
-	return c.JSON(result)
+	return okJSON(c, result)
 }
 
 func (s *Server) orderBook(c fiber.Ctx) error {
@@ -260,7 +270,7 @@ func (s *Server) orderBook(c fiber.Ctx) error {
 	if err != nil {
 		return orderError(c, err)
 	}
-	return c.JSON(result)
+	return okJSON(c, result)
 }
 
 func (s *Server) marketTrades(c fiber.Ctx) error {
@@ -275,7 +285,7 @@ func (s *Server) marketTrades(c fiber.Ctx) error {
 	if err != nil {
 		return orderError(c, err)
 	}
-	return c.JSON(result)
+	return okJSON(c, result)
 }
 
 func (s *Server) marketCandles(c fiber.Ctx) error {
@@ -291,7 +301,7 @@ func (s *Server) marketCandles(c fiber.Ctx) error {
 	if err != nil {
 		return orderError(c, err)
 	}
-	return c.JSON(result)
+	return okJSON(c, result)
 }
 
 func (s *Server) orderHistory(c fiber.Ctx) error {
@@ -312,7 +322,7 @@ func (s *Server) orderHistory(c fiber.Ctx) error {
 	if err != nil {
 		return orderError(c, err)
 	}
-	return c.JSON(result)
+	return okJSON(c, result)
 }
 
 func (s *Server) userTrades(c fiber.Ctx) error {
@@ -332,7 +342,7 @@ func (s *Server) userTrades(c fiber.Ctx) error {
 	if err != nil {
 		return orderError(c, err)
 	}
-	return c.JSON(result)
+	return okJSON(c, result)
 }
 
 func (s *Server) listBalances(c fiber.Ctx) error {
@@ -344,7 +354,7 @@ func (s *Server) listBalances(c fiber.Ctx) error {
 	if err != nil {
 		return orderError(c, err)
 	}
-	return c.JSON(result)
+	return okJSON(c, result)
 }
 
 func (s *Server) markDepositPending(c fiber.Ctx) error {
@@ -370,7 +380,7 @@ func (s *Server) balanceMutation(c fiber.Ctx, fn func(context.Context, string, a
 	if err != nil {
 		return orderError(c, err)
 	}
-	return c.JSON(result)
+	return okJSON(c, result)
 }
 
 func (s *Server) createDepositAddress(c fiber.Ctx) error {
@@ -393,7 +403,7 @@ func (s *Server) createDepositAddress(c fiber.Ctx) error {
 		"address": []string{result.Address},
 		"size":    []string{"300"},
 	}.Encode()
-	return c.JSON(struct {
+	return okJSON(c, struct {
 		*apporders.DepositAddress
 		QRURL string `json:"qr_url"`
 	}{
@@ -432,7 +442,7 @@ func (s *Server) listWithdrawals(c fiber.Ctx) error {
 	if err != nil {
 		return orderError(c, err)
 	}
-	return c.JSON(result)
+	return okJSON(c, result)
 }
 
 func (s *Server) requestWithdrawal(c fiber.Ctx) error {
@@ -459,7 +469,7 @@ func (s *Server) completeWithdrawal(c fiber.Ctx) error {
 	if err != nil {
 		return orderError(c, err)
 	}
-	return c.JSON(result)
+	return okJSON(c, result)
 }
 
 func (s *Server) cancelWithdrawal(c fiber.Ctx) error {
@@ -470,7 +480,7 @@ func (s *Server) cancelWithdrawal(c fiber.Ctx) error {
 	if err != nil {
 		return orderError(c, err)
 	}
-	return c.JSON(result)
+	return okJSON(c, result)
 }
 
 func (s *Server) listWallets(c fiber.Ctx) error {
@@ -482,7 +492,7 @@ func (s *Server) listWallets(c fiber.Ctx) error {
 	if err != nil {
 		return orderError(c, err)
 	}
-	return c.JSON(result)
+	return okJSON(c, result)
 }
 
 func (s *Server) syncGatewayWallets(c fiber.Ctx) error {
@@ -490,11 +500,11 @@ func (s *Server) syncGatewayWallets(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	result, err := s.orders.EnsureGatewayWallets(c.Context(), userID)
+	result, err := s.orders.ListWallets(c.Context(), userID)
 	if err != nil {
-		return c.Status(fiber.StatusBadGateway).JSON(errorResponse{Error: err.Error()})
+		return orderError(c, err)
 	}
-	return c.JSON(result)
+	return okJSON(c, result)
 }
 
 func (s *Server) registerGatewayWallet(c fiber.Ctx) error {
@@ -509,7 +519,7 @@ func (s *Server) registerGatewayWallet(c fiber.Ctx) error {
 	if err != nil {
 		return orderError(c, err)
 	}
-	return c.JSON(result)
+	return okJSON(c, result)
 }
 
 func requireGatewaySecret(c fiber.Ctx) error {

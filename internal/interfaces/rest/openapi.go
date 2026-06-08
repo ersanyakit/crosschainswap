@@ -295,7 +295,7 @@ const openAPISpec = `{
     "/v1/users/{user_id}/wallets/sync": {
       "post": {
         "tags": ["Wallets"],
-        "summary": "Create or sync gateway-generated wallet addresses for the authenticated user",
+        "summary": "Return exchange-stored deposit wallet records without calling the gateway",
         "security": [{ "oidcSession": [] }],
         "parameters": [{ "$ref": "#/components/parameters/UserID" }],
         "responses": { "200": { "description": "Wallets", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Wallet" } } } } } }

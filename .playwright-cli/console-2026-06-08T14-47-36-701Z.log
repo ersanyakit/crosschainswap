@@ -1,0 +1,812 @@
+[     367ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3002/node_modules/.vite/deps/react-dom_client.js?v=af5c7f7f:20100
+[     651ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/auth/me:0
+[     669ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/auth/me:0
+[    1059ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3002/favicon.ico:0
+[   79853ms] [WARNING] WebSocket connection to 'ws://localhost:3002/ws/orders' failed: WebSocket is closed before the connection is established. @ http://localhost:3002/src/App.tsx?t=1780930136392:419
+[   79900ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/auth/me:0
+[   79999ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[   79999ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[   80007ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[   88000ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[   88000ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[   88000ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[   95994ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[   95994ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[   95994ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[   99918ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3002/node_modules/.vite/deps/react-dom_client.js?v=af5c7f7f:20100
+[  100019ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/auth/me:0
+[  100019ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/auth/me:0
+[  100124ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  100191ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  100212ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  108173ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  108173ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  108173ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  116112ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  116112ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  116112ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  124141ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  124141ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  124142ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  129759ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:3002/@vite/client:963
+[  129780ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  130782ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  131784ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  132086ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[  132121ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[  132787ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  134293ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3002/node_modules/.vite/deps/react-dom_client.js?v=af5c7f7f:20100
+[  134349ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3002/api/auth/oidc/status:0
+[  134357ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3002/api/v1/assets:0
+[  134357ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3002/api/health:0
+[  134357ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3002/api/auth/oidc/status:0
+[  134357ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3002/api/v1/assets:0
+[  134357ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3002/api/health:0
+[  134365ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3002/api/health:0
+[  142402ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  142402ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  142418ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  142460ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  142460ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  142462ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  150468ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  150547ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  150553ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  158479ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  158482ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  158483ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  166458ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  166458ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  166459ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  174463ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  174464ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  174533ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  182450ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  182474ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  182483ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  190442ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  190442ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  190482ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  198453ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  198453ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  198453ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  206345ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  206346ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  206346ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  214357ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  214357ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  214357ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  217884ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  217884ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  217888ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  224357ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  224367ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  224372ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  232382ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  232382ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  232387ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  236882ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  236882ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  236882ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  244868ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  244875ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  244875ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  252873ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  252874ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  252883ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  260873ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  260873ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  260873ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  268866ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  268867ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  268867ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  276878ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  276878ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  276880ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  282859ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  282865ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  282865ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  290895ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  290895ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  290895ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  297340ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  297340ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  297340ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  305349ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  305364ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  305367ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  313348ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  313348ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  313349ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  321395ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  321395ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  321403ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  329366ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  329366ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  329380ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  337359ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  337359ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  337362ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  345369ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  345369ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  345370ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  353346ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  353347ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  353355ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  353943ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:3002/@vite/client:963
+[  353960ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  354964ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  355967ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  356969ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  357975ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  358977ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  359981ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  360989ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  361325ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[  361344ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[  361994ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  362997ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  364000ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  365005ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  366010ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  367023ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  368047ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  369081ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  369358ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[  370150ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  371281ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  372494ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  373892ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  375385ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  377358ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[  378057ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  382166ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  385355ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[  385450ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  391422ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  393349ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[  396326ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  400985ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  401355ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[  405134ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  409353ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[  409892ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  414008ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  417225ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  417345ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[  423157ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  425355ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[  427732ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  430256ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  432389ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  433350ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[  435001ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  437747ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  440074ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  441358ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[  445333ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  448339ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3002/node_modules/.vite/deps/react-dom_client.js?v=af5c7f7f:20100
+[  448433ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/auth/me:0
+[  448449ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/auth/me:0
+[  448501ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  448510ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  448510ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  448550ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  448551ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  448551ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  456539ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  456543ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  456545ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  464545ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  464546ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  464546ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  472552ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  472552ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  472552ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  480565ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  480565ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  480565ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  485270ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/auth/me:0
+[  485359ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  485361ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  485369ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  485446ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  485447ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  485452ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  485644ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  485644ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  485646ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  485681ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  485682ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  485685ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  485838ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  485853ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  485854ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  485866ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  485869ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  485876ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  486030ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  486032ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  486036ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  486055ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  486056ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  486062ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  486182ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  486183ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  486184ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  486200ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  486202ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  486207ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  486364ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  486368ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  486371ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  486400ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  486400ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  486400ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  486538ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  486538ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  486538ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  486562ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  486562ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  486562ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  486705ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  486705ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  486705ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  486717ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  486718ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  486724ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  486837ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  486841ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  486842ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  486858ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  486859ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  486863ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  486992ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  486996ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  486998ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  487011ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  487012ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  487017ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  487140ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  487142ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  487147ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  487154ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  487155ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  487163ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  487296ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  487296ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  487303ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  487326ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  487326ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  487326ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  487505ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  487505ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  487505ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  487529ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  487529ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  487529ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  487685ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  487685ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  487685ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  487711ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  487711ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  487711ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  487848ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  487850ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  487852ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  487867ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  487867ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  487873ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  488006ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  488008ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  488013ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  488024ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  488025ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  488028ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  488180ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  488181ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  488187ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  488204ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  488208ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  488210ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  488404ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  488404ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  488404ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  488460ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  488460ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  488465ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  488600ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  488600ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  488600ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  488633ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  488633ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  488633ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  488781ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  488781ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  488781ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  488795ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  488796ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  488801ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  488968ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  488976ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  488978ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  488985ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  488992ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  489000ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  489164ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  489166ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  489172ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  489194ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  489202ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  489203ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  489351ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  489353ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  489354ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  489384ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  489389ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  489394ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  489655ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  489655ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  489655ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  489693ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  489700ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  489702ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  489859ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  489859ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  489859ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  489900ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  489900ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  489901ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  490049ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  490049ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  490061ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  490079ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  490080ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  490085ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  490243ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  490245ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  490251ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  490275ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  490276ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  490282ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  490451ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  490451ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  490451ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  490476ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  490476ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  490476ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  490636ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  490636ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  490636ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  490662ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  490662ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  490663ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  490868ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  490868ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  490868ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  490891ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  490892ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  490897ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  491150ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  491153ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  491193ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  491214ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  491218ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  491240ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  491481ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  491481ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  491492ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  491573ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  491573ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  491573ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  491800ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  491800ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  491821ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  491855ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  491855ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  491855ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  492132ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  492132ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  492141ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  492180ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  492186ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  492186ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  492445ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  492445ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  492445ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  492473ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  492473ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  492479ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  492757ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  492757ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  492757ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  492815ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  492837ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  492849ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  493082ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  493082ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  493088ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  493113ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  493113ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  493121ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  493411ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  493412ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  493428ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  493451ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  493451ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  493453ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  493759ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  493759ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  493760ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  493792ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  493792ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  493798ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  494054ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  494054ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  494054ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  494086ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  494086ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  494086ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  494250ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  494250ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  494252ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  494265ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  494269ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  494282ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  494551ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  494551ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  494557ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  494604ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  494604ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  494607ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  494910ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  494910ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  494912ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  494952ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  494952ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  494953ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  495241ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  495263ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  495263ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  495310ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  495322ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  495330ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  495621ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  495621ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  495622ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  495732ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  495767ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  495767ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  495993ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  495993ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  495996ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  496041ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  496041ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  496042ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  496364ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  496364ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  496368ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  496452ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  496473ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  496488ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  496669ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/auth/me:0
+[  496740ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  496740ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  496740ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  497010ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  497010ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  497010ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  497076ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  497076ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  497077ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  497384ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  497384ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  497401ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  497433ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  497434ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  497439ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  497787ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  497788ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  497788ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  497829ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  497830ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  497856ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  498108ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  498108ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  498122ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  498155ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  498155ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  498155ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  498425ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  498425ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  498432ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  498477ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  498479ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  498501ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  498669ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  498669ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  498683ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  498703ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  498717ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  498718ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  498920ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  498920ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  498920ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  498947ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  498947ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  498947ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  499244ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  499258ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  499276ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  499319ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  499319ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  499319ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  499707ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  499736ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  499736ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  499759ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  499759ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  499771ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  500120ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  500120ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  500146ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  500227ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  500227ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  500227ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  500547ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  500547ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  500588ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  500701ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  500701ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  500701ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  500910ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  500910ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  500910ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  500948ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  500950ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  500954ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  501287ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  501287ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  501304ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  501454ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  501455ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  501455ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  501713ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/auth/me:0
+[  501786ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  501788ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  501818ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  509764ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  509771ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  509783ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  517775ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  517775ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  517775ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  525815ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  525815ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  525841ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  533759ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  533760ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  533789ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  541781ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  541781ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  541781ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  549763ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  549768ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  549769ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  551840ms] [WARNING] WebSocket connection to 'ws://localhost:3002/ws/orders' failed: WebSocket is closed before the connection is established. @ http://localhost:3002/src/App.tsx?t=1780930608420:412
+[  551863ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/auth/me:0
+[  551948ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  551948ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  551979ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  559968ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  559968ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  559970ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  567932ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  567932ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  567953ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  575938ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  575938ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  575939ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  580090ms] [WARNING] WebSocket connection to 'ws://localhost:3002/ws/orders' failed: WebSocket is closed before the connection is established. @ http://localhost:3002/src/App.tsx?t=1780930636560:412
+[  580131ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/auth/me:0
+[  580307ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  580307ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  580338ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  588186ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  588186ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  588186ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  596206ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  596206ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  596206ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  604464ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  604465ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  604497ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  612343ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  612361ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  612368ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  620417ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  620428ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  620523ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  628393ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  628546ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  628573ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  636793ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  637090ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  637196ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  646453ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  646502ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  646595ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  652457ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  652535ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  652690ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  660750ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  660755ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  661367ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  668437ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  668561ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  668561ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  676529ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  676540ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  676670ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  684552ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  684552ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  684910ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  692759ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  692955ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  693007ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  700621ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  700799ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  700814ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  708366ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  708405ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  708406ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  716246ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  716247ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  716247ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  724228ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  724232ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  724232ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  732696ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  732721ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  732737ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  740288ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  740299ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  740313ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  748245ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  748263ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  748270ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  756214ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  756214ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  756225ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  764234ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  764235ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  764235ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  772256ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  772261ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  772263ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  780221ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  780221ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  780221ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  785770ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3002/node_modules/.vite/deps/react-dom_client.js?v=af5c7f7f:20100
+[  785929ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/auth/me:0
+[  785972ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/auth/me:0
+[  786222ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  786261ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  786277ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  786359ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  786362ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  786365ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  790255ms] [WARNING] WebSocket connection to 'ws://localhost:3002/ws/orders' failed: WebSocket is closed before the connection is established. @ http://localhost:3002/src/App.tsx?t=1780930846819:412
+[  790331ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/auth/me:0
+[  790457ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  790488ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  790489ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  798563ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  798565ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  798615ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  802363ms] [WARNING] WebSocket connection to 'ws://localhost:3002/ws/orders' failed: WebSocket is closed before the connection is established. @ http://localhost:3002/src/App.tsx?t=1780930858576:412
+[  802471ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/auth/me:0
+[  802736ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/orders?limit=100&market=AVAX%2FUSD:0
+[  802736ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/trades?limit=100&market=AVAX%2FUSD:0
+[  802815ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3002/api/v1/users/demo-user/balances:0
+[  806061ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:3002/@vite/client:963
+[  806062ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  807065ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  808066ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  809068ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  810070ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  810535ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[  810578ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[  811074ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  812078ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[  816863ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3002/node_modules/.vite/deps/react-dom_client.js?v=af5c7f7f:20100
+[  862470ms] [WARNING] WebSocket connection to 'ws://localhost:3002/ws/orders' failed: WebSocket is closed before the connection is established. @ http://localhost:3002/src/App.tsx?t=1780930918809:423
+[  886117ms] [ERROR] The final argument passed to %s changed size between renders. The order and size of this array must remain constant.
+
+Previous: %s
+Incoming: %s useEffect [] [(symbol) => {
+    setActiveOrderBook(emptyOrderBook(symbol));
+    setCandles([]);
+    setRecentTrades([]);
+    setTradeHistory([]);
+    setOpenOrders([]);
+    setOrderHistory([]);
+  }] @ http://localhost:3002/node_modules/.vite/deps/react-dom_client.js?v=af5c7f7f:5625
+[  886220ms] [WARNING] WebSocket connection to 'ws://localhost:3002/ws/orders' failed: WebSocket is closed before the connection is established. @ http://localhost:3002/src/App.tsx?t=1780930942386:423
+[  954218ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3002/node_modules/.vite/deps/react-dom_client.js?v=af5c7f7f:20100
+[ 1053338ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3002/src/components/MarketChart.tsx?t=1780931110035:0
+[ 1053338ms] [ERROR] [vite] Failed to reload /src/components/MarketChart.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:3002/@vite/client:881
+[ 1101739ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3002/node_modules/.vite/deps/react-dom_client.js?v=6cda63ff:20102
+[ 1221658ms] [WARNING] WebSocket connection to 'ws://localhost:3002/ws/orders' failed: WebSocket is closed before the connection is established. @ http://localhost:3002/src/App.tsx?t=1780931278228:423
+[ 1244766ms] [WARNING] WebSocket connection to 'ws://localhost:3002/ws/orders' failed: WebSocket is closed before the connection is established. @ http://localhost:3002/src/App.tsx?t=1780931300988:423
+[ 1352944ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:3002/@vite/client:963
+[ 1352981ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1353985ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1354988ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1355991ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1356945ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[ 1356972ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[ 1356996ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1357998ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1359002ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1360006ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1361009ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1362012ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1363016ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1364021ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1364989ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[ 1365023ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1366025ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1367028ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1368031ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1369034ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1370037ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1371039ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1372045ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1372980ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[ 1373047ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1374051ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1375053ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1376055ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1377057ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1378060ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1379063ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1380067ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1380991ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[ 1381069ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1382074ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1383079ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1384081ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1385085ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1386087ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1387090ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1388094ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1388992ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[ 1389098ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1390103ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1391109ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1392116ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1393136ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1394153ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1395217ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1396380ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1396990ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[ 1397666ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1398974ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1400759ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1403885ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1404990ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[ 1406446ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1409769ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1412988ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[ 1415165ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1417564ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1420983ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[ 1422751ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1425068ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1428987ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[ 1430333ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1434809ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1436972ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/api/health:0
+[ 1439675ms] [ERROR] WebSocket connection to 'ws://localhost:3002/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/@vite/client:1034
+[ 1444950ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3002/node_modules/.vite/deps/react-dom_client.js?v=6cda63ff:20102

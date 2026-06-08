@@ -9,7 +9,6 @@ import VerticalActivityBar from './components/VerticalActivityBar';
 import CollapsibleSidebar from './components/CollapsibleSidebar';
 import MarketChart from './components/MarketChart';
 import OrderBookView from './components/OrderBook';
-import RecentTrades from './components/RecentTrades';
 import OrderForm from './components/OrderForm';
 import TerminalPanel from './components/TerminalPanel';
 import CommandPalette from './components/CommandPalette';
@@ -121,12 +120,14 @@ export default function App() {
   // Core exchange data structures states
   const [markets, setMarkets] = useState<MarketPair[]>([]);
   const [balances, setBalances] = useState<AssetBalance[]>([]);
+  const [balancesError, setBalancesError] = useState<string | null>(null);
   const [openOrders, setOpenOrders] = useState<Order[]>([]);
   const [orderHistory, setOrderHistory] = useState<Order[]>([]);
   
   // Historical executions
   const selectedMarketObj = markets.find(m => m.symbol === selectedPairSymbol) || null;
   const [tradeHistory, setTradeHistory] = useState<Trade[]>([]);
+  const [recentTrades, setRecentTrades] = useState<Trade[]>([]);
   const [activeOrderBook, setActiveOrderBook] = useState<OrderBook>(() => emptyOrderBook());
   const [orderSubmitError, setOrderSubmitError] = useState<string | null>(null);
   const [exchangeMode, setExchangeMode] = useState<ExchangeMode>('connecting');
@@ -137,17 +138,13 @@ export default function App() {
   const [authProvider, setAuthProvider] = useState('RESEARCHCAVE');
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authError, setAuthError] = useState('');
-  const activeUserID = authUser?.sub || exchangeConfig.userID;
+  const canUseConfiguredUserID = !authLoading && !authUser;
+  const activeUserID = authUser?.sub || (canUseConfiguredUserID ? exchangeConfig.userID : '');
+  const accountLabel = authUser?.email || authUser?.name || authUser?.sub || (canUseConfiguredUserID ? `${exchangeConfig.userID} (dev)` : '');
   const selectedAssetSymbol = selectedMarketObj?.baseAsset || selectedPairSymbol.split('/')[0] || '';
-  const selectedOpenOrders = useMemo(
-    () => openOrders.filter(order => order.symbol === selectedPairSymbol),
-    [openOrders, selectedPairSymbol]
-  );
-  const selectedRecentOrders = useMemo(
-    () => orderHistory.filter(order => order.symbol === selectedPairSymbol).slice(0, 5),
-    [orderHistory, selectedPairSymbol]
-  );
-  const displayedOrderBook = activeOrderBook;
+  const displayedOrderBook = activeOrderBook.market === selectedPairSymbol
+    ? activeOrderBook
+    : emptyOrderBook(selectedPairSymbol);
   const [dexPrices, setDexPrices] = useState<AssetPriceResponse | null>(null);
   const [dexPricesLoading, setDexPricesLoading] = useState(false);
   const [dexPricesError, setDexPricesError] = useState<string | null>(null);
@@ -194,6 +191,16 @@ export default function App() {
       setProtocolRevision(rev => rev + 1);
     }, delayMs);
     return true;
+  }, []);
+
+  const resetMarketData = useCallback((symbol: string) => {
+    setActiveOrderBook(emptyOrderBook(symbol));
+    setCandles([]);
+    setRecentTrades([]);
+    setTradeHistory([]);
+    setOpenOrders([]);
+    setOrderHistory([]);
+    setOrderBookSelectedPrice(null);
   }, []);
 
   const refreshAuth = useCallback(async () => {
@@ -247,6 +254,9 @@ export default function App() {
     const applyBrowserRoute = () => {
       const snapshot = readRouteSnapshot();
       setActiveView(snapshot.view);
+      if (snapshot.market) {
+        resetMarketData(snapshot.market);
+      }
       setSelectedPairSymbol(snapshot.market);
       setActiveTabId(tabIdForRoute(snapshot));
       setOpenTabs(prev => ensureRouteTab(prev, snapshot));
@@ -257,7 +267,7 @@ export default function App() {
 
     window.addEventListener('popstate', applyBrowserRoute);
     return () => window.removeEventListener('popstate', applyBrowserRoute);
-  }, []);
+  }, [resetMarketData]);
 
   useEffect(() => {
     const nextPath = routePathForState(activeView, selectedPairSymbol);
@@ -332,6 +342,7 @@ export default function App() {
           setOpenOrders([]);
           setOrderHistory([]);
           setBalances([]);
+          setBalancesError(null);
           setConnectionStatus('connected');
           setExchangeMode('live');
           setLatency(Math.max(1, Math.round(performance.now() - requestStartedAt)));
@@ -352,6 +363,9 @@ export default function App() {
         }
         const activeMarket = sortedMarkets.find(m => m.symbol === activeSymbol) || sortedMarkets[0];
         const activeAsset = activeMarket.baseAsset || activeSymbol.split('/')[0] || '';
+        const userOrdersPromise = activeUserID ? fetchUserOrders(activeUserID, activeSymbol, 100) : Promise.resolve<Order[]>([]);
+        const userTradesPromise = activeUserID ? fetchUserTrades(activeUserID, activeSymbol, 100) : Promise.resolve<Trade[]>([]);
+        const balancesPromise = activeUserID ? fetchBalances(activeUserID) : Promise.resolve<AssetBalance[]>([]);
 
         const [
           orderBookResult,
@@ -365,18 +379,18 @@ export default function App() {
           fetchOrderBook(activeSymbol, 50),
           fetchCandles(activeSymbol, timeframe, 120),
           fetchMarketTrades(activeSymbol, 80),
-          fetchUserOrders(activeUserID, activeSymbol, 100),
-          fetchUserTrades(activeUserID, activeSymbol, 100),
-          fetchBalances(activeUserID),
+          userOrdersPromise,
+          userTradesPromise,
+          balancesPromise,
           activeAsset ? fetchAssetPrices(activeAsset) : Promise.resolve(null),
         ]);
 
         if (cancelled) return;
 
         if (orderBookResult.status === 'fulfilled') {
-          setActiveOrderBook(orderBookResult.value);
+          setActiveOrderBook(orderBookResult.value.market === activeSymbol ? orderBookResult.value : emptyOrderBook(activeSymbol));
         } else {
-          setActiveOrderBook(emptyOrderBook());
+          setActiveOrderBook(emptyOrderBook(activeSymbol));
         }
         if (candlesResult.status === 'fulfilled') {
           const nextCandles = candlesResult.value;
@@ -396,10 +410,10 @@ export default function App() {
         if (marketTradesResult.status === 'fulfilled' || userTradesResult.status === 'fulfilled') {
           const marketTrades = marketTradesResult.status === 'fulfilled' ? marketTradesResult.value : [];
           const userTrades = userTradesResult.status === 'fulfilled' ? userTradesResult.value : [];
-          const byID = new Map<string, Trade>();
-          [...userTrades, ...marketTrades].forEach(item => byID.set(item.id, item));
-          setTradeHistory(Array.from(byID.values()).sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()));
+          setRecentTrades(sortTradesDesc(marketTrades));
+          setTradeHistory(sortTradesDesc(userTrades));
         } else {
+          setRecentTrades([]);
           setTradeHistory([]);
         }
         if (userOrdersResult.status === 'fulfilled') {
@@ -411,8 +425,10 @@ export default function App() {
         }
         if (balancesResult.status === 'fulfilled') {
           setBalances(balancesResult.value);
+          setBalancesError(activeUserID ? null : (authEnabled && !authLoading ? 'OIDC session is required for balances.' : null));
         } else {
           setBalances([]);
+          setBalancesError(balancesResult.reason instanceof Error ? balancesResult.reason.message : 'Balances unavailable');
         }
         if (assetPricesResult.status === 'fulfilled' && assetPricesResult.value) {
           setDexPrices(assetPricesResult.value);
@@ -443,10 +459,12 @@ export default function App() {
         setSelectedPairSymbol('');
         setActiveOrderBook(emptyOrderBook());
         setCandles([]);
+        setRecentTrades([]);
         setTradeHistory([]);
         setOpenOrders([]);
         setOrderHistory([]);
         setBalances([]);
+        setBalancesError(err instanceof Error ? err.message : 'Balances unavailable');
         setDexPrices(null);
         setDexPricesError(err instanceof Error ? err.message : 'DEX prices unavailable');
       } finally {
@@ -476,6 +494,18 @@ export default function App() {
         if (scheduleProtocolRefresh(250)) {
           appendLog(`Protocol event received: ${eventType}`, 'ORDER', 'INFO');
         }
+      } else if (eventType === 'exchange.deposit_pending' || eventType === 'exchange.deposit_settled') {
+        if (!socketEventBelongsToUser(event, activeUserID)) return;
+        const balance = balanceFromSocketEvent(event);
+        if (!balance) return;
+        setBalances(prev => upsertBalance(prev, balance));
+        setBalancesError(null);
+        scheduleProtocolRefresh(400);
+        appendLog(`Balance updated: ${balance.asset} ${eventType.replace('exchange.', '')}.`, 'WEBSOCKET', 'SUCCESS');
+      } else if (eventType.startsWith('exchange.withdrawal_')) {
+        if (!socketEventBelongsToUser(event, activeUserID)) return;
+        scheduleProtocolRefresh(400);
+        appendLog(`Withdrawal update received: ${eventType.replace('exchange.', '')}.`, 'WEBSOCKET', 'INFO');
       }
     });
 
@@ -498,7 +528,7 @@ export default function App() {
         protocolRefreshTimerRef.current = null;
       }
     };
-  }, [exchangeMode, selectedPairSymbol, appendLog, scheduleProtocolRefresh]);
+  }, [exchangeMode, selectedPairSymbol, activeUserID, appendLog, scheduleProtocolRefresh]);
 
   useEffect(() => {
     if (exchangeMode !== 'live') return;
@@ -535,6 +565,12 @@ export default function App() {
       appendLog(message, 'ORDER', 'ERROR');
       return;
     }
+    if (!activeUserID) {
+      const message = 'Order rejected: OIDC session is not loaded.';
+      setOrderSubmitError(message);
+      appendLog(message, 'ORDER', 'ERROR');
+      return;
+    }
 
     try {
       setOrderSubmitError(null);
@@ -555,7 +591,8 @@ export default function App() {
         setOrderHistory(prev => [result.order, ...prev.filter(o => o.id !== result.order.id)]);
       }
       if (result.trades.length > 0) {
-        setTradeHistory(prev => [...result.trades, ...prev]);
+        setTradeHistory(prev => mergeTrades(result.trades, prev));
+        setRecentTrades(prev => mergeTrades(result.trades, prev));
       }
       setProtocolRevision(rev => rev + 1);
       appendLog(`Exchange accepted ${result.order.id}: ${result.order.status} ${result.order.filled.toFixed(4)}/${result.order.amount.toFixed(4)}.`, 'ORDER', 'SUCCESS');
@@ -570,6 +607,10 @@ export default function App() {
   const handleCancelOrder = async (id: string) => {
     if (exchangeMode !== 'live') {
       appendLog(`Cancel rejected: exchange API is not connected for order ${id}.`, 'ORDER', 'ERROR');
+      return;
+    }
+    if (!activeUserID) {
+      appendLog(`Cancel rejected: OIDC session is not loaded for order ${id}.`, 'ORDER', 'ERROR');
       return;
     }
 
@@ -639,6 +680,11 @@ export default function App() {
       appendLog(message, 'SYSTEM', 'ERROR');
       throw new Error(message);
     }
+    if (!activeUserID) {
+      const message = 'Deposit rejected: OIDC session is not loaded.';
+      appendLog(message, 'SYSTEM', 'ERROR');
+      throw new Error(message);
+    }
 
     try {
       const depositAddress = await requestExchangeDepositAddress(activeUserID, asset, chainKey);
@@ -658,12 +704,18 @@ export default function App() {
       appendLog(message, 'SYSTEM', 'ERROR');
       throw new Error(message);
     }
+    if (!activeUserID) {
+      const message = 'Withdrawal rejected: OIDC session is not loaded.';
+      appendLog(message, 'SYSTEM', 'ERROR');
+      throw new Error(message);
+    }
 
     try {
       const withdrawal = await requestExchangeWithdrawal(activeUserID, asset, chainKey, address, amount);
       const refreshedBalances = await fetchBalances(activeUserID).catch(() => null);
       if (refreshedBalances) {
         setBalances(refreshedBalances);
+        setBalancesError(null);
       }
       setProtocolRevision(rev => rev + 1);
       const txId = withdrawal.id || `W-${Date.now()}`;
@@ -681,6 +733,7 @@ export default function App() {
     setOpenOrders([]);
     setOrderHistory([]);
     setBalances([]);
+    setBalancesError(null);
     setSystemLogs([
       { id: 'LOG-RESET', timestamp: new Date(), type: 'SUCCESS', source: 'SYSTEM', message: 'Workspace cleared. System cache state rebuilt.' }
     ]);
@@ -692,6 +745,7 @@ export default function App() {
     if (tabObj) {
       setActiveTabId(tabId);
       if (tabObj.symbol) {
+        resetMarketData(tabObj.symbol);
         setSelectedPairSymbol(tabObj.symbol);
         setActiveView('TRADE');
       } else if (tabObj.type === 'PORTFOLIO') {
@@ -705,20 +759,22 @@ export default function App() {
   const handleCloseTab = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (openTabs.length === 1) return; // keep at least one tab open
-    
+
     const remainingTabs = openTabs.filter(t => t.id !== id);
     setOpenTabs(remainingTabs);
-    
+
     if (activeTabId === id) {
       const nextActive = remainingTabs[remainingTabs.length - 1];
       setActiveTabId(nextActive.id);
       if (nextActive.symbol) {
+        resetMarketData(nextActive.symbol);
         setSelectedPairSymbol(nextActive.symbol);
       }
     }
   };
 
   const handleSelectPair = (symbol: string) => {
+    resetMarketData(symbol);
     setSelectedPairSymbol(symbol);
     
     // Check if symbol already exists as tabs, if not, append editor file tab
@@ -877,7 +933,7 @@ export default function App() {
           isAuthenticated={Boolean(authUser)}
           authEnabled={authEnabled}
           authLoading={authLoading}
-          accountLabel={authUser?.email || authUser?.name || authUser?.sub}
+          accountLabel={accountLabel}
           onLogin={handleShowLoginScreen}
           onLogout={handleOIDCLogout}
           onAuthRetry={refreshAuth}
@@ -967,6 +1023,7 @@ export default function App() {
             /* PORTFOLIO VIEW */
             <PortfolioView
               balances={balances}
+              balancesError={balancesError}
               onDeposit={handleDeposit}
               onWithdraw={handleWithdraw}
               transactions={walletTransactions}
@@ -993,7 +1050,7 @@ export default function App() {
               soundEnabled={soundEnabled}
               setSoundEnabled={setSoundEnabled}
               onPurgeDbs={handlePurgeDbs}
-              userEmail={authUser?.email || authUser?.name || authUser?.sub || 'Unauthenticated'}
+              userEmail={accountLabel || 'Unauthenticated'}
             />
           ) : activeView === 'MARKETS' ? (
             /* BULK MARKETS LISTING SCREEN */
@@ -1037,7 +1094,7 @@ export default function App() {
             </div>
           ) : activeView === 'ORDERS' ? (
             /* DETAILED ACCOUNTS ORDERS SCREEN */
-            <div className="flex-1 p-5 overflow-y-auto space-y-4 max-w-7xl mx-auto w-full select-none">
+            <div className="flex-1 w-full min-w-0 max-w-none overflow-y-auto p-4 sm:p-5 bg-[#fafbfc] dark:bg-[#070b0f] space-y-4 select-none h-full">
               <div className="flex justify-between items-center border-b border-[#e1e4e8] dark:border-[#21262d] pb-3">
                 <h2 className="text-sm font-bold uppercase tracking-wider font-display text-gray-900 dark:text-gray-100 flex items-center gap-2">
                   <Coins className="w-5 h-5 text-accent-1" />
@@ -1058,7 +1115,9 @@ export default function App() {
                 openOrders={openOrders}
                 orderHistory={orderHistory}
                 tradeHistory={tradeHistory}
+                recentTrades={recentTrades}
                 systemLogs={systemLogs}
+                selectedMarket={selectedMarketObj}
                 selectedAssetSymbol={selectedAssetSymbol}
                 dexPrices={dexPrices}
                 dexPricesLoading={dexPricesLoading}
@@ -1102,7 +1161,9 @@ export default function App() {
                   openOrders={openOrders}
                   orderHistory={orderHistory}
                   tradeHistory={tradeHistory}
+                  recentTrades={recentTrades}
                   systemLogs={systemLogs}
+                  selectedMarket={selectedMarketObj}
                   selectedAssetSymbol={selectedAssetSymbol}
                   dexPrices={dexPrices}
                   dexPricesLoading={dexPricesLoading}
@@ -1116,18 +1177,12 @@ export default function App() {
               {/* Workspace Right Column: Order books, execution feed stream, and limits selectors (col-span-8) */}
               <div className="lg:col-span-8 flex flex-col gap-3">
                 
-                {/* 1. Inline Tabs containing Bid/Ask Book vs Executed trades feed */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 shrink-0">
+                {/* 1. Bid/Ask Book */}
+                <div className="shrink-0 w-full">
                   <OrderBookView
                     orderBook={displayedOrderBook}
                     pair={selectedMarketObj}
                     onSelectPrice={(pr) => setOrderBookSelectedPrice(pr)}
-                    myOpenOrders={selectedOpenOrders}
-                    myRecentOrders={selectedRecentOrders}
-                  />
-                  <RecentTrades
-                    trades={tradeHistory}
-                    pair={selectedMarketObj}
                   />
                 </div>
 
@@ -1176,7 +1231,7 @@ export default function App() {
         {/* Sync triggers right */}
         <div className="flex items-center gap-4.5">
           <span className="text-[#ffe05c]" title="Spot mode operates without liabilities">
-            Account: {authUser?.email || authUser?.name || 'Spot'}
+            Account: {accountLabel || 'Unauthenticated'}
           </span>
 
           {authUser ? (
@@ -1403,13 +1458,24 @@ function compareMarkets(a: MarketPair, b: MarketPair): number {
   return a.symbol.localeCompare(b.symbol);
 }
 
-function emptyOrderBook(): OrderBook {
+function emptyOrderBook(market = ''): OrderBook {
   return {
+    market,
     bids: [],
     asks: [],
     spread: 0,
     spreadPercent: 0,
   };
+}
+
+function mergeTrades(incoming: Trade[], current: Trade[]): Trade[] {
+  const byID = new Map<string, Trade>();
+  [...incoming, ...current].forEach((trade) => byID.set(trade.id, trade));
+  return sortTradesDesc(Array.from(byID.values())).slice(0, 120);
+}
+
+function sortTradesDesc(trades: Trade[]): Trade[] {
+  return [...trades].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 }
 
 function assetMetadataBySymbol(assets: AssetInfo[]): Record<string, AssetInfo> {
@@ -1424,7 +1490,7 @@ function assetMetadataBySymbol(assets: AssetInfo[]): Record<string, AssetInfo> {
     }
     (asset.deployments || []).forEach((deployment) => {
       const deploymentSymbol = deployment.symbol?.toUpperCase();
-      if (deploymentSymbol) {
+      if (deploymentSymbol && deploymentSymbol !== symbol) {
         out[deploymentSymbol] = {
           ...asset,
           symbol: deployment.symbol,
@@ -1442,9 +1508,7 @@ function assetMetadataBySymbol(assets: AssetInfo[]): Record<string, AssetInfo> {
 function defaultChainKeyForAsset(assetMetadata: Record<string, AssetInfo>, symbol: string): string {
   const asset = assetMetadata[symbol.toUpperCase()];
   const deployments = asset?.deployments || [];
-  const ordered = [...deployments]
-    .filter((deployment) => deployment.enabled !== false && deployment.chain_key)
-    .sort((a, b) => chainRank(a.chain_key || '', defaultChainOrder) - chainRank(b.chain_key || '', defaultChainOrder));
+  const ordered = deployments.filter((deployment) => deployment.enabled !== false && deployment.chain_key);
   return ordered[0]?.chain_key || '';
 }
 
@@ -1463,6 +1527,78 @@ function mergeAssetPrices(current: AssetPriceResponse | null, incoming: AssetPri
     asset: incoming.asset || current.asset,
     prices: Array.from(byPool.values()).sort(comparePoolPrices),
   };
+}
+
+function socketEventBelongsToUser(event: unknown, activeUserID: string): boolean {
+  if (!activeUserID) return false;
+  if (!isUnknownRecord(event)) return false;
+  const eventUserID = stringValue(event, ['user_id', 'userID', 'UserID']);
+  return eventUserID === '' || eventUserID === activeUserID;
+}
+
+function balanceFromSocketEvent(event: unknown): AssetBalance | null {
+  if (!isUnknownRecord(event)) return null;
+  const rawBalance = event.balance || event.Balance;
+  if (!isUnknownRecord(rawBalance)) return null;
+
+  const asset = stringValue(rawBalance, ['asset', 'Asset']).toUpperCase();
+  if (!asset) return null;
+
+  const free = numericValue(rawBalance, ['available', 'Available', 'free', 'Free']);
+  const locked = numericValue(rawBalance, ['locked', 'Locked']);
+  const frozen = numericValue(rawBalance, ['frozen', 'Frozen', 'pending', 'Pending']);
+
+  return {
+    asset,
+    name: asset,
+    free,
+    locked,
+    frozen,
+    valueUsd: free + locked + frozen,
+    change24h: 0,
+  };
+}
+
+function upsertBalance(current: AssetBalance[], incoming: AssetBalance): AssetBalance[] {
+  const asset = incoming.asset.toUpperCase();
+  const existing = current.find(item => item.asset.toUpperCase() === asset);
+  const next = {
+    ...incoming,
+    asset,
+    name: existing?.name || incoming.name || asset,
+    change24h: existing?.change24h || incoming.change24h,
+  };
+
+  if (!existing) {
+    return [...current, next];
+  }
+
+  return current.map(item => item.asset.toUpperCase() === asset ? next : item);
+}
+
+function isUnknownRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function stringValue(record: Record<string, unknown>, keys: string[]): string {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'string') return value.trim();
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  }
+  return '';
+}
+
+function numericValue(record: Record<string, unknown>, keys: string[]): number {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string' && value.trim() !== '') {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return 0;
 }
 
 function priceKey(price: AssetPriceResponse['prices'][number]): string {
