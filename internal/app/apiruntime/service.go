@@ -62,6 +62,7 @@ func Run(ctx context.Context) error {
 	}
 	swapService := swap.NewService(registries.Assets, registries.Venues, poolRepo, swapEngine)
 	orderService := orders.NewService(registries.Markets, exchangeRepo)
+	orderService.SetAssetRegistry(registries.Assets)
 	gatewayClient := paymentgateway.NewClient(paymentgateway.ConfigFromEnv())
 	if gatewayClient.Enabled() || gatewayClient.StaticAddressEnabled() || gatewayClient.QRCodeEnabled() {
 		orderService.SetGatewayWalletProvider(walletGatewayAdapter{client: gatewayClient})

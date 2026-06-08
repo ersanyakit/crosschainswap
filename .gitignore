@@ -9,3 +9,9 @@ coverage.out
 
 # OS
 .DS_Store
+.cache
+.playwright
+.cache/
+/tmp/
+/.playwright-test/
+playwright-cli

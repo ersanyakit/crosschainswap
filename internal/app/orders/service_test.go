@@ -5,7 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	"exchange/internal/core/asset"
 	"exchange/internal/core/balance"
+	"exchange/internal/core/chain"
 	"exchange/internal/core/decimal"
 	"exchange/internal/core/market"
 	"exchange/internal/core/order"
@@ -82,6 +84,43 @@ func TestGatewayDepositAmountFromRaw(t *testing.T) {
 	}
 	if got != "100.25" {
 		t.Fatalf("gatewayDepositAmount raw = %q, want 100.25", got)
+	}
+}
+
+func TestGatewayDepositSymbolUsesDeploymentSymbolForSelectedChain(t *testing.T) {
+	service := NewService(market.Registry{}, nil)
+	service.SetAssetRegistry(asset.NewRegistry([]asset.Asset{
+		{
+			Symbol: "BTC",
+			Deployments: []asset.Deployment{
+				{ChainKey: chain.ChainKey("bitcoin"), Symbol: "BTC", Native: true, Enabled: true},
+				{ChainKey: chain.ChainKeyEthereum, Symbol: "WBTC", Address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", Enabled: true},
+			},
+		},
+	}))
+
+	if got := service.gatewayDepositSymbol("BTC", "ethereum"); got != "WBTC" {
+		t.Fatalf("gatewayDepositSymbol(BTC, ethereum) = %q, want WBTC", got)
+	}
+	if got := service.gatewayDepositSymbol("BTC", "bitcoin"); got != "BTC" {
+		t.Fatalf("gatewayDepositSymbol(BTC, bitcoin) = %q, want BTC", got)
+	}
+}
+
+func TestGatewayDepositAssetCanonicalizesDeploymentSymbol(t *testing.T) {
+	service := NewService(market.Registry{}, nil)
+	service.SetAssetRegistry(asset.NewRegistry([]asset.Asset{
+		{
+			Symbol: "BTC",
+			Deployments: []asset.Deployment{
+				{ChainKey: chain.ChainKeyEthereum, Symbol: "WBTC", Address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", Enabled: true},
+			},
+		},
+	}))
+
+	got := service.gatewayDepositAsset(GatewayDepositCallback{Asset: "WBTC"})
+	if got != "BTC" {
+		t.Fatalf("gatewayDepositAsset(WBTC) = %q, want BTC", got)
 	}
 }
 
