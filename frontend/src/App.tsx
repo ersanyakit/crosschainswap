@@ -45,7 +45,6 @@ import {
   fetchUserOrders,
   fetchUserTrades,
   listMarkets,
-  measureAPILatency,
   openExchangeSocket,
   openPriceSocket,
   placeOrder as placeExchangeOrder,
@@ -402,13 +401,8 @@ export default function App() {
       setDexPricesLoading(true);
       setDexPricesError(null);
       try {
-        const latencyPromise = measureAPILatency().catch(() => null);
         const remoteMarkets = await listMarkets();
         if (cancelled) return;
-        const nextLatency = await latencyPromise;
-        if (!cancelled && nextLatency !== null) {
-          setLatency(nextLatency);
-        }
 
         if (remoteMarkets.length === 0) {
           setMarkets([]);
@@ -554,9 +548,25 @@ export default function App() {
   useEffect(() => {
     if (exchangeMode !== 'live') return;
 
+    let pingIntervalID: number | null = null;
+    const sendLatencyProbe = (socket: WebSocket) => {
+      if (socket.readyState !== WebSocket.OPEN) return;
+      socket.send(JSON.stringify({
+        type: 'exchange.ping',
+        sent_at: performance.now(),
+      }));
+    };
+
     const socket = openExchangeSocket((event) => {
-      if (event?.market && event.market !== selectedPairSymbol) return;
       const eventType = typeof event?.type === 'string' ? event.type : '';
+      if (eventType === 'exchange.pong') {
+        const sentAt = typeof event?.sent_at === 'number' ? event.sent_at : Number(event?.sent_at || 0);
+        if (Number.isFinite(sentAt) && sentAt > 0) {
+          setLatency(Math.max(1, Math.round(performance.now() - sentAt)));
+        }
+        return;
+      }
+      if (event?.market && event.market !== selectedPairSymbol) return;
       if (eventType === 'exchange.orderbook_delta') {
         const targetMarket = event.market || selectedPairSymbol;
         const currentBook = orderBookCacheRef.current.get(targetMarket) ?? emptyOrderBook(targetMarket);
@@ -608,16 +618,26 @@ export default function App() {
     socket.onopen = () => {
       setConnectionStatus('connected');
       setExchangeMessage(`REST/WS bound to ${exchangeConfig.apiBaseURL}`);
+      sendLatencyProbe(socket);
+      pingIntervalID = window.setInterval(() => sendLatencyProbe(socket), 2000);
     };
     socket.onclose = () => {
       setConnectionStatus('reconnecting');
       setExchangeMessage('Websocket reconnect pending; REST polling remains active');
+      if (pingIntervalID !== null) {
+        window.clearInterval(pingIntervalID);
+        pingIntervalID = null;
+      }
     };
     socket.onerror = () => {
       setConnectionStatus('reconnecting');
     };
 
     return () => {
+      if (pingIntervalID !== null) {
+        window.clearInterval(pingIntervalID);
+        pingIntervalID = null;
+      }
       socket.close();
       if (protocolRefreshTimerRef.current !== null) {
         window.clearTimeout(protocolRefreshTimerRef.current);

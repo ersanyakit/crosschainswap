@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"encoding/json"
 	"sync"
 	"time"
 
@@ -13,6 +14,11 @@ type Hub struct {
 	mu      sync.RWMutex
 	writeMu sync.Mutex
 	clients map[*websocket.Conn]struct{}
+}
+
+type clientSocketMessage struct {
+	Type   string  `json:"type"`
+	SentAt float64 `json:"sent_at,omitempty"`
 }
 
 func NewHub() *Hub {
@@ -45,6 +51,15 @@ func (h *Hub) Publish(payload []byte) {
 	}
 }
 
+func (h *Hub) writeMessage(conn *websocket.Conn, payload []byte) error {
+	h.writeMu.Lock()
+	defer h.writeMu.Unlock()
+	if err := conn.SetWriteDeadline(time.Now().Add(2 * time.Second)); err != nil {
+		return err
+	}
+	return conn.WriteMessage(websocket.TextMessage, payload)
+}
+
 func (h *Hub) Handle(c fiber.Ctx) error {
 	upgrader := websocket.FastHTTPUpgrader{
 		CheckOrigin: func(ctx *fasthttp.RequestCtx) bool {
@@ -60,8 +75,20 @@ func (h *Hub) Handle(c fiber.Ctx) error {
 		}()
 
 		for {
-			if _, _, err := conn.ReadMessage(); err != nil {
+			_, payload, err := conn.ReadMessage()
+			if err != nil {
 				return
+			}
+			var message clientSocketMessage
+			if err := json.Unmarshal(payload, &message); err == nil && message.Type == "exchange.ping" {
+				reply, _ := json.Marshal(clientSocketMessage{
+					Type:   "exchange.pong",
+					SentAt: message.SentAt,
+				})
+				if err := h.writeMessage(conn, reply); err != nil {
+					h.remove(conn)
+					return
+				}
 			}
 		}
 	})
