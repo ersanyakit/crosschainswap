@@ -47,6 +47,7 @@ const (
 type Order struct {
 	ID                ID            `json:"id"`
 	ClientOrderID     ClientOrderID `json:"client_order_id,omitempty"`
+	ReservationID     string        `json:"reservation_id,omitempty"`
 	UserID            string        `json:"user_id"`
 	Market            string        `json:"market"`
 	BaseAsset         string        `json:"base_asset"`

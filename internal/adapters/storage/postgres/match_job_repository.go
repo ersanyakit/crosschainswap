@@ -13,10 +13,11 @@ import (
 )
 
 const (
-	MatchJobStatusPending    = "pending"
-	MatchJobStatusProcessing = "processing"
-	MatchJobStatusCompleted  = "completed"
-	MatchJobStatusFailed     = "failed"
+	MatchJobStatusPending     = "pending"
+	MatchJobStatusProcessing  = "processing"
+	MatchJobStatusCompleted   = "completed"
+	MatchJobStatusFailed      = "failed"
+	MatchJobStatusQuarantined = "quarantined"
 )
 
 type MatchJob struct {
@@ -128,7 +129,7 @@ func (r *ExchangeRepository) FailMatchJob(ctx context.Context, id string, messag
 		nextStatus := MatchJobStatusPending
 		availableAt := now.Add(retryAfter)
 		if model.Attempts >= maxAttempts {
-			nextStatus = MatchJobStatusFailed
+			nextStatus = MatchJobStatusQuarantined
 			availableAt = now
 		}
 		model.Status = nextStatus

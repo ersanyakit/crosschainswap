@@ -46,7 +46,7 @@ export default function RecentTrades({ trades, pair }: RecentTradesProps) {
         ) : (
           renderedTrades.map((trade) => {
             const isBuy = trade.side === 'BUY';
-            const priceStr = formatPrice(trade.price);
+            const priceStr = formatPrice(trade.price, 8, 8);
             const timeStr = trade.timestamp.toLocaleTimeString(undefined, {
               hour: '2-digit',
               minute: '2-digit',
@@ -66,7 +66,7 @@ export default function RecentTrades({ trades, pair }: RecentTradesProps) {
                 
                 {/* Size */}
                 <div className="text-right text-gray-700 dark:text-gray-300 font-mono">
-                  {formatQuantity(trade.amount)}
+                  {formatQuantity(trade.amount, 8)}
                 </div>
 
                 {/* Timestamp */}

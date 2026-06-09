@@ -37,6 +37,7 @@ type ApiOrder = {
   stop_price?: string;
   quantity: string;
   filled_quantity: string;
+  remaining_quantity?: string;
   created_at: string;
 };
 
@@ -202,7 +203,7 @@ export async function listMarkets(): Promise<MarketPair[]> {
     .filter((item) => item.symbol && item.baseAsset && item.quoteAsset);
 }
 
-export async function fetchOrderBook(market: string, depth = 50): Promise<OrderBook> {
+export async function fetchOrderBook(market: string, depth = 500): Promise<OrderBook> {
   const query = new URLSearchParams({ market, depth: String(depth) });
   const snapshot = await apiJSON<ApiOrderBook>(`/v1/orderbook?${query.toString()}`);
   return mapOrderBook(snapshot);
@@ -386,6 +387,7 @@ function mapOrder(item: ApiOrder): Order {
   const price = Number(item.price || 0);
   const amount = Number(item.quantity || 0);
   const filled = Number(item.filled_quantity || 0);
+  const remaining = Number(item.remaining_quantity ?? Math.max(0, amount - filled));
 
   return {
     id: item.id,
@@ -395,6 +397,7 @@ function mapOrder(item: ApiOrder): Order {
     price,
     amount,
     filled,
+    remaining,
     total: price * amount,
     stopPrice: item.stop_price ? Number(item.stop_price) : undefined,
     status: mapOrderStatus(item.status),
@@ -436,8 +439,8 @@ function mapBalance(item: unknown): AssetBalance {
 }
 
 function mapOrderBook(snapshot: ApiOrderBook): OrderBook {
-  const bids = mapLevels(snapshot.bids || []);
-  const asks = mapLevels(snapshot.asks || []);
+  const bids = mapLevels(snapshot.bids || [], 'bid');
+  const asks = mapLevels(snapshot.asks || [], 'ask');
   const bestBid = bids[0]?.price || 0;
   const bestAsk = asks[0]?.price || 0;
   const spread = bestBid > 0 && bestAsk > 0 ? bestAsk - bestBid : 0;
@@ -452,7 +455,7 @@ function mapOrderBook(snapshot: ApiOrderBook): OrderBook {
   };
 }
 
-function mapLevels(levels: ApiPriceLevel[]): OrderBookLevel[] {
+function mapLevels(levels: ApiPriceLevel[], side: 'bid' | 'ask'): OrderBookLevel[] {
   const mapped = levels.map((level) => {
     const price = Number(level.price || 0);
     const amount = Number(level.quantity || 0);
@@ -460,14 +463,20 @@ function mapLevels(levels: ApiPriceLevel[]): OrderBookLevel[] {
       price,
       amount,
       total: price * amount,
+      cumulativeAmount: 0,
       cumulativeTotal: 0,
       depthPercent: 0,
     };
-  });
+  })
+    .filter((level) => level.price > 0 && level.amount >= 0.000000005)
+    .sort((left, right) => side === 'bid' ? right.price - left.price : left.price - right.price);
 
+  let cumulativeAmount = 0;
   let cumulativeTotal = 0;
   mapped.forEach((level) => {
+    cumulativeAmount += level.amount;
     cumulativeTotal += level.total;
+    level.cumulativeAmount = cumulativeAmount;
     level.cumulativeTotal = cumulativeTotal;
   });
 
@@ -492,12 +501,21 @@ function mapCandle(item: ApiCandle): Candle {
 
 function mapOrderStatus(status: string): Order['status'] {
   switch (status) {
+    case 'open':
+      return 'OPEN';
+    case 'pending_match':
+    case 'pending_stop':
+      return 'PENDING';
+    case 'partially_filled':
+      return 'PARTIALLY_FILLED';
     case 'filled':
       return 'FILLED';
     case 'canceled':
-    case 'expired':
-    case 'rejected':
       return 'CANCELLED';
+    case 'expired':
+      return 'EXPIRED';
+    case 'rejected':
+      return 'REJECTED';
     default:
       return 'PENDING';
   }

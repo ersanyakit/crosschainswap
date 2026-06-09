@@ -115,7 +115,7 @@ export default function MarketChart({
   }, [klineData, pair.symbol, pricePrecision, timeframe, showMA]);
 
   return (
-    <div className="flex flex-col bg-white dark:bg-[#0c1015] border border-[#e1e4e8] dark:border-[#21262d] rounded-lg shadow-sm overflow-hidden text-gray-800 dark:text-gray-100 relative min-h-[430px]">
+    <div className="relative flex h-full min-h-[430px] flex-col overflow-hidden rounded-lg border border-[#e1e4e8] bg-white text-gray-800 shadow-sm dark:border-[#21262d] dark:bg-[#0c1015] dark:text-gray-100 xl:min-h-0">
       <div className="flex flex-wrap items-center justify-between gap-4 p-3 border-b border-[#e1e4e8] dark:border-[#21262d] bg-[#fafbfc] dark:bg-[#090d12] text-xs font-mono select-none">
         <div className="flex items-center gap-3">
           <div className="font-display font-medium text-sm text-gray-950 dark:text-gray-50 flex items-center gap-2">
@@ -176,7 +176,7 @@ export default function MarketChart({
         </div>
       </div>
 
-      <div className="relative flex-1 min-h-[320px] bg-white dark:bg-[#070b0f]">
+      <div className="relative flex-1 min-h-[280px] bg-white dark:bg-[#070b0f] xl:min-h-0">
         <div ref={chartHostRef} className="absolute inset-0" />
         {candles.length === 0 && (
           <div className="absolute inset-x-0 top-3 flex justify-center pointer-events-none">

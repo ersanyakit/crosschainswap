@@ -505,7 +505,6 @@ The exchange module includes an internal limit order protocol with:
 - buy/sell market matching with IOC execution
 - stop-limit activation
 - price-time priority
-- self-trade prevention
 - decimal precision validation up to 18 places
 - last-trade price band protection
 - deterministic core matching engine

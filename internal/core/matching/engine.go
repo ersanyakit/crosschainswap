@@ -42,6 +42,11 @@ func MatchLimit(taker order.Order, makers []order.Order, newTradeID TradeIDFacto
 			continue
 		}
 
+		quoteQuantity := decimal.Mul(qty, maker.Price)
+		if decimal.Cmp(quoteQuantity, "0") <= 0 {
+			return Result{}, fmt.Errorf("%w: quote quantity is below supported precision", ErrInvalidMatch)
+		}
+
 		item := trade.Trade{
 			ID:            newTradeID(),
 			Market:        result.Taker.Market,
@@ -54,7 +59,7 @@ func MatchLimit(taker order.Order, makers []order.Order, newTradeID TradeIDFacto
 			TakerSide:     result.Taker.Side,
 			Price:         maker.Price,
 			Quantity:      qty,
-			QuoteQuantity: decimal.Mul(qty, maker.Price),
+			QuoteQuantity: quoteQuantity,
 			CreatedAt:     now,
 		}
 		result.Trades = append(result.Trades, item)
@@ -96,7 +101,7 @@ func validateTaker(item order.Order) error {
 }
 
 func eligibleMaker(taker order.Order, maker order.Order) bool {
-	if maker.ID == "" || maker.ID == taker.ID || maker.UserID == taker.UserID {
+	if maker.ID == "" || maker.ID == taker.ID {
 		return false
 	}
 	if maker.Market != taker.Market || maker.Side == taker.Side {

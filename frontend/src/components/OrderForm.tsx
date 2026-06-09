@@ -4,9 +4,13 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, AlertTriangle, Info, AlertCircle, Sparkles, Sliders } from 'lucide-react';
+import { ShieldAlert, AlertTriangle, AlertCircle, Sliders } from 'lucide-react';
 import { MarketPair, OrderType, OrderSide } from '../types/trading';
-import { BRAND_NAME } from '../constants/brand';
+
+const BASE_AMOUNT_DECIMALS = 8;
+const QUOTE_AMOUNT_DECIMALS = 8;
+const BALANCE_EPSILON = 0.00000001;
+const DISPLAY_ROUNDING_TOLERANCE = 0.0001;
 
 interface OrderFormProps {
   pair: MarketPair;
@@ -20,8 +24,12 @@ interface OrderFormProps {
     stopPrice?: number;
   }) => void;
   selectedPrice: number | null;
+  selectedAmount: number | null;
+  selectedTotal: number | null;
+  selectedBookSide: 'ASK' | 'BID' | null;
   clearSelectedPrice: () => void;
   submitError?: string | null;
+  docked?: boolean;
 }
 
 export default function OrderForm({
@@ -30,18 +38,28 @@ export default function OrderForm({
   availableBase,
   onSubmitOrder,
   selectedPrice,
+  selectedAmount,
+  selectedTotal,
+  selectedBookSide,
   clearSelectedPrice,
   submitError,
+  docked = false,
 }: OrderFormProps) {
   const [side, setSide] = useState<OrderSide>('BUY');
   const [type, setType] = useState<OrderType>('LIMIT');
   const [priceInput, setPriceInput] = useState('');
   const [amountInput, setAmountInput] = useState('');
   const [stopPriceInput, setStopPriceInput] = useState('');
+  const [quoteTotalAnchor, setQuoteTotalAnchor] = useState<{
+    price: number;
+    amount: number;
+    total: number;
+  } | null>(null);
   
   // Track which input is active for the numeric terminal keyboard focus mapping
   const [activeInput, setActiveInput] = useState<'price' | 'amount' | 'stopPrice'>('amount');
-  const [showKeypad, setShowKeypad] = useState(true);
+  const [showKeypad, setShowKeypad] = useState(false);
+  const usesQuoteTotalInput = side === 'BUY' && type !== 'MARKET';
 
   // Confirmation Modal
   const [showConfirm, setShowConfirm] = useState(false);
@@ -50,6 +68,7 @@ export default function OrderForm({
     setPriceInput(formatOrderNumberInput(pair.lastPrice));
     setAmountInput('');
     setStopPriceInput('');
+    setQuoteTotalAnchor(null);
     setShowConfirm(false);
     setActiveInput('amount');
   }, [pair.symbol]);
@@ -83,9 +102,12 @@ export default function OrderForm({
       const currentNum = parseFloat(currentVal) || 0;
       const nextNum = Math.max(0, currentNum + inc);
       if (activeInput === 'amount') {
-        setVal(Number(nextNum.toFixed(4)).toString());
+        setVal(usesQuoteTotalInput
+          ? formatOrderQuoteInput(nextNum)
+          : formatOrderBaseAmountInput(nextNum)
+        );
       } else {
-        setVal(Number(nextNum.toFixed(2)).toString());
+        setVal(formatOrderNumberInput(nextNum));
       }
     } else {
       if (currentVal === '0' && val === '0') return;
@@ -99,13 +121,49 @@ export default function OrderForm({
 
   // Sync selected price from order book click
   useEffect(() => {
-    if (selectedPrice !== null) {
+    if (selectedPrice !== null || selectedAmount !== null || selectedTotal !== null) {
       if (type !== 'MARKET') {
-        setPriceInput(formatOrderNumberInput(selectedPrice));
+        setPriceInput(formatOrderNumberInput(selectedPrice || 0));
+      }
+      const selectedPrimaryInput = usesQuoteTotalInput
+        ? selectedTotal ?? (selectedPrice !== null && selectedAmount !== null ? selectedPrice * selectedAmount : null)
+        : selectedAmount !== null && side === 'SELL'
+          ? Math.min(selectedAmount, availableBase)
+          : selectedAmount;
+      const formattedPrimaryInput = selectedPrimaryInput !== null
+        ? usesQuoteTotalInput
+          ? formatOrderQuoteInput(selectedPrimaryInput)
+          : formatOrderBaseAmountInput(selectedPrimaryInput)
+        : '';
+      if (selectedPrimaryInput !== null) {
+        setAmountInput(formattedPrimaryInput);
+        setActiveInput('amount');
+      }
+      if (
+        usesQuoteTotalInput &&
+        selectedBookSide === 'ASK' &&
+        selectedPrice !== null &&
+        selectedAmount !== null &&
+        selectedTotal !== null
+      ) {
+        const anchorTotal = Number(formattedPrimaryInput);
+        setQuoteTotalAnchor({
+          price: selectedPrice,
+          amount: selectedAmount,
+          total: Number.isFinite(anchorTotal) && anchorTotal > 0 ? anchorTotal : selectedTotal,
+        });
+      } else {
+        setQuoteTotalAnchor(null);
       }
       clearSelectedPrice();
     }
-  }, [selectedPrice, type, clearSelectedPrice]);
+  }, [selectedPrice, selectedAmount, selectedTotal, selectedBookSide, side, availableBase, usesQuoteTotalInput, type, clearSelectedPrice]);
+
+  useEffect(() => {
+    if (!usesQuoteTotalInput) {
+      setQuoteTotalAnchor(null);
+    }
+  }, [usesQuoteTotalInput]);
 
   // Set default price inputs
   useEffect(() => {
@@ -116,9 +174,18 @@ export default function OrderForm({
 
   // Derived properties
   const price = type === 'MARKET' ? pair.lastPrice : parseFloat(priceInput) || 0;
-  const amount = parseFloat(amountInput) || 0;
+  const primaryInputValue = parseFloat(amountInput) || 0;
+  const anchoredQuoteTotalAmount = quoteTotalAnchor &&
+    price > 0 &&
+    Math.abs(price - quoteTotalAnchor.price) < 0.000000000001 &&
+    primaryInputValue + 0.000000001 >= quoteTotalAnchor.total
+      ? quoteTotalAnchor.amount + (Math.max(0, primaryInputValue - quoteTotalAnchor.total) / price)
+      : null;
+  const amount = usesQuoteTotalInput && price > 0
+    ? anchoredQuoteTotalAmount ?? (primaryInputValue / price)
+    : primaryInputValue;
   const stopPrice = parseFloat(stopPriceInput) || 0;
-  const total = price * amount;
+  const total = usesQuoteTotalInput ? primaryInputValue : price * amount;
   const takerFeeRate = 0.001; // 0.1% fee
   const makerFeeRate = 0.0008; // 0.08% fee
   const usedFeeRate = type === 'MARKET' ? takerFeeRate : makerFeeRate;
@@ -126,30 +193,38 @@ export default function OrderForm({
 
   const currentBalance = side === 'BUY' ? availableUsdt : availableBase;
   const balanceLabel = side === 'BUY' ? pair.quoteAsset : pair.baseAsset;
+  const primaryInputLabel = usesQuoteTotalInput ? `Total (${pair.quoteAsset})` : `Amount (${pair.baseAsset})`;
+  const primaryInputSuffix = usesQuoteTotalInput ? pair.quoteAsset : pair.baseAsset;
+  const primaryInputPlaceholder = usesQuoteTotalInput ? '0.00000000' : '0.00000000';
 
   // Percentage Calculations
   const handlePercentClick = (percent: number) => {
     if (side === 'BUY') {
       const targetSpendUsd = availableUsdt * (percent / 100);
-      const calculatedAmount = targetSpendUsd / price;
-      if (isFinite(calculatedAmount) && calculatedAmount > 0) {
-        setAmountInput(calculatedAmount.toFixed(4));
+      if (usesQuoteTotalInput && isFinite(targetSpendUsd) && targetSpendUsd > 0) {
+        setAmountInput(formatOrderQuoteInput(targetSpendUsd));
+      } else if (!usesQuoteTotalInput && isFinite(targetSpendUsd) && targetSpendUsd > 0 && price > 0) {
+        const calculatedAmount = targetSpendUsd / price;
+        setAmountInput(formatOrderBaseAmountInput(calculatedAmount));
       } else {
         setAmountInput('');
       }
     } else {
       const calculatedAmount = availableBase * (percent / 100);
-      setAmountInput(calculatedAmount.toFixed(4));
+      setAmountInput(formatOrderBaseAmountInput(calculatedAmount));
     }
   };
 
   // Safe checks
-  const isBalanceExceeded = side === 'BUY' ? total > availableUsdt : amount > availableBase;
-  const isAmountZero = amount <= 0;
+  const normalizedSubmissionAmount = normalizeSubmissionAmount(amount, side, availableBase, usesQuoteTotalInput);
+  const isBalanceExceeded = side === 'BUY'
+    ? total > availableUsdt + BALANCE_EPSILON
+    : normalizedSubmissionAmount > floorToDecimals(availableBase, BASE_AMOUNT_DECIMALS) + BALANCE_EPSILON;
+  const isAmountZero = primaryInputValue <= 0 || amount <= 0;
   const isPriceZero = type !== 'MARKET' && price <= 0;
   const isStopPriceNeeded = type === 'STOP_LIMIT' && stopPrice <= 0;
   
-  const isOrderInvalid = isAmountZero || isPriceZero || isStopPriceNeeded;
+  const isOrderInvalid = isAmountZero || isPriceZero || isStopPriceNeeded || isBalanceExceeded;
 
   // Risks analysis indicators
   const isSlippageRisk = total > 15000; // Big order impact
@@ -173,7 +248,7 @@ export default function OrderForm({
       side,
       type,
       price,
-      amount,
+      amount: normalizedSubmissionAmount,
       stopPrice: type === 'STOP_LIMIT' ? stopPrice : undefined,
     });
     setAmountInput('');
@@ -181,58 +256,54 @@ export default function OrderForm({
   };
 
   return (
-    <div className="bg-white dark:bg-[#0c1015] border border-[#e1e4e8] dark:border-[#21262d] rounded-lg shadow-sm flex flex-col p-4 text-gray-800 dark:text-gray-100 select-none relative h-full">
-      
-      {/* BUY / SELL Switch Tab */}
-      <div className="grid grid-cols-2 gap-2 mb-3">
-        <button
-          type="button"
-          onClick={() => {
-            setSide('BUY');
-          }}
-          className={`py-2 text-xs font-bold uppercase rounded-md tracking-wider cursor-pointer border transition-all ${
-            side === 'BUY'
-              ? 'bg-trade-green text-white border-trade-green shadow-md dark:shadow-trade-green/10 font-bold'
-              : 'bg-gray-100 hover:bg-gray-200 dark:bg-[#161b22] text-gray-400 dark:text-gray-500 border-transparent hover:text-gray-700 dark:hover:text-gray-300'
-          }`}
-        >
-          Buy {pair.baseAsset}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setSide('SELL');
-          }}
-          className={`py-2 text-xs font-bold uppercase rounded-md tracking-wider cursor-pointer border transition-all ${
-            side === 'SELL'
-              ? 'bg-trade-red text-white border-trade-red shadow-md dark:shadow-trade-red/10 font-bold'
-              : 'bg-gray-100 hover:bg-gray-200 dark:bg-[#161b22] text-gray-400 dark:text-gray-500 border-transparent hover:text-gray-700 dark:hover:text-gray-300'
-          }`}
-        >
-          Sell {pair.baseAsset}
-        </button>
-      </div>      {/* Main Order Input Fields */}
-      <form onSubmit={handleSubmit} className="flex-1 flex flex-col justify-between gap-3.5 text-xs">
+    <div className={`relative flex h-full min-h-[430px] flex-col overflow-y-auto bg-white p-3 text-gray-800 select-none dark:bg-[#0c1015] dark:text-gray-100 xl:min-h-0 ${
+      docked
+        ? 'border-0 shadow-none'
+        : 'rounded-lg border border-[#e1e4e8] shadow-sm dark:border-[#21262d]'
+    }`}>
+      {/* Main Order Input Fields */}
+      <form onSubmit={handleSubmit} className="flex-1 flex flex-col justify-between gap-2.5 text-xs">
         
         {/* PHYSICAL HARDWARE CONSOLE SHELL (Types, Balances, Inputs & keypad integrated together) */}
-        <div className="bg-[#fafbfc] dark:bg-[#0a0c10] border-2 border-[#e1e4e8] dark:border-[#21262d] rounded-xl p-3.5 space-y-3.5 shadow-xs flex flex-col relative focus-within:border-accent-1/60 transition-all">
-          
-          {/* Diagnostic Console Panel Header */}
-          <div className="flex justify-between items-center text-[9px] font-mono border-b border-gray-200 dark:border-gray-800/80 pb-2 text-gray-400 select-none">
-            <span className="flex items-center gap-1.5 font-semibold text-[9px]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#ff37c7] animate-ping"></span>
-              {BRAND_NAME} CONTROLLER CONSOLE v1.5
-            </span>
-            <span className="text-accent-1 font-extrabold uppercase tracking-widest text-[8px] bg-accent-1/10 px-1.5 py-0.5 rounded">
-              UNIFIED INPUT BOARD
-            </span>
+        <div className="relative flex flex-col space-y-2.5 rounded-xl border-2 border-[#e1e4e8] bg-[#fafbfc] p-2.5 shadow-xs transition-all focus-within:border-accent-1/60 dark:border-[#21262d] dark:bg-[#0a0c10]">
+          <div className="rounded-lg border border-[#d8dee6] bg-white p-1.5 shadow-2xs dark:border-[#263241] dark:bg-[#10151d]">
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setSide('BUY');
+                }}
+                className={`flex h-9 items-center justify-center gap-1.5 rounded-md border text-[11px] font-black uppercase tracking-wide transition-all active:scale-[0.98] ${
+                  side === 'BUY'
+                    ? 'border-trade-green bg-trade-green text-white shadow-[0_4px_12px_rgba(4,151,105,0.22)]'
+                    : 'border-[#e1e4e8] bg-[#f6f8fa] text-gray-500 hover:border-trade-green/60 hover:text-trade-green dark:border-[#263241] dark:bg-[#121820] dark:text-gray-400 dark:hover:text-trade-green'
+                }`}
+              >
+                <span>Buy</span>
+                <span className={side === 'BUY' ? 'text-white/80' : 'text-gray-400 dark:text-gray-500'}>{pair.baseAsset}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSide('SELL');
+                }}
+                className={`flex h-9 items-center justify-center gap-1.5 rounded-md border text-[11px] font-black uppercase tracking-wide transition-all active:scale-[0.98] ${
+                  side === 'SELL'
+                    ? 'border-trade-red bg-trade-red text-white shadow-[0_4px_12px_rgba(220,41,121,0.22)]'
+                    : 'border-[#e1e4e8] bg-[#f6f8fa] text-gray-500 hover:border-trade-red/60 hover:text-trade-red dark:border-[#263241] dark:bg-[#121820] dark:text-gray-400 dark:hover:text-trade-red'
+                }`}
+              >
+                <span>Sell</span>
+                <span className={side === 'SELL' ? 'text-white/80' : 'text-gray-400 dark:text-gray-500'}>{pair.baseAsset}</span>
+              </button>
+            </div>
           </div>
 
           {/* Core Controls: Order Execution Type (LIMIT, MARKET, STOP_LIMIT) */}
           <div className="bg-white dark:bg-[#12161f] rounded-lg border border-[#e1e4e8]/60 dark:border-[#21262d]/80 p-2 space-y-1.5 shadow-2xs">
             <div className="flex justify-between items-center text-[8.5px] font-mono font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider select-none">
-              <span>[CMD-01] SELECT TARGET EXEC TYPE</span>
-              <span className="text-[#ff37c7] font-extrabold bg-[#ff37c7]/10 px-1 rounded-xs">ACTIVE</span>
+              <span>Order Type</span>
+              <span className="text-[#ff37c7] font-extrabold bg-[#ff37c7]/10 px-1 rounded-xs">{type === 'STOP_LIMIT' ? 'STOP' : type}</span>
             </div>
             <div className="grid grid-cols-3 gap-1">
               {(['LIMIT', 'MARKET', 'STOP_LIMIT'] as OrderType[]).map((t) => (
@@ -255,14 +326,13 @@ export default function OrderForm({
           {/* Capital Allocation & Margin Balance display */}
           <div className="bg-white dark:bg-[#12161f] rounded-lg border border-[#e1e4e8]/60 dark:border-[#21262d]/80 p-2.5 flex justify-between items-center font-mono text-[10px]/none shadow-2xs">
             <div className="flex flex-col gap-1.5">
-              <span className="text-[8.5px] text-gray-400 dark:text-gray-500 uppercase font-black tracking-wider select-none">[CMD-02] ESTIMATED MARGIN DEPOT</span>
-              <span className="text-gray-400 text-[9.5px]">Available Funds:</span>
+              <span className="text-[8.5px] text-gray-400 dark:text-gray-500 uppercase font-black tracking-wider select-none">Available Balance</span>
+              <span className="text-gray-400 text-[9.5px]">{side === 'BUY' ? 'Quote asset' : 'Base asset'}</span>
             </div>
             <div className="text-right flex flex-col items-end gap-1.5">
               <span className="font-extrabold text-accent-1 text-xs select-all">
-                {currentBalance.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })} {balanceLabel}
+                {formatFixedInputDisplay(currentBalance, 8)} {balanceLabel}
               </span>
-              <span className="text-[7.5px] bg-emerald-500/10 text-emerald-500 font-bold px-1.5 py-0.5 rounded-xs select-none">SECURE CRYPTO STORAGE</span>
             </div>
           </div>
 
@@ -270,15 +340,17 @@ export default function OrderForm({
           {type === 'STOP_LIMIT' && (
             <div className="space-y-1">
               <div className="flex justify-between items-center">
-                <label className="block text-[10.5px] font-mono text-gray-400 uppercase select-none">[CMD-03] Trigger Stop Price ({pair.quoteAsset})</label>
-                {activeInput === 'stopPrice' && <span className="text-[8px] text-[#ff37c7] font-bold font-mono uppercase select-none">● Active Focus</span>}
+                <label className="block text-[10.5px] font-mono text-gray-400 uppercase select-none">Stop Price ({pair.quoteAsset})</label>
+                {activeInput === 'stopPrice' && <span className="text-[8px] text-[#ff37c7] font-bold font-mono uppercase select-none">Active</span>}
               </div>
               <div className="relative text-gray-800 dark:text-gray-100">
                 <input
                   type="text"
+                  inputMode="decimal"
+                  pattern="[0-9]*[.]?[0-9]*"
                   placeholder="0.00"
                   value={stopPriceInput}
-                  onChange={(e) => setStopPriceInput(e.target.value)}
+                  onChange={(e) => setStopPriceInput(sanitizeDecimalInput(e.target.value))}
                   onFocus={() => setActiveInput('stopPrice')}
                   className={`w-full bg-white dark:bg-[#12161f] border rounded px-3 py-1.5 font-mono text-xs focus:ring-1 focus:ring-accent-1 focus:border-accent-1 transition-all focus:outline-none ${
                     activeInput === 'stopPrice'
@@ -298,17 +370,19 @@ export default function OrderForm({
           <div className="space-y-1">
             <div className="flex justify-between items-center">
               <label className="block text-[10.5px] font-mono text-gray-400 uppercase select-none">
-                {type === 'MARKET' ? '[CMD-04] Limit Price (Market Selected)' : '[CMD-04] Limit Price (' + pair.quoteAsset + ')'}
+                {type === 'MARKET' ? 'Price (Market)' : 'Limit Price (' + pair.quoteAsset + ')'}
               </label>
-              {activeInput === 'price' && type !== 'MARKET' && <span className="text-[8px] text-[#ff37c7] font-bold font-mono uppercase select-none">● Active Focus</span>}
+              {activeInput === 'price' && type !== 'MARKET' && <span className="text-[8px] text-[#ff37c7] font-bold font-mono uppercase select-none">Active</span>}
             </div>
             <div className="relative text-gray-800 dark:text-gray-100">
               <input
                 type="text"
+                inputMode="decimal"
+                pattern="[0-9]*[.]?[0-9]*"
                 disabled={type === 'MARKET'}
                 placeholder={type === 'MARKET' ? 'MARKET ORDER ACTIVE' : '0.00'}
                 value={type === 'MARKET' ? '' : priceInput}
-                onChange={(e) => setPriceInput(e.target.value)}
+                onChange={(e) => setPriceInput(sanitizeDecimalInput(e.target.value))}
                 onFocus={() => setActiveInput('price')}
                 className={`w-full bg-white dark:bg-[#12161f] border rounded px-3 py-1.5 font-mono text-xs focus:ring-1 focus:ring-accent-1 focus:border-accent-1 transition-all focus:outline-none ${
                   type === 'MARKET' ? 'opacity-55 bg-gray-50/50 dark:bg-[#161b22]/30 text-gray-400 cursor-not-allowed border-[#e1e4e8]/50 dark:border-[#30363d]/50' : ''
@@ -327,18 +401,20 @@ export default function OrderForm({
             </div>
           </div>
 
-          {/* 3. INPUT: Side Amount */}
+          {/* 3. INPUT: Side Amount / Quote Total */}
           <div className="space-y-1">
             <div className="flex justify-between items-center">
-              <label className="block text-[10.5px] font-mono text-gray-400 uppercase select-none">[CMD-05] Amount ({pair.baseAsset})</label>
-              {activeInput === 'amount' && <span className="text-[8px] text-[#ff37c7] font-bold font-mono uppercase select-none">● Active Focus</span>}
+              <label className="block text-[10.5px] font-mono text-gray-400 uppercase select-none">{primaryInputLabel}</label>
+              {activeInput === 'amount' && <span className="text-[8px] text-[#ff37c7] font-bold font-mono uppercase select-none">Active</span>}
             </div>
             <div className="relative text-gray-800 dark:text-gray-100">
               <input
                 type="text"
-                placeholder="0.0000"
+                inputMode="decimal"
+                pattern="[0-9]*[.]?[0-9]*"
+                placeholder={primaryInputPlaceholder}
                 value={amountInput}
-                onChange={(e) => setAmountInput(e.target.value)}
+                onChange={(e) => setAmountInput(sanitizeDecimalInput(e.target.value))}
                 onFocus={() => setActiveInput('amount')}
                 className={`w-full bg-white dark:bg-[#12161f] border rounded px-3 py-1.5 font-mono text-xs focus:ring-1 focus:ring-accent-1 focus:border-accent-1 transition-all focus:outline-none ${
                   activeInput === 'amount'
@@ -349,26 +425,12 @@ export default function OrderForm({
               />
               <span className={`absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[9px] uppercase transition-colors ${
                 activeInput === 'amount' ? 'text-accent-1 font-bold animate-pulse' : 'text-gray-400'
-              }`}>{pair.baseAsset}</span>
+              }`}>{primaryInputSuffix}</span>
             </div>
           </div>
 
-          {/* 4. Percent buttons */}
-          <div className="grid grid-cols-4 gap-1.5 pt-0.5">
-            {[25, 50, 75, 100].map((pct) => (
-              <button
-                key={pct}
-                type="button"
-                onClick={() => handlePercentClick(pct)}
-                className="py-1.5 text-[9.5px] font-mono font-black border border-[#e1e4e8] dark:border-[#30363d] bg-white dark:bg-[#12161f] hover:bg-[#ff37c7]/10 hover:border-[#ff37c7] rounded hover:text-[#ff37c7] cursor-pointer transition-colors text-center shadow-2xs active:scale-95"
-              >
-                {pct}%
-              </button>
-            ))}
-          </div>
-
-          {/* 5. Keypad layout controller */}
-          <div className="border-t border-[#e1e4e8]/65 dark:border-[#21262d]/65 pt-3.5 space-y-2">
+          {/* 4. Compact keypad */}
+          <div className="border-t border-[#e1e4e8]/65 pt-3 dark:border-[#21262d]/65">
             <div className="flex items-center justify-between text-[10px] font-mono">
               <button
                 type="button"
@@ -376,23 +438,37 @@ export default function OrderForm({
                 className="flex items-center gap-1.5 font-bold uppercase text-[#ff37c7] hover:text-[#ff1cf4] transition-colors cursor-pointer select-none"
               >
                 <Sliders className="w-3.5 h-3.5" />
-                <span>Interactive Hardware Keypad</span>
+                <span>Keypad</span>
                 <span className="text-[8.5px] bg-[#ff37c7]/10 text-[#ff37c7] px-1 rounded-sm font-bold">
-                  {activeInput === 'amount' ? 'Amount' : activeInput === 'price' ? 'Limit' : 'Stop'}
+                  {activeInput === 'amount' ? (usesQuoteTotalInput ? 'Total' : 'Amount') : activeInput === 'price' ? 'Limit' : 'Stop'}
                 </span>
               </button>
               <button
                 type="button"
                 onClick={() => setShowKeypad(!showKeypad)}
-                className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 transition-colors cursor-pointer font-bold select-none text-[9px] bg-gray-100 dark:bg-[#21262d] px-1.5 py-0.5 rounded"
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer font-bold select-none text-[9px] bg-gray-100 dark:bg-[#18202a] px-1.5 py-0.5 rounded"
               >
-                {showKeypad ? 'HIDE PAD' : 'SHOW PAD'}
+                {showKeypad ? 'Hide keys' : 'Show keys'}
               </button>
             </div>
 
-            {showKeypad && (
-              <div className="bg-[#f6f8fa]/60 dark:bg-[#090c10] border border-[#e1e4e8]/40 dark:border-[#21262d]/40 rounded-lg p-2.5 space-y-2.5 select-none font-mono text-gray-800 dark:text-gray-100 animate-fade-in shadow-inner">
-                <div className="grid grid-cols-4 gap-1.5">
+            <div className="mt-2 rounded-lg border border-[#d8dee6] bg-[#f6f8fa] p-2.5 shadow-inner select-none font-mono text-gray-800 dark:border-[#263241] dark:bg-[#080d14] dark:text-gray-100">
+              <div className="grid grid-cols-4 gap-1.5">
+                {[25, 50, 75, 100].map((pct) => (
+                  <button
+                    key={pct}
+                    type="button"
+                    onClick={() => handlePercentClick(pct)}
+                    className="h-8 text-[9.5px] font-mono font-black border border-[#d8dee6] dark:border-[#263241] bg-white dark:bg-[#121820] hover:bg-[#ff37c7]/10 hover:border-[#ff37c7] rounded-md hover:text-[#ff37c7] cursor-pointer transition-colors text-center shadow-2xs active:scale-95"
+                  >
+                    {pct}%
+                  </button>
+                ))}
+              </div>
+
+              {showKeypad && (
+                <div className="mt-2.5 border-t border-[#e1e4e8]/70 pt-2.5 dark:border-[#263241]/80 animate-fade-in">
+                  <div className="grid grid-cols-4 gap-1.5">
                   {/* Digits and decimal */}
                   <div className="col-span-3 grid grid-cols-3 gap-1">
                     {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0'].map((digit) => (
@@ -400,7 +476,7 @@ export default function OrderForm({
                         key={digit}
                         type="button"
                         onClick={() => handleKeypadPress(digit)}
-                        className="h-8 text-xs font-semibold rounded bg-white dark:bg-[#161b22] border border-[#e1e4e8] dark:border-[#30363d] hover:border-[#ff37c7] hover:text-[#ff37c7] dark:hover:border-[#ff37c7] dark:hover:text-[#ff37c7] cursor-pointer transition-all active:scale-95 flex items-center justify-center shadow-xs"
+                        className="h-8 text-xs font-semibold rounded-md bg-white dark:bg-[#121820] border border-[#d8dee6] dark:border-[#263241] hover:border-[#ff37c7] hover:text-[#ff37c7] dark:hover:border-[#ff37c7] dark:hover:text-[#ff37c7] cursor-pointer transition-all active:scale-95 flex items-center justify-center shadow-xs"
                       >
                         {digit}
                       </button>
@@ -408,7 +484,7 @@ export default function OrderForm({
                     <button
                       type="button"
                       onClick={() => handleKeypadPress('C')}
-                      className="h-8 text-[10px] font-bold rounded bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-900/40 hover:text-rose-600 cursor-pointer transition-all active:scale-95 flex items-center justify-center shadow-xs"
+                      className="h-8 text-[10px] font-bold rounded-md bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-900/40 hover:text-rose-600 cursor-pointer transition-all active:scale-95 flex items-center justify-center shadow-xs"
                       title="Clear Field"
                     >
                       CLEAR
@@ -420,7 +496,7 @@ export default function OrderForm({
                     <button
                       type="button"
                       onClick={() => handleKeypadPress('⌫')}
-                      className="h-8 text-[11px] font-bold rounded bg-amber-50 dark:bg-amber-100/10 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-950/30 cursor-pointer transition-all active:scale-95 flex items-center justify-center shadow-xs"
+                      className="h-8 text-[11px] font-bold rounded-md bg-amber-50 dark:bg-amber-100/10 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-950/30 cursor-pointer transition-all active:scale-95 flex items-center justify-center shadow-xs"
                       title="Backspace"
                     >
                       ⌫
@@ -432,7 +508,7 @@ export default function OrderForm({
                             key={inc}
                             type="button"
                             onClick={() => handleKeypadPress(inc)}
-                            className="h-[21px] text-[8.5px] font-bold rounded bg-white dark:bg-[#161b22] border border-[#e1e4e8] dark:border-[#30363d] text-gray-500 dark:text-gray-400 hover:border-[#ff37c7] hover:text-[#ff37c7] cursor-pointer transition-all active:scale-95"
+                            className="h-[21px] text-[8.5px] font-bold rounded-md bg-white dark:bg-[#121820] border border-[#d8dee6] dark:border-[#263241] text-gray-500 dark:text-gray-400 hover:border-[#ff37c7] hover:text-[#ff37c7] cursor-pointer transition-all active:scale-95"
                           >
                             {inc}
                           </button>
@@ -445,41 +521,35 @@ export default function OrderForm({
                             key={inc}
                             type="button"
                             onClick={() => handleKeypadPress(inc)}
-                            className="h-[21px] text-[8.5px] font-bold rounded bg-white dark:bg-[#161b22] border border-[#e1e4e8] dark:border-[#30363d] text-gray-500 dark:text-gray-400 hover:border-[#ff37c7] hover:text-[#ff37c7] cursor-pointer transition-all active:scale-95"
+                            className="h-[21px] text-[8.5px] font-bold rounded-md bg-white dark:bg-[#121820] border border-[#d8dee6] dark:border-[#263241] text-gray-500 dark:text-gray-400 hover:border-[#ff37c7] hover:text-[#ff37c7] cursor-pointer transition-all active:scale-95"
                           >
                             {inc}
                           </button>
                         ))}
                       </>
                     )}
+                    </div>
                   </div>
                 </div>
-                <div className="flex justify-between items-center text-[8.5px] text-gray-400 bg-gray-50 dark:bg-[#0d1117] px-2 py-1 rounded border border-[#e1e4e8]/30 dark:border-[#21262d]/30 select-none">
-                  <span className="flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#ff37c7] animate-pulse"></span>
-                    <span>Focus Link: <span className="font-extrabold text-[#ff37c7] uppercase">{activeInput}</span></span>
-                  </span>
-                  <span>Terminal Node Exec Ready</span>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
         </div>
 
         {/* OUTPUT: Order pricing metrics estimation */}
-        <div className="space-y-1 text-[10px] font-mono text-gray-500 py-1 border-t border-[#e1e4e8]/60 dark:border-[#21262d]/60">
+        <div className="space-y-1 border-t border-[#e1e4e8]/60 py-0.5 text-[10px] font-mono text-gray-500 dark:border-[#21262d]/60">
           <div className="flex justify-between">
             <span>Sub-Total:</span>
-            <span className="font-semibold text-gray-700 dark:text-gray-300">{total.toFixed(2)} {pair.quoteAsset}</span>
+            <span className="font-semibold text-gray-700 dark:text-gray-300">{formatFixedInputDisplay(total, 8)} {pair.quoteAsset}</span>
           </div>
           <div className="flex justify-between">
             <span>Est. Trading Fee ({usedFeeRate * 100}%):</span>
-            <span className="font-semibold text-gray-600 dark:text-gray-400">{estimatedFee.toFixed(4)} {pair.quoteAsset}</span>
+            <span className="font-semibold text-gray-600 dark:text-gray-400">{formatFixedInputDisplay(estimatedFee, 8)} {pair.quoteAsset}</span>
           </div>
           <div className="flex justify-between border-t border-dashed border-[#e1e4e8] dark:border-[#21262d] pt-1 mt-1 text-xs">
             <span className="text-gray-800 dark:text-gray-200">Total Outflow:</span>
-            <span className="font-bold text-accent-1">{(total + estimatedFee).toFixed(2)} {pair.quoteAsset}</span>
+            <span className="font-bold text-accent-1">{formatFixedInputDisplay(total + estimatedFee, 8)} {pair.quoteAsset}</span>
           </div>
         </div>
 
@@ -511,7 +581,7 @@ export default function OrderForm({
         <button
           type="submit"
           disabled={isOrderInvalid}
-          className={`w-full py-2.5 rounded text-xs font-bold uppercase tracking-wider transition-all duration-300 relative overflow-hidden flex items-center justify-center gap-1.5 ${
+          className={`relative flex w-full items-center justify-center gap-1.5 overflow-hidden rounded py-2 text-xs font-bold uppercase tracking-wider transition-all duration-300 ${
             isOrderInvalid
               ? 'bg-gray-100 dark:bg-[#161b22] text-gray-400 border border-[#e1e4e8] dark:border-[#21262d] cursor-not-allowed'
               : side === 'BUY'
@@ -548,11 +618,11 @@ export default function OrderForm({
               </div>
               <div className="flex justify-between">
                 <span>Quantity Requested:</span>
-                <span className="font-semibold">{amount.toFixed(4)} {pair.baseAsset}</span>
+                <span className="font-semibold">{formatFixedInputDisplay(amount, 8)} {pair.baseAsset}</span>
               </div>
               <div className="flex justify-between">
                 <span>Notional Amount:</span>
-                <span className="font-bold text-accent-1">{total.toFixed(2)} {pair.quoteAsset}</span>
+                <span className="font-bold text-accent-1">{formatFixedInputDisplay(total, 8)} {pair.quoteAsset}</span>
               </div>
             </div>
 
@@ -590,4 +660,68 @@ function formatOrderNumberInput(value: number): string {
     useGrouping: false,
     maximumFractionDigits: 18,
   });
+}
+
+function formatOrderQuoteInput(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return '';
+  const normalized = Number(value.toFixed(QUOTE_AMOUNT_DECIMALS));
+  return normalized.toLocaleString('en-US', {
+    useGrouping: false,
+    maximumFractionDigits: QUOTE_AMOUNT_DECIMALS,
+  });
+}
+
+function formatOrderBaseAmountInput(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return '';
+  const normalized = floorToDecimals(value, BASE_AMOUNT_DECIMALS);
+  return normalized.toLocaleString('en-US', {
+    useGrouping: false,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: BASE_AMOUNT_DECIMALS,
+  });
+}
+
+function normalizeSubmissionAmount(value: number, side: OrderSide, availableBase: number, usesQuoteTotalInput: boolean): number {
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  if (usesQuoteTotalInput) return value;
+  const normalized = floorToDecimals(value, BASE_AMOUNT_DECIMALS);
+  if (side === 'SELL' && normalized > availableBase) {
+    const available = floorToDecimals(availableBase, BASE_AMOUNT_DECIMALS);
+    if (normalized <= available || normalized - availableBase <= DISPLAY_ROUNDING_TOLERANCE) {
+      return available;
+    }
+  }
+  return normalized;
+}
+
+function floorToDecimals(value: number, decimals: number): number {
+  const factor = 10 ** decimals;
+  return Math.floor((value + Number.EPSILON) * factor) / factor;
+}
+
+function formatFixedInputDisplay(value: number, decimals: number): string {
+  if (!Number.isFinite(value)) return Number(0).toFixed(decimals);
+  return value.toLocaleString('en-US', {
+    useGrouping: false,
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
+function sanitizeDecimalInput(value: string): string {
+  let out = '';
+  let hasDecimal = false;
+
+  for (const char of value.replace(',', '.')) {
+    if (char >= '0' && char <= '9') {
+      out += char;
+      continue;
+    }
+    if (char === '.' && !hasDecimal) {
+      out += char;
+      hasDecimal = true;
+    }
+  }
+
+  return out;
 }

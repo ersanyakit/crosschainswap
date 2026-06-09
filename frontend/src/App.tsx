@@ -4,16 +4,15 @@
  */
 
 import React, { useState, useEffect, useTransition, useCallback, useMemo, useRef } from 'react';
-import { Sparkles, Cpu, Coins, ShieldCheck, Heart, User, Sun, Moon, CheckSquare, Layers, Code, Play, Wallet, Trash2, Briefcase, X } from 'lucide-react';
+import { Sparkles, Cpu, Coins, ShieldCheck, Heart, User, Sun, Moon, CheckSquare, Layers, Wallet, Trash2, Briefcase, X } from 'lucide-react';
 import VerticalActivityBar from './components/VerticalActivityBar';
 import CollapsibleSidebar from './components/CollapsibleSidebar';
 import MarketChart from './components/MarketChart';
-import OrderBookView from './components/OrderBook';
+import OrderBookView, { type OrderBookSelection } from './components/OrderBook';
 import OrderForm from './components/OrderForm';
 import TerminalPanel from './components/TerminalPanel';
 import CommandPalette from './components/CommandPalette';
 import PortfolioView from './components/PortfolioView';
-import StrategyLab from './components/StrategyLab';
 import SettingsView from './components/SettingsModal';
 import LoginScreen from './components/LoginScreen';
 import AssetIcon from './components/AssetIcon';
@@ -27,7 +26,6 @@ import {
   Trade,
   SystemLog,
   AssetBalance,
-  TradingStrategy,
   OrderType,
   OrderSide,
   OrderBook,
@@ -66,7 +64,7 @@ import { formatPrice } from './utils/formatters';
 interface Tab {
   id: string;
   title: string;
-  type: 'MARKET' | 'PORTFOLIO' | 'STRATEGY_LAB' | 'CUSTOM_PAIR';
+  type: 'MARKET' | 'PORTFOLIO' | 'CUSTOM_PAIR';
   symbol?: string;
 }
 
@@ -88,6 +86,8 @@ type RouteSnapshot = {
 };
 
 const THEME_STORAGE_KEY = 'kewl.theme';
+const ORDER_BOOK_DEPTH = 500;
+const ACTIVE_ORDER_REMAINING_EPSILON = 0.000000005;
 
 function initialTheme(): ThemeMode {
   if (typeof window === 'undefined') return 'dark';
@@ -96,14 +96,20 @@ function initialTheme(): ThemeMode {
   return 'dark';
 }
 
+function sanitizeWorkspaceTabs(tabs: Tab[]): Tab[] {
+  return tabs.filter(tab => (tab.type as string) !== 'STRATEGY_LAB');
+}
+
 export default function App() {
   const [isPending, startTransition] = useTransition();
   const exchangeModeRef = useRef<ExchangeMode>('connecting');
   const protocolRefreshTimerRef = useRef<number | null>(null);
+  const orderBookRefreshTimerRef = useRef<number | null>(null);
+  const orderBookCacheRef = useRef<Map<string, OrderBook>>(new Map());
   const initialRouteRef = useRef<RouteSnapshot>(readRouteSnapshot());
   const didSyncRouteRef = useRef(false);
 
-  // Primary Workspace views: MARKETS, TRADE (docked terminal), PORTFOLIO, ORDERS, WALLET, STRATEGY_LAB, SETTINGS
+  // Primary Workspace views: MARKETS, TRADE (docked terminal), PORTFOLIO, ORDERS, WALLET, SETTINGS
   const [activeView, setActiveView] = useState<string>(() => initialRouteRef.current.view);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [selectedPairSymbol, setSelectedPairSymbol] = useState(() => initialRouteRef.current.market);
@@ -150,9 +156,8 @@ export default function App() {
   const [dexPricesError, setDexPricesError] = useState<string | null>(null);
   const [assetMetadata, setAssetMetadata] = useState<Record<string, AssetInfo>>({});
 
-  // Visual terminal logs and strategies
+  // Visual terminal logs
   const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
-  const [strategies, setStrategies] = useState<TradingStrategy[]>([]);
 
   // Wallet transaction ledger (Deposits/Withdrawals)
   const [walletTransactions, setWalletTransactions] = useState<WalletTransaction[]>([]);
@@ -162,7 +167,7 @@ export default function App() {
   const [candles, setCandles] = useState<Candle[]>([]);
 
   // Selected pricing feedback from Order book click (to flow into Order Form)
-  const [orderBookSelectedPrice, setOrderBookSelectedPrice] = useState<number | null>(null);
+  const [orderBookSelection, setOrderBookSelection] = useState<OrderBookSelection | null>(null);
 
   // Connection parameters
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'reconnecting' | 'disconnected'>('connected');
@@ -171,6 +176,18 @@ export default function App() {
   // Active Workspace Open editor tabs
   const [openTabs, setOpenTabs] = useState<Tab[]>(() => initialTabsForRoute(initialRouteRef.current));
   const [activeTabId, setActiveTabId] = useState<string>(() => tabIdForRoute(initialRouteRef.current));
+
+  useEffect(() => {
+    setOpenTabs(prev => {
+      const next = sanitizeWorkspaceTabs(prev);
+      if (next.length === prev.length) return prev;
+      return next.length > 0 ? next : initialTabsForRoute(initialRouteRef.current);
+    });
+    if (activeTabId === 'STRATEGY_LAB') {
+      setActiveTabId('PORTFOLIO');
+      setActiveView('PORTFOLIO');
+    }
+  }, [activeTabId]);
 
   // Log appender helper
   const appendLog = useCallback((message: string, source: 'SYSTEM' | 'ORDER' | 'WEBSOCKET' | 'STRATEGY', type: 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR') => {
@@ -193,15 +210,66 @@ export default function App() {
     return true;
   }, []);
 
+  const refreshOrderBookSnapshot = useCallback((marketSymbol: string, delayMs = 80): boolean => {
+    const targetMarket = marketSymbol || selectedPairSymbol;
+    if (!targetMarket || targetMarket !== selectedPairSymbol) return false;
+    if (orderBookRefreshTimerRef.current !== null) return false;
+
+    orderBookRefreshTimerRef.current = window.setTimeout(async () => {
+      orderBookRefreshTimerRef.current = null;
+      try {
+        const nextOrderBook = await fetchOrderBook(targetMarket, ORDER_BOOK_DEPTH);
+        if (nextOrderBook.market === targetMarket) {
+          orderBookCacheRef.current.set(targetMarket, nextOrderBook);
+          setActiveOrderBook(nextOrderBook);
+        }
+      } catch (err) {
+        appendLog(err instanceof Error ? err.message : 'Order book refresh failed', 'WEBSOCKET', 'WARNING');
+      }
+    }, delayMs);
+    return true;
+  }, [appendLog, selectedPairSymbol]);
+
   const resetMarketData = useCallback((symbol: string) => {
-    setActiveOrderBook(emptyOrderBook(symbol));
+    setActiveOrderBook(orderBookCacheRef.current.get(symbol) ?? emptyOrderBook(symbol));
     setCandles([]);
     setRecentTrades([]);
     setTradeHistory([]);
     setOpenOrders([]);
     setOrderHistory([]);
-    setOrderBookSelectedPrice(null);
+    setOrderBookSelection(null);
   }, []);
+
+  useEffect(() => {
+    const targetMarket = selectedPairSymbol;
+    if (!targetMarket) {
+      setActiveOrderBook(emptyOrderBook());
+      return;
+    }
+
+    if (orderBookRefreshTimerRef.current !== null) {
+      window.clearTimeout(orderBookRefreshTimerRef.current);
+      orderBookRefreshTimerRef.current = null;
+    }
+
+    let cancelled = false;
+    setActiveOrderBook(orderBookCacheRef.current.get(targetMarket) ?? emptyOrderBook(targetMarket));
+
+    fetchOrderBook(targetMarket, ORDER_BOOK_DEPTH)
+      .then((nextOrderBook) => {
+        if (cancelled || nextOrderBook.market !== targetMarket) return;
+        orderBookCacheRef.current.set(targetMarket, nextOrderBook);
+        setActiveOrderBook(nextOrderBook);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        appendLog(err instanceof Error ? err.message : 'Order book snapshot failed', 'WEBSOCKET', 'WARNING');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [appendLog, selectedPairSymbol]);
 
   const refreshAuth = useCallback(async () => {
     setAuthLoading(true);
@@ -229,6 +297,15 @@ export default function App() {
   useEffect(() => {
     refreshAuth();
   }, [refreshAuth]);
+
+  useEffect(() => {
+    if (authLoading || !authUser || activeView !== 'LOGIN') return;
+
+    startTransition(() => {
+      setActiveView('TRADE');
+      setIsSidebarOpen(true);
+    });
+  }, [activeView, authLoading, authUser, startTransition]);
 
   // Load custom CSS theme modifier block on mounting change
   useEffect(() => {
@@ -376,7 +453,7 @@ export default function App() {
           balancesResult,
           assetPricesResult,
         ] = await Promise.allSettled([
-          fetchOrderBook(activeSymbol, 50),
+          fetchOrderBook(activeSymbol, ORDER_BOOK_DEPTH),
           fetchCandles(activeSymbol, timeframe, 120),
           fetchMarketTrades(activeSymbol, 80),
           userOrdersPromise,
@@ -388,7 +465,12 @@ export default function App() {
         if (cancelled) return;
 
         if (orderBookResult.status === 'fulfilled') {
-          setActiveOrderBook(orderBookResult.value.market === activeSymbol ? orderBookResult.value : emptyOrderBook(activeSymbol));
+          if (orderBookResult.value.market === activeSymbol) {
+            orderBookCacheRef.current.set(activeSymbol, orderBookResult.value);
+            setActiveOrderBook(orderBookResult.value);
+          } else {
+            setActiveOrderBook(emptyOrderBook(activeSymbol));
+          }
         } else {
           setActiveOrderBook(emptyOrderBook(activeSymbol));
         }
@@ -417,8 +499,8 @@ export default function App() {
           setTradeHistory([]);
         }
         if (userOrdersResult.status === 'fulfilled') {
-          setOpenOrders(userOrdersResult.value.filter(o => o.status === 'PENDING'));
-          setOrderHistory(userOrdersResult.value.filter(o => o.status !== 'PENDING'));
+          setOpenOrders(userOrdersResult.value.filter(isActiveOrder));
+          setOrderHistory(userOrdersResult.value.filter(o => !isActiveOrder(o)));
         } else {
           setOpenOrders([]);
           setOrderHistory([]);
@@ -487,7 +569,8 @@ export default function App() {
       if (event?.market && event.market !== selectedPairSymbol) return;
       const eventType = typeof event?.type === 'string' ? event.type : '';
       if (eventType === 'exchange.orderbook_updated') {
-        if (scheduleProtocolRefresh(750)) {
+        refreshOrderBookSnapshot(event.market || selectedPairSymbol, 80);
+        if (scheduleProtocolRefresh(1200)) {
           appendLog(`Order book invalidated for ${event.market || selectedPairSymbol}. Pulling fresh depth snapshot.`, 'WEBSOCKET', 'INFO');
         }
       } else if (eventType.startsWith('exchange.order_') || eventType === 'exchange.trades_created') {
@@ -527,8 +610,12 @@ export default function App() {
         window.clearTimeout(protocolRefreshTimerRef.current);
         protocolRefreshTimerRef.current = null;
       }
+      if (orderBookRefreshTimerRef.current !== null) {
+        window.clearTimeout(orderBookRefreshTimerRef.current);
+        orderBookRefreshTimerRef.current = null;
+      }
     };
-  }, [exchangeMode, selectedPairSymbol, activeUserID, appendLog, scheduleProtocolRefresh]);
+  }, [exchangeMode, selectedPairSymbol, activeUserID, appendLog, scheduleProtocolRefresh, refreshOrderBookSnapshot]);
 
   useEffect(() => {
     if (exchangeMode !== 'live') return;
@@ -574,18 +661,21 @@ export default function App() {
 
     try {
       setOrderSubmitError(null);
-      appendLog(`Submitting ${ordData.type} ${ordData.side} through exchange limit protocol.`, 'ORDER', 'INFO');
+      const executionPrice = ordData.type === 'MARKET'
+        ? marketProtectionPrice(ordData.side, displayedOrderBook, ordData.price)
+        : ordData.price;
+      appendLog(`Submitting ${ordData.type} ${ordData.side} through exchange API.`, 'ORDER', 'INFO');
       const result = await placeExchangeOrder({
         market: selectedPairSymbol,
         userID: activeUserID,
         side: ordData.side,
         type: ordData.type,
-        price: ordData.price,
+        price: executionPrice,
         amount: ordData.amount,
         stopPrice: ordData.stopPrice,
       });
 
-      if (result.order.status === 'PENDING') {
+      if (isActiveOrder(result.order)) {
         setOpenOrders(prev => [result.order, ...prev.filter(o => o.id !== result.order.id)]);
       } else {
         setOrderHistory(prev => [result.order, ...prev.filter(o => o.id !== result.order.id)]);
@@ -654,23 +744,6 @@ export default function App() {
     } catch (err) {
       appendLog(`OIDC logout failed: ${err instanceof Error ? err.message : 'unknown auth error'}`, 'SYSTEM', 'ERROR');
     }
-  };
-
-  // Edit Tab strategy code
-  const handleUpdateStrategyCode = (id: string, code: string) => {
-    setStrategies(prev => prev.map(s => s.id === id ? { ...s, code } : s));
-  };
-
-  // Start or pause automated strategies bot
-  const handleToggleStrategy = (id: string) => {
-    setStrategies(prev => prev.map(s => {
-      if (s.id === id) {
-        const nextStatus = s.status === 'RUNNING' ? 'IDLE' : 'RUNNING';
-        appendLog(`Strategy bot state updated: '${s.name}' enters ${nextStatus}.`, 'STRATEGY', 'INFO');
-        return { ...s, status: nextStatus };
-      }
-      return s;
-    }));
   };
 
   // Handle deposit funds
@@ -750,8 +823,6 @@ export default function App() {
         setActiveView('TRADE');
       } else if (tabObj.type === 'PORTFOLIO') {
         setActiveView('PORTFOLIO');
-      } else if (tabObj.type === 'STRATEGY_LAB') {
-        setActiveView('STRATEGY_LAB');
       }
     }
   };
@@ -845,18 +916,6 @@ export default function App() {
       },
     },
     {
-      id: 'p-strategy',
-      category: 'NAVIGATION',
-      title: 'Show Strategy Lab coding sandbox',
-      subtitle: 'Backtest automated EMA crossover strategy algorithms.',
-      icon: Code,
-      action: () => {
-        setActiveView('STRATEGY_LAB');
-        const alreadyOpen = openTabs.find(t => t.type === 'STRATEGY_LAB');
-        if (alreadyOpen) setActiveTabId(alreadyOpen.id);
-      },
-    },
-    {
       id: 'act-deposit',
       category: 'ACCOUNT FUNDING',
       title: `Get ${selectedMarketObj?.quoteAsset || 'QUOTE'} deposit address`,
@@ -898,6 +957,22 @@ export default function App() {
     },
   ];
 
+  const renderOrderTicket = (docked = false) => selectedMarketObj ? (
+    <OrderForm
+      pair={selectedMarketObj}
+      availableUsdt={balances.find(b => b.asset === selectedMarketObj.quoteAsset)?.free || 0}
+      availableBase={balances.find(b => b.asset === selectedMarketObj.baseAsset)?.free || 0}
+      onSubmitOrder={handleOrderSubmit}
+      selectedPrice={orderBookSelection?.price ?? null}
+      selectedAmount={orderBookSelection?.amount ?? null}
+      selectedTotal={orderBookSelection?.total ?? null}
+      selectedBookSide={orderBookSelection?.bookSide ?? null}
+      clearSelectedPrice={() => setOrderBookSelection(null)}
+      submitError={orderSubmitError}
+      docked={docked}
+    />
+  ) : null;
+
   return (
     <div className={`w-full h-full flex flex-col overflow-hidden text-sm relative transition-colors duration-200 ${
       theme === 'light' ? 'bg-[#f6f8fa] text-gray-800' : 'bg-[var(--app-bg)] text-[var(--app-fg)]'
@@ -914,8 +989,6 @@ export default function App() {
               setActiveView(v);
               if (v === 'PORTFOLIO') {
                 setActiveTabId('PORTFOLIO');
-              } else if (v === 'STRATEGY_LAB') {
-                setActiveTabId('STRATEGY_LAB');
               } else if (v === 'TRADE' && !openTabs.some(t => t.symbol)) {
                 // ensure at least one market tab is selected if user goes to trade
                 if (markets[0]) {
@@ -971,8 +1044,6 @@ export default function App() {
                     );
                   } else if (tab.type === 'PORTFOLIO') {
                     return <Briefcase className="w-3.5 h-3.5 text-blue-500 shrink-0" />;
-                  } else if (tab.type === 'STRATEGY_LAB') {
-                    return <Code className="w-3.5 h-3.5 text-emerald-500 shrink-0" />;
                   }
                   return null;
                 };
@@ -1028,15 +1099,6 @@ export default function App() {
               onWithdraw={handleWithdraw}
               transactions={walletTransactions}
               assetMetadata={assetMetadata}
-            />
-          ) : activeView === 'STRATEGY_LAB' ? (
-            /* STRATEGY DEVELOPER LAB */
-            <StrategyLab
-              strategies={strategies}
-              markets={markets}
-              onToggleStrategy={handleToggleStrategy}
-              onUpdateStrategyCode={handleUpdateStrategyCode}
-              onAddSystemLog={appendLog}
             />
           ) : activeView === 'SETTINGS' ? (
             /* CONFIGURATION SETTINGS PANEL */
@@ -1143,67 +1205,63 @@ export default function App() {
             </div>
           ) : (
             /* PRIMARY CORE WORKSTATION: TRADE DESK LAYOUT */
-            <div className="flex-1 p-2 sm:p-3 overflow-y-auto grid grid-cols-1 lg:grid-cols-24 gap-3 bg-[#fafbfc] dark:bg-[#070b0f]">
-              
-              {/* Workspace Left Column: Core charts & base Terminal outputs drawers (col-span-16) */}
-              <div className="lg:col-span-16 flex flex-col gap-3 min-w-0">
-                {/* 1. Charts Canvas */}
-                <MarketChart
-                  pair={selectedMarketObj}
-                  candles={candles}
-                  timeframe={timeframe}
-                  setTimeframe={setTimeframe}
-                  assetMetadata={assetMetadata}
-                />
+            <div className="flex-1 overflow-y-auto bg-[#fafbfc] p-2 dark:bg-[#070b0f] sm:p-3">
+              <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(220px,0.58fr)]">
 
-                {/* 2. Base Terminal panel drawer */}
-                <TerminalPanel
-                  openOrders={openOrders}
-                  orderHistory={orderHistory}
-                  tradeHistory={tradeHistory}
-                  recentTrades={recentTrades}
-                  systemLogs={systemLogs}
-                  selectedMarket={selectedMarketObj}
-                  selectedAssetSymbol={selectedAssetSymbol}
-                  dexPrices={dexPrices}
-                  dexPricesLoading={dexPricesLoading}
-                  dexPricesError={dexPricesError}
-                  assetMetadata={assetMetadata}
-                  onCancelOrder={handleCancelOrder}
-                  onCancelAllOrders={handleCancelAllOrders}
-                />
-              </div>
+                {/* Top row: chart and orderbook aligned; order ticket is docked on desktop */}
+                <div data-testid="trade-chart-panel" className="min-w-0 xl:h-[calc(100vh-132px)] xl:min-h-[520px] xl:max-h-[640px]">
+                  <MarketChart
+                    pair={selectedMarketObj}
+                    candles={candles}
+                    timeframe={timeframe}
+                    setTimeframe={setTimeframe}
+                    assetMetadata={assetMetadata}
+                  />
+                </div>
 
-              {/* Workspace Right Column: Order books, execution feed stream, and limits selectors (col-span-8) */}
-              <div className="lg:col-span-8 flex flex-col gap-3">
-                
-                {/* 1. Bid/Ask Book */}
-                <div className="shrink-0 w-full">
+                <div data-testid="trade-orderbook-panel" className="min-w-0 xl:h-[calc(100vh-132px)] xl:min-h-[520px] xl:max-h-[640px]">
                   <OrderBookView
                     orderBook={displayedOrderBook}
                     pair={selectedMarketObj}
-                    onSelectPrice={(pr) => setOrderBookSelectedPrice(pr)}
+                    onSelectPrice={setOrderBookSelection}
                   />
                 </div>
 
-                {/* 2. Multi-forms Buy/Sell execution limits */}
-                <div className="flex-1 min-h-[360px]">
-                  <OrderForm
-                    pair={selectedMarketObj}
-                    availableUsdt={balances.find(b => b.asset === selectedMarketObj.quoteAsset)?.free || 0}
-                    availableBase={balances.find(b => b.asset === selectedMarketObj.baseAsset)?.free || 0}
-                    onSubmitOrder={handleOrderSubmit}
-                    selectedPrice={orderBookSelectedPrice}
-                    clearSelectedPrice={() => setOrderBookSelectedPrice(null)}
-                    submitError={orderSubmitError}
-                  />
+                <div data-testid="trade-order-ticket-panel" className="min-w-0 xl:hidden">
+                  {renderOrderTicket(false)}
                 </div>
 
+                <div className="min-w-0 xl:col-span-2">
+                  <TerminalPanel
+                    openOrders={openOrders}
+                    orderHistory={orderHistory}
+                    tradeHistory={tradeHistory}
+                    recentTrades={recentTrades}
+                    systemLogs={systemLogs}
+                    selectedMarket={selectedMarketObj}
+                    selectedAssetSymbol={selectedAssetSymbol}
+                    dexPrices={dexPrices}
+                    dexPricesLoading={dexPricesLoading}
+                    dexPricesError={dexPricesError}
+                    assetMetadata={assetMetadata}
+                    onCancelOrder={handleCancelOrder}
+                    onCancelAllOrders={handleCancelAllOrders}
+                  />
+                </div>
               </div>
             </div>
           )}
 
         </div>
+
+        {activeView === 'TRADE' && selectedMarketObj && (
+          <aside
+            data-testid="trade-order-ticket-dock"
+            className="hidden h-full w-[320px] shrink-0 flex-col border-l border-[#e1e4e8] bg-[#fdfdfd] dark:border-[#21262d] dark:bg-[#090d12] xl:flex 2xl:w-[340px]"
+          >
+            {renderOrderTicket(true)}
+          </aside>
+        )}
 
       </div>
 
@@ -1322,21 +1380,20 @@ function routePathForState(view: string, market: string): string {
 
 function initialTabsForRoute(snapshot: RouteSnapshot): Tab[] {
   return ensureRouteTab([
-    { id: 'PORTFOLIO', title: 'Portfolio.json', type: 'PORTFOLIO' },
-    { id: 'STRATEGY_LAB', title: 'strategy.ts', type: 'STRATEGY_LAB' },
+    { id: 'PORTFOLIO', title: 'Portfolio', type: 'PORTFOLIO' },
   ], snapshot);
 }
 
 function ensureRouteTab(tabs: Tab[], snapshot: RouteSnapshot): Tab[] {
-  if (!snapshot.market) return tabs;
-  if (tabs.some(tab => tab.id === snapshot.market)) return tabs;
-  return sortTabs([...tabs, { id: snapshot.market, title: snapshot.market, type: 'MARKET', symbol: snapshot.market }]);
+  const supportedTabs = sanitizeWorkspaceTabs(tabs);
+  if (!snapshot.market) return supportedTabs;
+  if (supportedTabs.some(tab => tab.id === snapshot.market)) return supportedTabs;
+  return sortTabs([...supportedTabs, { id: snapshot.market, title: snapshot.market, type: 'MARKET', symbol: snapshot.market }]);
 }
 
 function tabIdForRoute(snapshot: RouteSnapshot): string {
   if (snapshot.view === 'TRADE') return snapshot.market;
   if (snapshot.view === 'PORTFOLIO' || snapshot.view === 'WALLET') return 'PORTFOLIO';
-  if (snapshot.view === 'STRATEGY_LAB') return 'STRATEGY_LAB';
   return '';
 }
 
@@ -1345,7 +1402,6 @@ function viewFromPath(path: string): string {
   if (path === '/portfolio') return 'PORTFOLIO';
   if (path === '/orders') return 'ORDERS';
   if (path === '/wallet') return 'WALLET';
-  if (path === '/strategy-lab') return 'STRATEGY_LAB';
   if (path === '/settings') return 'SETTINGS';
   if (path === '/login') return 'LOGIN';
   return 'TRADE';
@@ -1361,8 +1417,6 @@ function pathForView(view: string): string {
       return '/orders';
     case 'WALLET':
       return '/wallet';
-    case 'STRATEGY_LAB':
-      return '/strategy-lab';
     case 'SETTINGS':
       return '/settings';
     case 'LOGIN':
@@ -1374,8 +1428,7 @@ function pathForView(view: string): string {
 
 function normalizeView(view: string): string {
   const upper = view.toUpperCase();
-  if (upper === 'STRATEGY-LAB') return 'STRATEGY_LAB';
-  if (['MARKETS', 'TRADE', 'PORTFOLIO', 'ORDERS', 'WALLET', 'STRATEGY_LAB', 'SETTINGS', 'LOGIN'].includes(upper)) {
+  if (['MARKETS', 'TRADE', 'PORTFOLIO', 'ORDERS', 'WALLET', 'SETTINGS', 'LOGIN'].includes(upper)) {
     return upper;
   }
   return 'TRADE';
@@ -1434,15 +1487,16 @@ function replaceMarketTabs(current: Tab[], markets: MarketPair[]): Tab[] {
     type: 'MARKET' as const,
     symbol: market.symbol,
   }));
-  const utilityTabs = current.filter(tab => tab.type !== 'MARKET');
+  const utilityTabs = sanitizeWorkspaceTabs(current).filter(tab => tab.type !== 'MARKET');
   return [...marketTabs, ...utilityTabs];
 }
 
 function sortTabs(tabs: Tab[]): Tab[] {
-  const marketTabs = tabs
+  const supportedTabs = sanitizeWorkspaceTabs(tabs);
+  const marketTabs = supportedTabs
     .filter(tab => tab.type === 'MARKET')
     .sort((a, b) => (a.symbol || a.id).localeCompare(b.symbol || b.id));
-  const utilityTabs = tabs.filter(tab => tab.type !== 'MARKET');
+  const utilityTabs = supportedTabs.filter(tab => tab.type !== 'MARKET');
   return [...marketTabs, ...utilityTabs];
 }
 
@@ -1466,6 +1520,23 @@ function emptyOrderBook(market = ''): OrderBook {
     spread: 0,
     spreadPercent: 0,
   };
+}
+
+function marketProtectionPrice(side: OrderSide, book: OrderBook, fallback: number): number {
+  const levels = side === 'SELL' ? book.bids : book.asks;
+  const visibleEdgePrice = levels[levels.length - 1]?.price;
+  if (Number.isFinite(visibleEdgePrice) && visibleEdgePrice > 0) {
+    return visibleEdgePrice;
+  }
+  if (Number.isFinite(fallback) && fallback > 0) {
+    return side === 'BUY' ? fallback * 1.05 : fallback * 0.95;
+  }
+  return fallback;
+}
+
+function isActiveOrder(order: Order): boolean {
+  const isOpenStatus = order.status === 'OPEN' || order.status === 'PENDING' || order.status === 'PARTIALLY_FILLED';
+  return isOpenStatus && order.type !== 'MARKET' && order.remaining >= ACTIVE_ORDER_REMAINING_EPSILON;
 }
 
 function mergeTrades(incoming: Trade[], current: Trade[]): Trade[] {

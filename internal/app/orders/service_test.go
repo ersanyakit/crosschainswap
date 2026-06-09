@@ -4,13 +4,17 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"exchange/internal/core/asset"
 	"exchange/internal/core/balance"
 	"exchange/internal/core/chain"
 	"exchange/internal/core/decimal"
 	"exchange/internal/core/market"
+	"exchange/internal/core/matching"
 	"exchange/internal/core/order"
+	"exchange/internal/core/orderbook"
+	"exchange/internal/core/trade"
 )
 
 func TestBuildOrderValidatesAndNormalizes(t *testing.T) {
@@ -230,6 +234,102 @@ func TestBuildMarketOrderRejectsGTC(t *testing.T) {
 	}
 }
 
+func TestEffectiveMatchTakerSweepsMarketSellBook(t *testing.T) {
+	item := order.Order{
+		ID:     "sell-market",
+		Side:   order.SideSell,
+		Type:   order.TypeMarket,
+		Price:  "0.990421",
+		Market: "USDC/USD",
+	}
+
+	got := effectiveMatchTaker(item)
+	if got.Price != minPositiveMarketPrice {
+		t.Fatalf("market sell effective price = %s, want %s", got.Price, minPositiveMarketPrice)
+	}
+	if item.Price != "0.990421" {
+		t.Fatalf("effectiveMatchTaker mutated original order price: %s", item.Price)
+	}
+}
+
+func TestEffectiveMatchTakerKeepsMarketBuyProtectionPrice(t *testing.T) {
+	item := order.Order{
+		ID:     "buy-market",
+		Side:   order.SideBuy,
+		Type:   order.TypeMarket,
+		Price:  "1.010009",
+		Market: "USDC/USD",
+	}
+
+	got := effectiveMatchTaker(item)
+	if got.Price != item.Price {
+		t.Fatalf("market buy effective price = %s, want submitted protection %s", got.Price, item.Price)
+	}
+}
+
+func TestEffectiveMarketSellMatchesBidsBelowSubmittedProtection(t *testing.T) {
+	item := order.Order{
+		ID:                "sell-market",
+		UserID:            "seller",
+		Market:            "USDC/USD",
+		BaseAsset:         "USDC",
+		QuoteAsset:        "USD",
+		Side:              order.SideSell,
+		Type:              order.TypeMarket,
+		Status:            order.StatusOpen,
+		Price:             "0.990421",
+		Quantity:          "10",
+		FilledQuantity:    "0",
+		RemainingQuantity: "10",
+	}
+	makers := []order.Order{
+		{
+			ID:                "bid-below-protection",
+			UserID:            "buyer",
+			Market:            "USDC/USD",
+			BaseAsset:         "USDC",
+			QuoteAsset:        "USD",
+			Side:              order.SideBuy,
+			Status:            order.StatusOpen,
+			Price:             "0.5",
+			Quantity:          "10",
+			FilledQuantity:    "0",
+			RemainingQuantity: "10",
+		},
+	}
+
+	result, err := matching.MatchLimit(effectiveMatchTaker(item), makers, func() trade.ID { return "trd" }, time.Unix(1, 0).UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Trades) != 1 || result.Trades[0].Price != "0.5" || result.Trades[0].Quantity != "10" {
+		t.Fatalf("market sell should sweep bid below submitted protection, got %#v", result.Trades)
+	}
+	if result.Taker.Status != order.StatusFilled || result.Makers[0].Status != order.StatusFilled {
+		t.Fatalf("unexpected statuses: taker=%#v maker=%#v", result.Taker, result.Makers[0])
+	}
+}
+
+func TestBuildOrderRejectsBelowSupportedNotional(t *testing.T) {
+	service := NewService(market.NewRegistry([]market.Market{
+		{Symbol: "PEPPER/USDC", BaseAsset: "PEPPER", QuoteAsset: "USDC", Enabled: true},
+	}), nil)
+
+	_, err := service.buildOrder(PlaceRequest{
+		ClientOrderID: "client-dust-1",
+		UserID:        "u1",
+		Market:        "PEPPER/USDC",
+		Side:          "buy",
+		Type:          "limit",
+		TimeInForce:   "gtc",
+		Price:         "0.000000000000000001",
+		Quantity:      "0.000000000000000001",
+	})
+	if err == nil {
+		t.Fatalf("expected below precision notional to be rejected")
+	}
+}
+
 func TestPublishOrderUpdateEmitsFilledAndTrades(t *testing.T) {
 	var payloads [][]byte
 	service := NewService(market.Registry{}, nil)
@@ -256,6 +356,36 @@ func TestPublishOrderUpdateEmitsFilledAndTrades(t *testing.T) {
 	}
 }
 
+func TestMatchEventsIncludeFilledMakerTerminalEvent(t *testing.T) {
+	taker := order.Order{ID: "taker", UserID: "buyer", Market: "PEPPER/USDC", Status: order.StatusFilled}
+	maker := order.Order{ID: "maker", UserID: "seller", Market: "PEPPER/USDC", Status: order.StatusFilled}
+	trades := []trade.Trade{{
+		ID:           "trd-1",
+		Market:       "PEPPER/USDC",
+		MakerOrderID: maker.ID,
+		TakerOrderID: taker.ID,
+		MakerUserID:  maker.UserID,
+		TakerUserID:  taker.UserID,
+		CreatedAt:    time.Unix(1, 0).UTC(),
+	}}
+
+	events := matchEvents(taker, []order.Order{maker}, trades)
+
+	var makerFilled bool
+	var takerFilled bool
+	for _, event := range events {
+		if event.OrderID == maker.ID && event.Type == order.EventOrderFilled {
+			makerFilled = true
+		}
+		if event.OrderID == taker.ID && event.Type == order.EventOrderFilled {
+			takerFilled = true
+		}
+	}
+	if !makerFilled || !takerFilled {
+		t.Fatalf("missing filled events: maker=%t taker=%t events=%#v", makerFilled, takerFilled, events)
+	}
+}
+
 func TestPublishOrderUpdateEmitsExpired(t *testing.T) {
 	var payloads [][]byte
 	service := NewService(market.Registry{}, nil)
@@ -279,6 +409,37 @@ func TestPublishOrderUpdateEmitsExpired(t *testing.T) {
 	}
 	if event["type"] != "exchange.order_expired" {
 		t.Fatalf("unexpected event type: %#v", event["type"])
+	}
+}
+
+func TestPublishOrderBookDeltaEmitsVersionedLevels(t *testing.T) {
+	var payloads [][]byte
+	service := NewService(market.Registry{}, nil)
+	service.SetPublisher(func(payload []byte) {
+		payloads = append(payloads, payload)
+	})
+
+	service.publishOrderBookDelta(bookDelta{
+		Market:  "PEPPER/USDC",
+		Version: 42,
+		Levels: []orderbook.PriceLevel{
+			{Market: "PEPPER/USDC", Side: order.SideBuy, Price: "1", Quantity: "5"},
+			{Market: "PEPPER/USDC", Side: order.SideSell, Price: "2", Quantity: "0"},
+		},
+	})
+
+	if len(payloads) != 1 {
+		t.Fatalf("expected one event, got %d", len(payloads))
+	}
+	var event map[string]any
+	if err := json.Unmarshal(payloads[0], &event); err != nil {
+		t.Fatal(err)
+	}
+	if event["type"] != "exchange.orderbook_delta" || event["version"].(float64) != 42 {
+		t.Fatalf("unexpected delta event: %#v", event)
+	}
+	if len(event["bids"].([]any)) != 1 || len(event["asks"].([]any)) != 1 {
+		t.Fatalf("unexpected bid/ask delta payload: %#v", event)
 	}
 }
 
@@ -316,6 +477,24 @@ func TestStopTriggered(t *testing.T) {
 	sell := order.Order{Side: order.SideSell, StopPrice: "10"}
 	if !stopTriggered(sell, "10") || !stopTriggered(sell, "9.9") || stopTriggered(sell, "10.1") {
 		t.Fatalf("unexpected sell stop behavior")
+	}
+}
+
+func TestStopPriceValidForLastPriceMatchesSpotStopLossLimitDirection(t *testing.T) {
+	buy := order.Order{Type: order.TypeStopLimit, Side: order.SideBuy, StopPrice: "10"}
+	if !stopPriceValidForLastPrice(buy, "9.99") {
+		t.Fatalf("buy stop-limit should be valid above last price")
+	}
+	if stopPriceValidForLastPrice(buy, "10") || stopPriceValidForLastPrice(buy, "10.01") {
+		t.Fatalf("buy stop-limit should reject stop prices at or below the current last price")
+	}
+
+	sell := order.Order{Type: order.TypeStopLimit, Side: order.SideSell, StopPrice: "10"}
+	if !stopPriceValidForLastPrice(sell, "10.01") {
+		t.Fatalf("sell stop-limit should be valid below last price")
+	}
+	if stopPriceValidForLastPrice(sell, "10") || stopPriceValidForLastPrice(sell, "9.99") {
+		t.Fatalf("sell stop-limit should reject stop prices at or above the current last price")
 	}
 }
 

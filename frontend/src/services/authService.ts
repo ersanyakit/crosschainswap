@@ -46,7 +46,7 @@ export async function logout(): Promise<AuthLogout> {
 }
 
 export function oidcLoginURL(): string {
-  const redirect = currentBrowserURL();
+  const redirect = postLoginRedirectURL();
   const query = new URLSearchParams({ redirect });
   return `${exchangeConfig.apiBaseURL}/auth/oidc/login?${query.toString()}`;
 }
@@ -54,6 +54,23 @@ export function oidcLoginURL(): string {
 function currentBrowserURL(): string {
   if (typeof window === 'undefined') return '/';
   return `${window.location.origin}${window.location.pathname}${window.location.search}${window.location.hash}`;
+}
+
+function postLoginRedirectURL(): string {
+  const redirect = currentBrowserURL();
+  if (typeof window === 'undefined') return redirect;
+
+  try {
+    const url = new URL(redirect);
+    if (url.pathname === '/login') {
+      url.pathname = '/trade';
+      url.search = '';
+      url.hash = '';
+    }
+    return url.toString();
+  } catch {
+    return redirect;
+  }
 }
 
 async function authJSON<T>(path: string, init: RequestInit = {}): Promise<T> {

@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"expvar"
 	"fmt"
 	"strings"
 	"time"
@@ -22,10 +23,33 @@ type ExchangeRepository struct {
 	db *gorm.DB
 }
 
+var ErrInvalidSettlement = errors.New("invalid settlement")
+
+const minimumActiveOrderQuantity = "0.000000005"
+
+var (
+	exchangeRepositoryTransactionsTotal        = expvar.NewInt("exchange_repository_transactions_total")
+	exchangeRepositoryTransactionErrorsTotal   = expvar.NewInt("exchange_repository_transaction_errors_total")
+	exchangeRepositoryTransactionDurationNanos = expvar.NewInt("exchange_repository_transaction_duration_nanos_total")
+	exchangeMatchCandidateQueriesTotal         = expvar.NewInt("exchange_match_candidate_queries_total")
+	exchangeMatchCandidateQueryErrorsTotal     = expvar.NewInt("exchange_match_candidate_query_errors_total")
+	exchangeMatchCandidateQueryDurationNanos   = expvar.NewInt("exchange_match_candidate_query_duration_nanos_total")
+)
+
 type PriceLevelKey struct {
 	Market string
 	Side   order.Side
 	Price  string
+}
+
+type OrderBookProjectionDrift struct {
+	Market           string
+	Side             string
+	Price            string
+	ActiveQuantity   string
+	LevelQuantity    string
+	ActiveOrderCount int64
+	LevelOrderCount  int64
 }
 
 func NewExchangeRepository(db *gorm.DB) *ExchangeRepository {
@@ -33,9 +57,16 @@ func NewExchangeRepository(db *gorm.DB) *ExchangeRepository {
 }
 
 func (r *ExchangeRepository) Transaction(ctx context.Context, fn func(*ExchangeRepository) error) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	start := time.Now()
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		return fn(&ExchangeRepository{db: tx})
 	})
+	exchangeRepositoryTransactionsTotal.Add(1)
+	exchangeRepositoryTransactionDurationNanos.Add(time.Since(start).Nanoseconds())
+	if err != nil {
+		exchangeRepositoryTransactionErrorsTotal.Add(1)
+	}
+	return err
 }
 
 func (r *ExchangeRepository) Notify(ctx context.Context, channel string, payload []byte) error {
@@ -68,6 +99,9 @@ func (r *ExchangeRepository) CreateOrder(ctx context.Context, item order.Order) 
 	model := orderToModel(item)
 	if err := r.db.WithContext(ctx).Create(&model).Error; err != nil {
 		return fmt.Errorf("failed to create order %s: %w", item.ID, err)
+	}
+	if err := r.SyncActiveOrder(ctx, item); err != nil {
+		return fmt.Errorf("failed to sync active order %s: %w", item.ID, err)
 	}
 	return nil
 }
@@ -139,7 +173,22 @@ func (r *ExchangeRepository) SaveOrder(ctx context.Context, item order.Order) er
 	if err := r.db.WithContext(ctx).Save(&model).Error; err != nil {
 		return fmt.Errorf("failed to save order %s: %w", item.ID, err)
 	}
+	if err := r.SyncActiveOrder(ctx, item); err != nil {
+		return fmt.Errorf("failed to sync active order %s: %w", item.ID, err)
+	}
 	return nil
+}
+
+func (r *ExchangeRepository) SyncActiveOrder(ctx context.Context, item order.Order) error {
+	if !isBookableOrder(item) {
+		return r.db.WithContext(ctx).
+			Where(&ExchangeActiveOrder{ID: string(item.ID)}).
+			Delete(&ExchangeActiveOrder{}).Error
+	}
+	model := activeOrderToModel(item)
+	return r.db.WithContext(ctx).
+		Clauses(clause.OnConflict{UpdateAll: true}).
+		Create(&model).Error
 }
 
 func (r *ExchangeRepository) CreateTrades(ctx context.Context, items []trade.Trade) error {
@@ -152,9 +201,6 @@ func (r *ExchangeRepository) CreateTrades(ctx context.Context, items []trade.Tra
 	}
 	if err := r.db.WithContext(ctx).Create(&models).Error; err != nil {
 		return fmt.Errorf("failed to create trades: %w", err)
-	}
-	if err := r.UpdateCandles(ctx, items); err != nil {
-		return fmt.Errorf("failed to update candles: %w", err)
 	}
 	return nil
 }
@@ -169,6 +215,9 @@ func (r *ExchangeRepository) ListOrders(ctx context.Context, userID string, mark
 	}
 	if status != "" {
 		query = query.Where(&ExchangeOrder{Status: string(status)})
+		if isOpenStatus(status) {
+			query = query.Where("remaining_quantity >= ?", minimumActiveOrderQuantity).Where("type <> ?", string(order.TypeMarket))
+		}
 	}
 	query = query.Clauses(clause.OrderBy{Columns: []clause.OrderByColumn{{Column: clause.Column{Name: "created_at"}, Desc: true}}})
 
@@ -188,6 +237,34 @@ func (r *ExchangeRepository) ListMarketTrades(ctx context.Context, market string
 		Where(&ExchangeTrade{Market: market}).
 		Clauses(clause.OrderBy{Columns: []clause.OrderByColumn{{Column: clause.Column{Name: "created_at"}, Desc: true}}}).
 		Limit(limit).
+		Find(&models).Error
+	if err != nil {
+		return nil, err
+	}
+	return modelsToTrades(models), nil
+}
+
+func (r *ExchangeRepository) ListTradesAfter(ctx context.Context, market string, after time.Time, afterID string, limit int) ([]trade.Trade, error) {
+	market = strings.ToUpper(strings.TrimSpace(market))
+	afterID = strings.TrimSpace(afterID)
+	if market == "" {
+		return nil, nil
+	}
+	if limit <= 0 || limit > 10000 {
+		limit = 1000
+	}
+	query := r.db.WithContext(ctx).
+		Where(&ExchangeTrade{Market: market}).
+		Limit(limit)
+	if !after.IsZero() {
+		query = query.Where("(created_at > ?) OR (created_at = ? AND id > ?)", after, after, afterID)
+	}
+	var models []ExchangeTrade
+	err := query.
+		Clauses(clause.OrderBy{Columns: []clause.OrderByColumn{
+			{Column: clause.Column{Name: "created_at"}},
+			{Column: clause.Column{Name: "id"}},
+		}}).
 		Find(&models).Error
 	if err != nil {
 		return nil, err
@@ -458,6 +535,7 @@ func (r *ExchangeRepository) ReserveOrderFunds(ctx context.Context, item order.O
 	if decimal.Cmp(amount, "0") <= 0 {
 		return nil
 	}
+	reservationID := reservationIDForOrder(item)
 	model, err := r.balanceForUpdate(ctx, item.UserID, asset, false)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -474,14 +552,30 @@ func (r *ExchangeRepository) ReserveOrderFunds(ctx context.Context, item order.O
 	if err := r.db.WithContext(ctx).Save(model).Error; err != nil {
 		return err
 	}
+	now := time.Now()
+	if err := r.createReservation(ctx, Reservation{
+		ID:              reservationID,
+		UserID:          item.UserID,
+		Market:          item.Market,
+		Asset:           asset,
+		Amount:          amount,
+		RemainingAmount: amount,
+		Status:          ReservationStatusActive,
+		OrderID:         string(item.ID),
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}); err != nil {
+		return err
+	}
 	return r.createBalanceEvent(ctx, balance.Event{
-		ID:        eventID,
-		UserID:    item.UserID,
-		Asset:     asset,
-		Type:      balance.EventReserve,
-		Amount:    amount,
-		OrderID:   string(item.ID),
-		CreatedAt: time.Now(),
+		ID:            eventID,
+		UserID:        item.UserID,
+		Asset:         asset,
+		Type:          balance.EventReserve,
+		Amount:        amount,
+		OrderID:       string(item.ID),
+		ReservationID: reservationID,
+		CreatedAt:     now,
 	})
 }
 
@@ -493,15 +587,51 @@ func (r *ExchangeRepository) ReleaseOrderFunds(ctx context.Context, item order.O
 	if decimal.Cmp(amount, "0") <= 0 {
 		return nil
 	}
-	return r.moveLockedToAvailable(ctx, item.UserID, asset, amount, balance.Event{
-		ID:        eventID,
-		UserID:    item.UserID,
-		Asset:     asset,
-		Type:      balance.EventRelease,
-		Amount:    amount,
-		OrderID:   string(item.ID),
-		CreatedAt: time.Now(),
-	})
+	reservationID := reservationIDForOrder(item)
+	amount, err := r.clampedReleaseAmount(ctx, item.UserID, asset, reservationID, amount)
+	if err != nil {
+		return err
+	}
+	if decimal.Cmp(amount, "0") <= 0 {
+		return nil
+	}
+	if err := r.moveLockedToAvailable(ctx, item.UserID, asset, amount, balance.Event{
+		ID:            eventID,
+		UserID:        item.UserID,
+		Asset:         asset,
+		Type:          balance.EventRelease,
+		Amount:        amount,
+		OrderID:       string(item.ID),
+		ReservationID: reservationID,
+		CreatedAt:     time.Now(),
+	}); err != nil {
+		return err
+	}
+	return r.releaseReservation(ctx, reservationID, amount)
+}
+
+func (r *ExchangeRepository) clampedReleaseAmount(ctx context.Context, userID string, asset string, reservationID string, requested string) (string, error) {
+	amount := requested
+	if reservationID != "" {
+		reservation, err := r.GetReservation(ctx, reservationID)
+		if err == nil && decimal.Cmp(reservation.RemainingAmount, "0") > 0 && decimal.Cmp(reservation.RemainingAmount, amount) < 0 {
+			amount = reservation.RemainingAmount
+		}
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", err
+		}
+	}
+	bal, err := r.balanceForUpdate(ctx, userID, asset, false)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "0", nil
+		}
+		return "", err
+	}
+	if decimal.Cmp(bal.Locked, amount) < 0 {
+		amount = bal.Locked
+	}
+	return amount, nil
 }
 
 func (r *ExchangeRepository) SettleTrades(ctx context.Context, items []trade.Trade) error {
@@ -559,10 +689,9 @@ func (r *ExchangeRepository) ListOpenOrders(ctx context.Context, market string, 
 		limit = 100
 	}
 
-	var models []ExchangeOrder
+	var models []ExchangeActiveOrder
 	query := r.db.WithContext(ctx).
-		Where(&ExchangeOrder{Market: market, Side: string(side)}).
-		Where("status IN ?", openStatuses()).
+		Where(&ExchangeActiveOrder{Market: market, Side: string(side)}).
 		Limit(limit)
 
 	if side == order.SideBuy {
@@ -580,25 +709,54 @@ func (r *ExchangeRepository) ListOpenOrders(ctx context.Context, market string, 
 	if err := query.Find(&models).Error; err != nil {
 		return nil, err
 	}
-	return modelsToOrders(models), nil
+	return activeModelsToOrders(models), nil
 }
 
-func (r *ExchangeRepository) ListMatchCandidates(ctx context.Context, market string, makerSide order.Side, takerPrice string, excludeOrderID order.ID, excludeUserID string, limit int) ([]order.Order, error) {
+func (r *ExchangeRepository) ListActiveOrdersForUpdate(ctx context.Context, market string, excludeOrderID order.ID, limit int) ([]order.Order, error) {
+	market = strings.ToUpper(strings.TrimSpace(market))
+	if market == "" {
+		return nil, nil
+	}
+
+	var models []ExchangeActiveOrder
+	query := r.db.WithContext(ctx).
+		Where(&ExchangeActiveOrder{Market: market}).
+		Where("status IN ?", openStatuses()).
+		Where("remaining_quantity >= ?", minimumActiveOrderQuantity).
+		Where("type <> ?", string(order.TypeMarket)).
+		Clauses(clause.Locking{Strength: "UPDATE"}).
+		Clauses(clause.OrderBy{Columns: []clause.OrderByColumn{
+			{Column: clause.Column{Name: "sequence_id"}},
+			{Column: clause.Column{Name: "id"}},
+		}})
+	if excludeOrderID != "" {
+		query = query.Where("id <> ?", string(excludeOrderID))
+	}
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+	if err := query.Find(&models).Error; err != nil {
+		return nil, err
+	}
+	return activeModelsToOrders(models), nil
+}
+
+func (r *ExchangeRepository) ListMatchCandidates(ctx context.Context, market string, makerSide order.Side, takerPrice string, excludeOrderID order.ID, limit int) ([]order.Order, error) {
 	if limit <= 0 || limit > 1000 {
 		limit = 500
 	}
 
-	var models []ExchangeOrder
+	start := time.Now()
+	var models []ExchangeActiveOrder
 	query := r.db.WithContext(ctx).
-		Where(&ExchangeOrder{Market: market, Side: string(makerSide)}).
+		Where(&ExchangeActiveOrder{Market: market, Side: string(makerSide)}).
 		Where("status IN ?", openStatuses()).
+		Where("remaining_quantity >= ?", minimumActiveOrderQuantity).
+		Where("type <> ?", string(order.TypeMarket)).
 		Clauses(clause.Locking{Strength: "UPDATE"}).
 		Limit(limit)
 	if excludeOrderID != "" {
 		query = query.Where("id <> ?", string(excludeOrderID))
-	}
-	if excludeUserID != "" {
-		query = query.Where("user_id <> ?", excludeUserID)
 	}
 
 	if makerSide == order.SideSell {
@@ -615,10 +773,14 @@ func (r *ExchangeRepository) ListMatchCandidates(ctx context.Context, market str
 			}})
 	}
 
-	if err := query.Find(&models).Error; err != nil {
+	err := query.Find(&models).Error
+	exchangeMatchCandidateQueriesTotal.Add(1)
+	exchangeMatchCandidateQueryDurationNanos.Add(time.Since(start).Nanoseconds())
+	if err != nil {
+		exchangeMatchCandidateQueryErrorsTotal.Add(1)
 		return nil, err
 	}
-	return modelsToOrders(models), nil
+	return activeModelsToOrders(models), nil
 }
 
 func (r *ExchangeRepository) ListPendingStops(ctx context.Context, market string, limit int) ([]order.Order, error) {
@@ -646,13 +808,12 @@ func (r *ExchangeRepository) RefreshPriceLevels(ctx context.Context, keys []Pric
 			continue
 		}
 
-		var models []ExchangeOrder
-		err := r.db.WithContext(ctx).
+		var models []ExchangeActiveOrder
+		query := r.db.WithContext(ctx).
 			Select("remaining_quantity", "sequence_id").
-			Where(&ExchangeOrder{Market: key.Market, Side: string(key.Side), Price: key.Price}).
-			Where("status IN ?", openStatuses()).
-			Find(&models).Error
-		if err != nil {
+			Where(&ExchangeActiveOrder{Market: key.Market, Side: string(key.Side), Price: key.Price}).
+			Where("remaining_quantity >= ?", minimumActiveOrderQuantity)
+		if err := query.Find(&models).Error; err != nil {
 			return err
 		}
 
@@ -674,7 +835,7 @@ func (r *ExchangeRepository) RefreshPriceLevels(ctx context.Context, keys []Pric
 			LastUpdatedAt: time.Now(),
 		}
 		for _, item := range models {
-			if item.RemainingQuantity == "" || item.RemainingQuantity == "0" {
+			if decimal.Cmp(item.RemainingQuantity, minimumActiveOrderQuantity) < 0 {
 				continue
 			}
 			level.Quantity = decimal.Add(level.Quantity, item.RemainingQuantity)
@@ -699,29 +860,221 @@ func (r *ExchangeRepository) RefreshPriceLevels(ctx context.Context, keys []Pric
 	return nil
 }
 
+func (r *ExchangeRepository) PriceLevelDeltas(ctx context.Context, keys []PriceLevelKey) ([]orderbook.PriceLevel, error) {
+	keys = uniquePriceLevelKeys(keys)
+	out := make([]orderbook.PriceLevel, 0, len(keys))
+	for _, key := range keys {
+		if key.Market == "" || key.Side == "" || key.Price == "" {
+			continue
+		}
+		var model ExchangePriceLevel
+		err := r.db.WithContext(ctx).
+			Where(&ExchangePriceLevel{Market: key.Market, Side: string(key.Side), Price: key.Price}).
+			First(&model).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			out = append(out, orderbook.PriceLevel{
+				Market: key.Market,
+				Side:   key.Side,
+				Price:  key.Price,
+			})
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, modelToPriceLevel(model))
+	}
+	return out, nil
+}
+
+func (r *ExchangeRepository) PruneStalePriceLevels(ctx context.Context, market string) error {
+	market = strings.ToUpper(strings.TrimSpace(market))
+	if market == "" {
+		return nil
+	}
+	return r.db.WithContext(ctx).Exec(`
+		DELETE FROM exchange_price_levels AS level
+		WHERE level.market = ?
+		  AND NOT EXISTS (
+			SELECT 1
+			FROM exchange_active_orders AS item
+			WHERE item.market = level.market
+			  AND item.side = level.side
+			  AND item.price = level.price
+			  AND item.status IN ('open', 'partially_filled')
+			  AND item.remaining_quantity >= ?
+			  AND item.type <> ?
+		  )
+	`, market, minimumActiveOrderQuantity, string(order.TypeMarket)).Error
+}
+
 func (r *ExchangeRepository) RebuildPriceLevels(ctx context.Context, market string) error {
+	market = strings.ToUpper(strings.TrimSpace(market))
+	if market == "" {
+		return nil
+	}
 	if err := r.db.WithContext(ctx).Where(&ExchangePriceLevel{Market: market}).Delete(&ExchangePriceLevel{}).Error; err != nil {
 		return err
 	}
 
 	for _, side := range []order.Side{order.SideBuy, order.SideSell} {
-		orders, err := r.ListOpenOrders(ctx, market, side, 1000)
+		models, err := r.aggregatePriceLevels(ctx, market, side)
 		if err != nil {
 			return err
 		}
-		levels := aggregateLevels(market, side, orders)
-		if len(levels) == 0 {
+		if len(models) == 0 {
 			continue
 		}
-		models := make([]ExchangePriceLevel, 0, len(levels))
-		for _, level := range levels {
-			models = append(models, priceLevelToModel(level))
-		}
-		if err := r.db.WithContext(ctx).Create(&models).Error; err != nil {
+		if err := r.db.WithContext(ctx).CreateInBatches(&models, 1000).Error; err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (r *ExchangeRepository) ReconcileOrderBookProjection(ctx context.Context, market string) ([]OrderBookProjectionDrift, error) {
+	market = strings.ToUpper(strings.TrimSpace(market))
+	if market == "" {
+		return nil, nil
+	}
+	type row struct {
+		Market           string
+		Side             string
+		Price            string
+		ActiveQuantity   string
+		LevelQuantity    string
+		ActiveOrderCount int64
+		LevelOrderCount  int64
+	}
+	var rows []row
+	err := r.db.WithContext(ctx).Raw(`
+		WITH active AS (
+			SELECT
+				market,
+				side,
+				price::text AS price,
+				SUM(remaining_quantity)::text AS quantity,
+				COUNT(*)::bigint AS order_count
+			FROM exchange_active_orders
+			WHERE market = ?
+			GROUP BY market, side, price
+		),
+		levels AS (
+			SELECT
+				market,
+				side,
+				price::text AS price,
+				quantity::text AS quantity,
+				order_count::bigint AS order_count
+			FROM exchange_price_levels
+			WHERE market = ?
+		)
+		SELECT
+			COALESCE(active.market, levels.market) AS market,
+			COALESCE(active.side, levels.side) AS side,
+			COALESCE(active.price, levels.price) AS price,
+			COALESCE(active.quantity, '0') AS active_quantity,
+			COALESCE(levels.quantity, '0') AS level_quantity,
+			COALESCE(active.order_count, 0) AS active_order_count,
+			COALESCE(levels.order_count, 0) AS level_order_count
+		FROM active
+		FULL OUTER JOIN levels
+		  ON active.market = levels.market
+		 AND active.side = levels.side
+		 AND active.price::numeric = levels.price::numeric
+		WHERE active.market IS NULL
+		   OR levels.market IS NULL
+		   OR active.quantity::numeric <> levels.quantity::numeric
+		   OR active.order_count <> levels.order_count
+		ORDER BY COALESCE(active.market, levels.market),
+		         COALESCE(active.side, levels.side),
+		         COALESCE(active.price, levels.price)::numeric
+	`, market, market).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	out := make([]OrderBookProjectionDrift, 0, len(rows))
+	for _, item := range rows {
+		out = append(out, OrderBookProjectionDrift{
+			Market:           item.Market,
+			Side:             item.Side,
+			Price:            decimal.Trim(item.Price),
+			ActiveQuantity:   decimal.Trim(item.ActiveQuantity),
+			LevelQuantity:    decimal.Trim(item.LevelQuantity),
+			ActiveOrderCount: item.ActiveOrderCount,
+			LevelOrderCount:  item.LevelOrderCount,
+		})
+	}
+	return out, nil
+}
+
+func (r *ExchangeRepository) RebuildActiveOrders(ctx context.Context, market string) error {
+	market = strings.ToUpper(strings.TrimSpace(market))
+	if market == "" {
+		return nil
+	}
+	if err := r.db.WithContext(ctx).Where(&ExchangeActiveOrder{Market: market}).Delete(&ExchangeActiveOrder{}).Error; err != nil {
+		return err
+	}
+	return r.db.WithContext(ctx).Exec(`
+		INSERT INTO exchange_active_orders (
+			id, client_order_id, reservation_id, user_id, market, base_asset, quote_asset,
+			side, type, status, time_in_force, price, stop_price, quantity,
+			filled_quantity, remaining_quantity, sequence_id, created_at, updated_at
+		)
+		SELECT
+			id, client_order_id, reservation_id, user_id, market, base_asset, quote_asset,
+			side, type, status, time_in_force, price, stop_price, quantity,
+			filled_quantity, remaining_quantity, sequence_id, created_at, updated_at
+		FROM exchange_orders
+		WHERE market = ?
+		  AND status IN ?
+		  AND remaining_quantity >= ?
+		  AND type <> ?
+	`, market, openStatuses(), minimumActiveOrderQuantity, string(order.TypeMarket)).Error
+}
+
+func (r *ExchangeRepository) aggregatePriceLevels(ctx context.Context, market string, side order.Side) ([]ExchangePriceLevel, error) {
+	type row struct {
+		Price           string
+		Quantity        string
+		OrderCount      int64
+		FirstSequenceID uint64
+	}
+
+	var rows []row
+	query := r.db.WithContext(ctx).
+		Model(&ExchangeActiveOrder{}).
+		Select("price, SUM(remaining_quantity)::text AS quantity, COUNT(*) AS order_count, MIN(sequence_id) AS first_sequence_id").
+		Where(&ExchangeActiveOrder{Market: market, Side: string(side)}).
+		Where("remaining_quantity >= ?", minimumActiveOrderQuantity).
+		Group("price")
+	if side == order.SideBuy {
+		query = query.Order("price DESC")
+	} else {
+		query = query.Order("price ASC")
+	}
+	if err := query.Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+	levels := make([]ExchangePriceLevel, 0, len(rows))
+	for _, item := range rows {
+		if decimal.Cmp(item.Quantity, "0") <= 0 || item.OrderCount <= 0 {
+			continue
+		}
+		levels = append(levels, ExchangePriceLevel{
+			Market:          market,
+			Side:            string(side),
+			Price:           item.Price,
+			Quantity:        decimal.Trim(item.Quantity),
+			OrderCount:      item.OrderCount,
+			FirstSequenceID: item.FirstSequenceID,
+			LastUpdatedAt:   now,
+		})
+	}
+	return levels, nil
 }
 
 func (r *ExchangeRepository) ListPriceLevels(ctx context.Context, market string, side order.Side, limit int) ([]orderbook.PriceLevel, error) {
@@ -730,7 +1083,11 @@ func (r *ExchangeRepository) ListPriceLevels(ctx context.Context, market string,
 	}
 
 	var models []ExchangePriceLevel
-	query := r.db.WithContext(ctx).Where(&ExchangePriceLevel{Market: market, Side: string(side)}).Limit(limit)
+	query := r.db.WithContext(ctx).
+		Where(&ExchangePriceLevel{Market: market, Side: string(side)}).
+		Where("quantity >= ?", minimumActiveOrderQuantity).
+		Where("order_count > 0").
+		Limit(limit)
 	if side == order.SideBuy {
 		query = query.Clauses(clause.OrderBy{Columns: []clause.OrderByColumn{
 			{Column: clause.Column{Name: "price"}, Desc: true},
@@ -757,10 +1114,26 @@ func openStatuses() []string {
 	return []string{string(order.StatusOpen), string(order.StatusPartiallyFilled)}
 }
 
+func isOpenStatus(status order.Status) bool {
+	return status == order.StatusOpen || status == order.StatusPartiallyFilled
+}
+
+func isBookableOrder(item order.Order) bool {
+	return item.Type != order.TypeMarket && isOpenStatus(item.Status) && decimal.Cmp(item.RemainingQuantity, minimumActiveOrderQuantity) >= 0
+}
+
+func applyBookableOrderFilters(query *gorm.DB) *gorm.DB {
+	return query.
+		Where("status IN ?", openStatuses()).
+		Where("remaining_quantity >= ?", minimumActiveOrderQuantity).
+		Where("type <> ?", string(order.TypeMarket))
+}
+
 func orderToModel(item order.Order) ExchangeOrder {
 	return ExchangeOrder{
 		ID:                string(item.ID),
 		ClientOrderID:     string(item.ClientOrderID),
+		ReservationID:     strings.TrimSpace(item.ReservationID),
 		UserID:            item.UserID,
 		Market:            item.Market,
 		BaseAsset:         item.BaseAsset,
@@ -784,6 +1157,55 @@ func modelToOrder(model ExchangeOrder) order.Order {
 	return order.Order{
 		ID:                order.ID(model.ID),
 		ClientOrderID:     order.ClientOrderID(model.ClientOrderID),
+		ReservationID:     model.ReservationID,
+		UserID:            model.UserID,
+		Market:            model.Market,
+		BaseAsset:         model.BaseAsset,
+		QuoteAsset:        model.QuoteAsset,
+		Side:              order.Side(model.Side),
+		Type:              order.Type(model.Type),
+		Status:            order.Status(model.Status),
+		TimeInForce:       order.TimeInForce(model.TimeInForce),
+		Price:             model.Price,
+		StopPrice:         model.StopPrice,
+		Quantity:          model.Quantity,
+		FilledQuantity:    model.FilledQuantity,
+		RemainingQuantity: model.RemainingQuantity,
+		SequenceID:        model.SequenceID,
+		CreatedAt:         model.CreatedAt,
+		UpdatedAt:         model.UpdatedAt,
+	}
+}
+
+func activeOrderToModel(item order.Order) ExchangeActiveOrder {
+	return ExchangeActiveOrder{
+		ID:                string(item.ID),
+		ClientOrderID:     string(item.ClientOrderID),
+		ReservationID:     strings.TrimSpace(item.ReservationID),
+		UserID:            item.UserID,
+		Market:            item.Market,
+		BaseAsset:         item.BaseAsset,
+		QuoteAsset:        item.QuoteAsset,
+		Side:              string(item.Side),
+		Type:              string(item.Type),
+		Status:            string(item.Status),
+		TimeInForce:       string(item.TimeInForce),
+		Price:             item.Price,
+		StopPrice:         zeroIfEmpty(item.StopPrice),
+		Quantity:          item.Quantity,
+		FilledQuantity:    zeroIfEmpty(item.FilledQuantity),
+		RemainingQuantity: item.RemainingQuantity,
+		SequenceID:        item.SequenceID,
+		CreatedAt:         item.CreatedAt,
+		UpdatedAt:         item.UpdatedAt,
+	}
+}
+
+func activeModelToOrder(model ExchangeActiveOrder) order.Order {
+	return order.Order{
+		ID:                order.ID(model.ID),
+		ClientOrderID:     order.ClientOrderID(model.ClientOrderID),
+		ReservationID:     model.ReservationID,
 		UserID:            model.UserID,
 		Market:            model.Market,
 		BaseAsset:         model.BaseAsset,
@@ -807,6 +1229,14 @@ func modelsToOrders(models []ExchangeOrder) []order.Order {
 	out := make([]order.Order, 0, len(models))
 	for _, model := range models {
 		out = append(out, modelToOrder(model))
+	}
+	return out
+}
+
+func activeModelsToOrders(models []ExchangeActiveOrder) []order.Order {
+	out := make([]order.Order, 0, len(models))
+	for _, model := range models {
+		out = append(out, activeModelToOrder(model))
 	}
 	return out
 }
@@ -1062,20 +1492,80 @@ func (r *ExchangeRepository) balanceForUpdate(ctx context.Context, userID string
 
 func (r *ExchangeRepository) createBalanceEvent(ctx context.Context, item balance.Event) error {
 	model := ExchangeBalanceEvent{
-		ID:           string(item.ID),
-		UserID:       item.UserID,
-		Asset:        strings.ToUpper(strings.TrimSpace(item.Asset)),
-		Type:         string(item.Type),
-		Amount:       item.Amount,
-		OrderID:      item.OrderID,
-		TradeID:      item.TradeID,
-		WithdrawalID: item.WithdrawalID,
-		CreatedAt:    item.CreatedAt,
+		ID:            string(item.ID),
+		UserID:        item.UserID,
+		Asset:         strings.ToUpper(strings.TrimSpace(item.Asset)),
+		Type:          string(item.Type),
+		Amount:        item.Amount,
+		OrderID:       item.OrderID,
+		ReservationID: item.ReservationID,
+		TradeID:       item.TradeID,
+		WithdrawalID:  item.WithdrawalID,
+		CreatedAt:     item.CreatedAt,
 	}
 	return r.db.WithContext(ctx).Create(&model).Error
 }
 
 func (r *ExchangeRepository) settleTrade(ctx context.Context, item trade.Trade, maker order.Order, taker order.Order) error {
+	plan, err := settlementForTrade(item, maker, taker)
+	if err != nil {
+		return err
+	}
+
+	if err := r.debitLocked(ctx, plan.Buyer.UserID, item.QuoteAsset, plan.BuyerLockedQuote, balance.Event{
+		ID:            balance.EventID(""),
+		UserID:        plan.Buyer.UserID,
+		Asset:         item.QuoteAsset,
+		Type:          balance.EventDebitLocked,
+		Amount:        plan.BuyerLockedQuote,
+		OrderID:       string(plan.Buyer.ID),
+		ReservationID: reservationIDForOrder(plan.Buyer),
+		TradeID:       string(item.ID),
+		CreatedAt:     item.CreatedAt,
+	}); err != nil {
+		return err
+	}
+	if err := r.consumeReservation(ctx, reservationIDForOrder(plan.Buyer), item.QuoteQuantity); err != nil {
+		return err
+	}
+	if decimal.Cmp(plan.BuyerQuoteRelease, "0") > 0 {
+		if err := r.addAvailableBalanceWithReservation(ctx, plan.Buyer.UserID, item.QuoteAsset, plan.BuyerQuoteRelease, balance.EventRelease, string(plan.Buyer.ID), reservationIDForOrder(plan.Buyer), string(item.ID), item.CreatedAt); err != nil {
+			return err
+		}
+		if err := r.releaseReservation(ctx, reservationIDForOrder(plan.Buyer), plan.BuyerQuoteRelease); err != nil {
+			return err
+		}
+	}
+	if err := r.addAvailableBalance(ctx, plan.Buyer.UserID, item.BaseAsset, item.Quantity, balance.EventSettlementReceive, string(plan.Buyer.ID), string(item.ID), item.CreatedAt); err != nil {
+		return err
+	}
+	if err := r.debitLocked(ctx, plan.Seller.UserID, item.BaseAsset, item.Quantity, balance.Event{
+		ID:            balance.EventID(""),
+		UserID:        plan.Seller.UserID,
+		Asset:         item.BaseAsset,
+		Type:          balance.EventDebitLocked,
+		Amount:        item.Quantity,
+		OrderID:       string(plan.Seller.ID),
+		ReservationID: reservationIDForOrder(plan.Seller),
+		TradeID:       string(item.ID),
+		CreatedAt:     item.CreatedAt,
+	}); err != nil {
+		return err
+	}
+	if err := r.consumeReservation(ctx, reservationIDForOrder(plan.Seller), item.Quantity); err != nil {
+		return err
+	}
+	return r.addAvailableBalance(ctx, plan.Seller.UserID, item.QuoteAsset, item.QuoteQuantity, balance.EventSettlementReceive, string(plan.Seller.ID), string(item.ID), item.CreatedAt)
+}
+
+type tradeSettlementPlan struct {
+	Buyer             order.Order
+	Seller            order.Order
+	BuyerLockedQuote  string
+	BuyerQuoteRelease string
+}
+
+func settlementForTrade(item trade.Trade, maker order.Order, taker order.Order) (tradeSettlementPlan, error) {
 	buyer := maker
 	seller := taker
 	if item.TakerSide == order.SideBuy {
@@ -1083,57 +1573,49 @@ func (r *ExchangeRepository) settleTrade(ctx context.Context, item trade.Trade, 
 		seller = maker
 	}
 
+	if buyer.ID == "" || seller.ID == "" {
+		return tradeSettlementPlan{}, fmt.Errorf("%w: buyer and seller orders are required", ErrInvalidSettlement)
+	}
+	if decimal.Cmp(item.Quantity, "0") <= 0 {
+		return tradeSettlementPlan{}, fmt.Errorf("%w: trade quantity must be positive", ErrInvalidSettlement)
+	}
+	if decimal.Cmp(item.QuoteQuantity, "0") <= 0 {
+		return tradeSettlementPlan{}, fmt.Errorf("%w: trade quote quantity must be positive", ErrInvalidSettlement)
+	}
+	if decimal.Cmp(buyer.Price, "0") <= 0 {
+		return tradeSettlementPlan{}, fmt.Errorf("%w: buyer price must be positive", ErrInvalidSettlement)
+	}
+
 	buyerLockedQuote := decimal.Mul(item.Quantity, buyer.Price)
-	buyerQuoteRelease := decimal.SubFloorZero(buyerLockedQuote, item.QuoteQuantity)
-	if err := r.debitLocked(ctx, buyer.UserID, item.QuoteAsset, buyerLockedQuote, balance.Event{
-		ID:        balance.EventID(""),
-		UserID:    buyer.UserID,
-		Asset:     item.QuoteAsset,
-		Type:      balance.EventDebitLocked,
-		Amount:    buyerLockedQuote,
-		OrderID:   string(buyer.ID),
-		TradeID:   string(item.ID),
-		CreatedAt: item.CreatedAt,
-	}); err != nil {
-		return err
+	if decimal.Cmp(buyerLockedQuote, "0") <= 0 {
+		return tradeSettlementPlan{}, fmt.Errorf("%w: buyer locked quote is below supported precision", ErrInvalidSettlement)
 	}
-	if decimal.Cmp(buyerQuoteRelease, "0") > 0 {
-		if err := r.addAvailableBalance(ctx, buyer.UserID, item.QuoteAsset, buyerQuoteRelease, balance.EventRelease, string(buyer.ID), string(item.ID), item.CreatedAt); err != nil {
-			return err
-		}
+	if decimal.Cmp(item.QuoteQuantity, buyerLockedQuote) > 0 {
+		return tradeSettlementPlan{}, fmt.Errorf("%w: trade quote quantity exceeds buyer locked quote", ErrInvalidSettlement)
 	}
-	if err := r.addAvailableBalance(ctx, buyer.UserID, item.BaseAsset, item.Quantity, balance.EventSettlementReceive, string(buyer.ID), string(item.ID), item.CreatedAt); err != nil {
-		return err
-	}
-	if err := r.debitLocked(ctx, seller.UserID, item.BaseAsset, item.Quantity, balance.Event{
-		ID:        balance.EventID(""),
-		UserID:    seller.UserID,
-		Asset:     item.BaseAsset,
-		Type:      balance.EventDebitLocked,
-		Amount:    item.Quantity,
-		OrderID:   string(seller.ID),
-		TradeID:   string(item.ID),
-		CreatedAt: item.CreatedAt,
-	}); err != nil {
-		return err
-	}
-	return r.addAvailableBalance(ctx, seller.UserID, item.QuoteAsset, item.QuoteQuantity, balance.EventSettlementReceive, string(seller.ID), string(item.ID), item.CreatedAt)
+	return tradeSettlementPlan{
+		Buyer:             buyer,
+		Seller:            seller,
+		BuyerLockedQuote:  buyerLockedQuote,
+		BuyerQuoteRelease: decimal.SubFloorZero(buyerLockedQuote, item.QuoteQuantity),
+	}, nil
 }
 
 func (r *ExchangeRepository) moveLockedToAvailable(ctx context.Context, userID string, asset string, amount string, event balance.Event) error {
 	if err := r.debitLocked(ctx, userID, asset, amount, balance.Event{
-		ID:        event.ID,
-		UserID:    userID,
-		Asset:     asset,
-		Type:      balance.EventRelease,
-		Amount:    amount,
-		OrderID:   event.OrderID,
-		TradeID:   event.TradeID,
-		CreatedAt: event.CreatedAt,
+		ID:            event.ID,
+		UserID:        userID,
+		Asset:         asset,
+		Type:          balance.EventRelease,
+		Amount:        amount,
+		OrderID:       event.OrderID,
+		ReservationID: event.ReservationID,
+		TradeID:       event.TradeID,
+		CreatedAt:     event.CreatedAt,
 	}); err != nil {
 		return err
 	}
-	return r.addAvailableBalance(ctx, userID, asset, amount, balance.EventRelease, event.OrderID, event.TradeID, event.CreatedAt)
+	return r.addAvailableBalanceWithReservation(ctx, userID, asset, amount, balance.EventRelease, event.OrderID, event.ReservationID, event.TradeID, event.CreatedAt)
 }
 
 func (r *ExchangeRepository) debitLocked(ctx context.Context, userID string, asset string, amount string, event balance.Event) error {
@@ -1158,6 +1640,10 @@ func (r *ExchangeRepository) debitLocked(ctx context.Context, userID string, ass
 }
 
 func (r *ExchangeRepository) addAvailableBalance(ctx context.Context, userID string, asset string, amount string, eventType balance.EventType, orderID string, tradeID string, createdAt time.Time) error {
+	return r.addAvailableBalanceWithReservation(ctx, userID, asset, amount, eventType, orderID, "", tradeID, createdAt)
+}
+
+func (r *ExchangeRepository) addAvailableBalanceWithReservation(ctx context.Context, userID string, asset string, amount string, eventType balance.EventType, orderID string, reservationID string, tradeID string, createdAt time.Time) error {
 	if createdAt.IsZero() {
 		createdAt = time.Now()
 	}
@@ -1171,14 +1657,15 @@ func (r *ExchangeRepository) addAvailableBalance(ctx context.Context, userID str
 		return err
 	}
 	return r.createBalanceEvent(ctx, balance.Event{
-		ID:        balance.EventID(idgen.New("bev")),
-		UserID:    userID,
-		Asset:     asset,
-		Type:      eventType,
-		Amount:    amount,
-		OrderID:   orderID,
-		TradeID:   tradeID,
-		CreatedAt: createdAt,
+		ID:            balance.EventID(idgen.New("bev")),
+		UserID:        userID,
+		Asset:         asset,
+		Type:          eventType,
+		Amount:        amount,
+		OrderID:       orderID,
+		ReservationID: reservationID,
+		TradeID:       tradeID,
+		CreatedAt:     createdAt,
 	})
 }
 
@@ -1187,6 +1674,16 @@ func orderReserveAssetAmount(item order.Order) (string, string) {
 		return item.QuoteAsset, decimal.Mul(item.Price, item.RemainingQuantity)
 	}
 	return item.BaseAsset, item.RemainingQuantity
+}
+
+func reservationIDForOrder(item order.Order) string {
+	if value := strings.TrimSpace(item.ReservationID); value != "" {
+		return value
+	}
+	if item.ID != "" {
+		return "res_" + string(item.ID)
+	}
+	return ""
 }
 
 func modelToPriceLevel(model ExchangePriceLevel) orderbook.PriceLevel {
@@ -1206,7 +1703,7 @@ func aggregateLevels(market string, side order.Side, orders []order.Order) []ord
 	byPrice := make(map[string]int)
 	levels := make([]orderbook.PriceLevel, 0)
 	for _, item := range orders {
-		if item.RemainingQuantity == "" || item.RemainingQuantity == "0" {
+		if item.Type == order.TypeMarket || !isOpenStatus(item.Status) || decimal.Cmp(item.RemainingQuantity, "0") <= 0 {
 			continue
 		}
 		idx, ok := byPrice[item.Price]

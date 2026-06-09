@@ -9,7 +9,9 @@ This repository stays a Go monorepo, but runtime entrypoints are now split so ea
 | API | `go run ./cmd/api` | REST API, auth, websocket hub, swap quotes, order intake |
 | Scanner | `go run ./cmd/scanner` | DEX pool scanning and price update notifications |
 | Matcher | `go run ./cmd/matcher` | Async order matching from `exchange_match_jobs` |
+| Marketdata | `go run ./cmd/marketdata` | Async candle/OHLC projection from durable trade rows |
 | Worker | `go run ./cmd/worker` | Durable outbox dispatch to delivery channels |
+| Reconcile | `go run ./cmd/reconcile` | Projection consistency checks for active orders and orderbook levels |
 | Migration job | `go run ./cmd/migrate` | GORM schema sync and backfills |
 | Executor | `go run ./cmd/executor` | Local all-in-one runtime for development |
 
@@ -29,6 +31,7 @@ Then start services with automatic migrations disabled:
 AUTO_MIGRATE=false go run ./cmd/api
 AUTO_MIGRATE=false SCANNER_INTERVAL=1s go run ./cmd/scanner
 AUTO_MIGRATE=false MATCHING_MODE=async go run ./cmd/matcher
+AUTO_MIGRATE=false go run ./cmd/marketdata
 AUTO_MIGRATE=false go run ./cmd/worker
 ```
 
@@ -79,6 +82,23 @@ OUTBOX_LOCK_TTL=5m
 ```
 
 API instances listen to `price_updates` and `exchange_updates` and forward payloads to websocket clients.
+
+Marketdata workers build `exchange_candles` asynchronously from durable `exchange_trades` rows. Matching no longer waits for candle updates; chart data is eventually consistent and rebuildable by resetting the `candles` row in `exchange_projection_offsets`.
+
+Useful marketdata settings:
+
+```bash
+MARKETDATA_BATCH_SIZE=1000
+MARKETDATA_POLL_INTERVAL=500ms
+MARKETDATA_WORKER_ID=marketdata-1
+```
+
+Run reconciliation as an operator command or scheduled job:
+
+```bash
+AUTO_MIGRATE=false go run ./cmd/reconcile
+RECONCILE_FAIL_ON_DRIFT=true AUTO_MIGRATE=false go run ./cmd/reconcile
+```
 
 ## Event Backends
 

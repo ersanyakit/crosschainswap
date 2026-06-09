@@ -29,7 +29,7 @@ export interface MarketPair {
 
 export type OrderType = 'LIMIT' | 'MARKET' | 'STOP_LIMIT';
 export type OrderSide = 'BUY' | 'SELL';
-export type OrderStatus = 'PENDING' | 'FILLED' | 'CANCELLED';
+export type OrderStatus = 'OPEN' | 'PENDING' | 'PARTIALLY_FILLED' | 'FILLED' | 'CANCELLED' | 'EXPIRED' | 'REJECTED';
 
 export interface Order {
   id: string;
@@ -39,6 +39,7 @@ export interface Order {
   price: number;
   amount: number;
   filled: number;
+  remaining: number;
   total: number;
   stopPrice?: number;
   status: OrderStatus;
@@ -59,6 +60,7 @@ export interface OrderBookLevel {
   price: number;
   amount: number;
   total: number;
+  cumulativeAmount: number;
   cumulativeTotal: number;
   depthPercent: number; // for bar representation
 }

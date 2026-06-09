@@ -63,13 +63,14 @@ const (
 )
 
 type Event struct {
-	ID           EventID   `json:"id"`
-	UserID       string    `json:"user_id"`
-	Asset        string    `json:"asset"`
-	Type         EventType `json:"type"`
-	Amount       string    `json:"amount"`
-	OrderID      string    `json:"order_id,omitempty"`
-	TradeID      string    `json:"trade_id,omitempty"`
-	WithdrawalID string    `json:"withdrawal_id,omitempty"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID            EventID   `json:"id"`
+	UserID        string    `json:"user_id"`
+	Asset         string    `json:"asset"`
+	Type          EventType `json:"type"`
+	Amount        string    `json:"amount"`
+	OrderID       string    `json:"order_id,omitempty"`
+	ReservationID string    `json:"reservation_id,omitempty"`
+	TradeID       string    `json:"trade_id,omitempty"`
+	WithdrawalID  string    `json:"withdrawal_id,omitempty"`
+	CreatedAt     time.Time `json:"created_at"`
 }

@@ -36,7 +36,10 @@ var (
 	ErrPriceBandExceeded  = errors.New("price band exceeded")
 )
 
-const UpdatesChannel = "exchange_updates"
+const (
+	UpdatesChannel         = "exchange_updates"
+	minPositiveMarketPrice = "0.000000000000000001"
+)
 
 type Service struct {
 	markets      market.Registry
@@ -65,7 +68,9 @@ type GatewayStaticAddress struct {
 }
 
 type PlaceRequest struct {
+	CommandID     string `json:"command_id"`
 	ClientOrderID string `json:"client_order_id"`
+	ReservationID string `json:"reservation_id"`
 	UserID        string `json:"user_id"`
 	Market        string `json:"market"`
 	Side          string `json:"side"`
@@ -171,6 +176,24 @@ type MatchResult struct {
 	Trades []trade.Trade `json:"trades"`
 }
 
+type bookDelta struct {
+	Market  string
+	Version uint64
+	Levels  []orderbook.PriceLevel
+}
+
+type matchEventPayload struct {
+	Taker  order.Order            `json:"taker"`
+	Makers []order.Order          `json:"makers"`
+	Trades []trade.Trade          `json:"trades"`
+	Levels []orderbook.PriceLevel `json:"levels,omitempty"`
+}
+
+type BookMatchPersistence struct {
+	Result     MatchResult
+	ReloadBook bool
+}
+
 type MarketSummary struct {
 	Symbol     string `json:"symbol"`
 	BaseAsset  string `json:"base_asset"`
@@ -207,13 +230,52 @@ func (s *Service) Place(ctx context.Context, req PlaceRequest) (*MatchResult, er
 	if err != nil {
 		return nil, err
 	}
+	commandID := orderCommandID(req, item)
+	commandPayload, commandPayloadHash, err := orderCommandPayload(item)
+	if err != nil {
+		return nil, err
+	}
 
 	result := &MatchResult{}
 	publishResults := make([]MatchResult, 0, 1)
+	bookDeltas := make([]bookDelta, 0, 1)
 	err = s.repo.Transaction(ctx, func(tx *postgres.ExchangeRepository) error {
+		commandExists := false
+		if commandID != "" {
+			existingCommand, err := tx.GetOrderCommandForUpdate(ctx, commandID)
+			if err == nil {
+				commandExists = true
+				if existingCommand.PayloadHash != commandPayloadHash {
+					return fmt.Errorf("%w: command_id payload conflict", ErrInvalidOrder)
+				}
+				if strings.TrimSpace(existingCommand.OrderID) != "" {
+					existing, err := tx.GetOrder(ctx, order.ID(existingCommand.OrderID))
+					if err == nil {
+						result.Order = *existing
+						return nil
+					}
+					if !errors.Is(err, gorm.ErrRecordNotFound) {
+						return err
+					}
+				}
+			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+		}
 		if item.ClientOrderID != "" {
 			existing, err := tx.FindOrderByClientID(ctx, item.UserID, item.ClientOrderID)
 			if err == nil {
+				if !sameOrderCommandPayload(*existing, item) {
+					return fmt.Errorf("%w: client_order_id payload conflict", ErrInvalidOrder)
+				}
+				if commandExists {
+					if err := tx.CompleteOrderCommand(ctx, commandID, string(existing.ID), "duplicate"); err != nil {
+						return err
+					}
+					if err := tx.ApplyOrderCommandLog(ctx, commandID, string(existing.ID)); err != nil {
+						return err
+					}
+				}
 				result.Order = *existing
 				return nil
 			}
@@ -221,7 +283,35 @@ func (s *Service) Place(ctx context.Context, req PlaceRequest) (*MatchResult, er
 				return err
 			}
 		}
+		if !commandExists {
+			if err := tx.CreateOrderCommand(ctx, postgres.OrderCommand{
+				ID:            commandID,
+				ClientOrderID: string(item.ClientOrderID),
+				UserID:        item.UserID,
+				Market:        item.Market,
+				Type:          postgres.OrderCommandTypeNewOrder,
+				PayloadHash:   commandPayloadHash,
+				Payload:       commandPayload,
+				Status:        postgres.OrderCommandStatusPending,
+			}); err != nil {
+				return err
+			}
+		}
+		if _, err := tx.AppendOrderCommandLog(ctx, postgres.OrderCommandLog{
+			CommandID:   commandID,
+			Market:      item.Market,
+			Type:        postgres.OrderCommandTypeNewOrder,
+			Key:         item.Market,
+			PayloadHash: commandPayloadHash,
+			Payload:     commandPayload,
+			Status:      postgres.OrderCommandLogStatusPending,
+		}); err != nil {
+			return err
+		}
 		if err := s.validatePriceBand(ctx, tx, item); err != nil {
+			return err
+		}
+		if err := s.validateStopPlacement(ctx, tx, item); err != nil {
 			return err
 		}
 		seq, err := tx.NextOrderSequence(ctx, item.Market)
@@ -244,21 +334,37 @@ func (s *Service) Place(ctx context.Context, req PlaceRequest) (*MatchResult, er
 			if err := tx.SaveOrder(ctx, item); err != nil {
 				return err
 			}
-			if err := tx.CreateMatchJob(ctx, item.ID, item.Market); err != nil {
+			if !commandLogMatchingEnabled() {
+				if err := tx.CreateMatchJob(ctx, item.ID, item.Market); err != nil {
+					return err
+				}
+			}
+			if err := tx.CompleteOrderCommand(ctx, commandID, string(item.ID), string(item.Status)); err != nil {
 				return err
+			}
+			if !commandLogMatchingEnabled() {
+				if err := tx.ApplyOrderCommandLog(ctx, commandID, string(item.ID)); err != nil {
+					return err
+				}
 			}
 			result.Order = item
 			publishResults = append(publishResults, MatchResult{Order: item})
 			return nil
 		}
 		if item.Status == order.StatusPendingStop {
+			if err := tx.CompleteOrderCommand(ctx, commandID, string(item.ID), string(item.Status)); err != nil {
+				return err
+			}
+			if err := tx.ApplyOrderCommandLog(ctx, commandID, string(item.ID)); err != nil {
+				return err
+			}
 			result.Order = item
 			publishResults = append(publishResults, MatchResult{Order: item})
 			return nil
 		}
 
 		levels := newLevelTracker()
-		updated, trades, err := s.match(ctx, tx, item, levels)
+		updated, makers, trades, err := s.match(ctx, tx, item, levels)
 		if err != nil {
 			return err
 		}
@@ -276,14 +382,22 @@ func (s *Service) Place(ctx context.Context, req PlaceRequest) (*MatchResult, er
 		if err := tx.CreateTrades(ctx, trades); err != nil {
 			return err
 		}
-		if err := tx.CreateOrderEvents(ctx, terminalEvents(updated, trades)); err != nil {
+		if err := tx.CreateOrderEvents(ctx, matchEvents(updated, makers, trades)); err != nil {
 			return err
 		}
 		activated, err := s.activateTriggeredStops(ctx, tx, updated.Market, lastTradePrice(trades), levels)
 		if err != nil {
 			return err
 		}
-		if err := tx.RefreshPriceLevels(ctx, levels.keys()); err != nil {
+		deltas, err := refreshBookProjection(ctx, tx, updated.Market, levels)
+		if err != nil {
+			return err
+		}
+		bookDeltas = append(bookDeltas, newBookDelta(updated.Market, updated.SequenceID, deltas))
+		if err := tx.CompleteOrderCommand(ctx, commandID, string(updated.ID), string(updated.Status)); err != nil {
+			return err
+		}
+		if err := tx.ApplyOrderCommandLog(ctx, commandID, string(updated.ID)); err != nil {
 			return err
 		}
 		result.Order = updated
@@ -298,6 +412,9 @@ func (s *Service) Place(ctx context.Context, req PlaceRequest) (*MatchResult, er
 	for _, publishResult := range publishResults {
 		s.publishOrderUpdate("exchange.order_accepted", publishResult.Order, publishResult.Trades)
 	}
+	for _, delta := range bookDeltas {
+		s.publishOrderBookDelta(delta)
+	}
 	return result, nil
 }
 
@@ -311,6 +428,8 @@ func (s *Service) Get(ctx context.Context, id order.ID) (*order.Order, error) {
 
 func (s *Service) Cancel(ctx context.Context, id order.ID, req CancelRequest) (*order.Order, error) {
 	var canceled order.Order
+	var delta bookDelta
+	mutated := false
 	err := s.repo.Transaction(ctx, func(tx *postgres.ExchangeRepository) error {
 		item, err := tx.GetOrderForUpdate(ctx, id)
 		if err != nil {
@@ -320,6 +439,10 @@ func (s *Service) Cancel(ctx context.Context, id order.ID, req CancelRequest) (*
 			return fmt.Errorf("%w: user mismatch", ErrInvalidOrder)
 		}
 		if !cancelable(item.Status) {
+			if cancelAlreadyTerminal(item.Status) {
+				canceled = *item
+				return nil
+			}
 			return fmt.Errorf("%w: %s", ErrOrderNotCancelable, item.Status)
 		}
 		release := *item
@@ -337,16 +460,22 @@ func (s *Service) Cancel(ctx context.Context, id order.ID, req CancelRequest) (*
 		}
 		levels := newLevelTracker()
 		levels.touch(*item)
-		if err := tx.RefreshPriceLevels(ctx, levels.keys()); err != nil {
+		deltas, err := refreshBookProjection(ctx, tx, item.Market, levels)
+		if err != nil {
 			return err
 		}
+		delta = newBookDelta(item.Market, item.SequenceID, deltas)
 		canceled = *item
+		mutated = true
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
-	s.publishOrderUpdate("exchange.order_canceled", canceled, nil)
+	if mutated {
+		s.publishOrderUpdate("exchange.order_canceled", canceled, nil)
+		s.publishOrderBookDelta(delta)
+	}
 	return &canceled, nil
 }
 
@@ -440,6 +569,7 @@ func (s *Service) TriggerStops(ctx context.Context, req TriggerRequest) ([]Match
 	}
 
 	results := make([]MatchResult, 0)
+	bookDeltas := make([]bookDelta, 0, 1)
 	err = s.repo.Transaction(ctx, func(tx *postgres.ExchangeRepository) error {
 		levels := newLevelTracker()
 		activated, err := s.activateTriggeredStops(ctx, tx, marketSymbol, decimal.String(lastPrice), levels)
@@ -447,7 +577,12 @@ func (s *Service) TriggerStops(ctx context.Context, req TriggerRequest) ([]Match
 			return err
 		}
 		results = activated
-		return tx.RefreshPriceLevels(ctx, levels.keys())
+		deltas, err := refreshBookProjection(ctx, tx, marketSymbol, levels)
+		if err != nil {
+			return err
+		}
+		bookDeltas = append(bookDeltas, newBookDelta(marketSymbol, maxResultSequence(results), deltas))
+		return nil
 	})
 	if err != nil {
 		return nil, err
@@ -455,12 +590,16 @@ func (s *Service) TriggerStops(ctx context.Context, req TriggerRequest) ([]Match
 	for _, result := range results {
 		s.publishOrderUpdate("exchange.order_updated", result.Order, result.Trades)
 	}
+	for _, delta := range bookDeltas {
+		s.publishOrderBookDelta(delta)
+	}
 	return results, nil
 }
 
 func (s *Service) MatchOrder(ctx context.Context, id order.ID) (*MatchResult, error) {
 	var result MatchResult
 	publishResults := make([]MatchResult, 0, 1)
+	bookDeltas := make([]bookDelta, 0, 1)
 	err := s.repo.Transaction(ctx, func(tx *postgres.ExchangeRepository) error {
 		item, err := tx.GetOrderForUpdate(ctx, id)
 		if err != nil {
@@ -477,7 +616,7 @@ func (s *Service) MatchOrder(ctx context.Context, id order.ID) (*MatchResult, er
 		}
 
 		levels := newLevelTracker()
-		updated, trades, err := s.match(ctx, tx, *item, levels)
+		updated, makers, trades, err := s.match(ctx, tx, *item, levels)
 		if err != nil {
 			return err
 		}
@@ -495,15 +634,106 @@ func (s *Service) MatchOrder(ctx context.Context, id order.ID) (*MatchResult, er
 		if err := tx.CreateTrades(ctx, trades); err != nil {
 			return err
 		}
-		if err := tx.CreateOrderEvents(ctx, terminalEvents(updated, trades)); err != nil {
+		if err := tx.CreateOrderEvents(ctx, matchEvents(updated, makers, trades)); err != nil {
 			return err
 		}
 		activated, err := s.activateTriggeredStops(ctx, tx, updated.Market, lastTradePrice(trades), levels)
 		if err != nil {
 			return err
 		}
-		if err := tx.RefreshPriceLevels(ctx, levels.keys()); err != nil {
+		deltas, err := refreshBookProjection(ctx, tx, updated.Market, levels)
+		if err != nil {
 			return err
+		}
+		bookDeltas = append(bookDeltas, newBookDelta(updated.Market, updated.SequenceID, deltas))
+		result.Order = updated
+		result.Trades = trades
+		publishResults = append(publishResults, MatchResult{Order: updated, Trades: trades})
+		publishResults = append(publishResults, activated...)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, publishResult := range publishResults {
+		s.publishOrderUpdate("exchange.order_updated", publishResult.Order, publishResult.Trades)
+	}
+	for _, delta := range bookDeltas {
+		s.publishOrderBookDelta(delta)
+	}
+	return &result, nil
+}
+
+func (s *Service) MatchOrderWithBook(ctx context.Context, id order.ID) (*MatchResult, error) {
+	return s.MatchOrderWithBookAtSequence(ctx, id, 0, false)
+}
+
+func (s *Service) MatchOrderWithBookAtSequence(ctx context.Context, id order.ID, sequence uint64, saveSnapshot bool) (*MatchResult, error) {
+	var result MatchResult
+	publishResults := make([]MatchResult, 0, 1)
+	bookDeltas := make([]bookDelta, 0, 1)
+	err := s.repo.Transaction(ctx, func(tx *postgres.ExchangeRepository) error {
+		item, err := tx.GetOrderForUpdate(ctx, id)
+		if err != nil {
+			return fmt.Errorf("%w: %s", ErrOrderNotFound, id)
+		}
+		switch item.Status {
+		case order.StatusPendingMatch:
+			item.Status = order.StatusOpen
+			item.UpdatedAt = time.Now()
+		case order.StatusOpen, order.StatusPartiallyFilled:
+		default:
+			result.Order = *item
+			return nil
+		}
+
+		levels := newLevelTracker()
+		updated, makers, trades, err := s.matchWithBook(ctx, tx, *item, levels)
+		if err != nil {
+			return err
+		}
+		for _, maker := range makers {
+			if err := tx.SaveOrder(ctx, maker); err != nil {
+				return err
+			}
+		}
+		if err := tx.SaveOrder(ctx, updated); err != nil {
+			return err
+		}
+		if err := tx.SettleTrades(ctx, trades); err != nil {
+			return err
+		}
+		if shouldReleaseUnfilled(updated) {
+			if err := tx.ReleaseOrderFunds(ctx, updated, balance.EventID(idgen.New("bev"))); err != nil {
+				return err
+			}
+		}
+		if err := tx.CreateTrades(ctx, trades); err != nil {
+			return err
+		}
+		if err := tx.CreateOrderEvents(ctx, matchEvents(updated, makers, trades)); err != nil {
+			return err
+		}
+		activated, err := s.activateTriggeredStops(ctx, tx, updated.Market, lastTradePrice(trades), levels)
+		if err != nil {
+			return err
+		}
+		deltas, err := refreshBookProjection(ctx, tx, updated.Market, levels)
+		if err != nil {
+			return err
+		}
+		if err := appendMatchEventLog(ctx, tx, sequence, updated, makers, trades, deltas); err != nil {
+			return err
+		}
+		bookDeltas = append(bookDeltas, newBookDelta(updated.Market, bookVersion(updated, sequence), deltas))
+		if saveSnapshot {
+			snapshot, err := s.captureMatcherSnapshot(ctx, tx, updated.Market, updated.BaseAsset, updated.QuoteAsset, sequence)
+			if err != nil {
+				return err
+			}
+			if err := tx.SaveMatcherSnapshot(ctx, snapshot); err != nil {
+				return err
+			}
 		}
 		result.Order = updated
 		result.Trades = trades
@@ -517,7 +747,95 @@ func (s *Service) MatchOrder(ctx context.Context, id order.ID) (*MatchResult, er
 	for _, publishResult := range publishResults {
 		s.publishOrderUpdate("exchange.order_updated", publishResult.Order, publishResult.Trades)
 	}
+	for _, delta := range bookDeltas {
+		s.publishOrderBookDelta(delta)
+	}
 	return &result, nil
+}
+
+func (s *Service) PersistBookMatchResult(ctx context.Context, matchResult matching.Result, sequence uint64, saveSnapshot bool) (*BookMatchPersistence, error) {
+	out := &BookMatchPersistence{}
+	publishResults := make([]MatchResult, 0, 1)
+	bookDeltas := make([]bookDelta, 0, 1)
+	err := s.repo.Transaction(ctx, func(tx *postgres.ExchangeRepository) error {
+		current, err := tx.GetOrderForUpdate(ctx, matchResult.Taker.ID)
+		if err != nil {
+			return fmt.Errorf("%w: %s", ErrOrderNotFound, matchResult.Taker.ID)
+		}
+		switch current.Status {
+		case order.StatusPendingMatch, order.StatusOpen, order.StatusPartiallyFilled:
+		default:
+			out.Result = MatchResult{Order: *current}
+			return nil
+		}
+
+		levels := newLevelTracker()
+		levels.touch(matchResult.Taker)
+		for _, maker := range matchResult.Makers {
+			if _, err := tx.GetOrderForUpdate(ctx, maker.ID); err != nil {
+				return fmt.Errorf("%w: maker %s", ErrOrderNotFound, maker.ID)
+			}
+			levels.touch(maker)
+			if err := tx.SaveOrder(ctx, maker); err != nil {
+				return err
+			}
+		}
+		if err := tx.SaveOrder(ctx, matchResult.Taker); err != nil {
+			return err
+		}
+		if err := tx.SettleTrades(ctx, matchResult.Trades); err != nil {
+			return err
+		}
+		if shouldReleaseUnfilled(matchResult.Taker) {
+			if err := tx.ReleaseOrderFunds(ctx, matchResult.Taker, balance.EventID(idgen.New("bev"))); err != nil {
+				return err
+			}
+		}
+		if err := tx.CreateTrades(ctx, matchResult.Trades); err != nil {
+			return err
+		}
+		if err := tx.CreateOrderEvents(ctx, matchEvents(matchResult.Taker, matchResult.Makers, matchResult.Trades)); err != nil {
+			return err
+		}
+		activated, err := s.activateTriggeredStops(ctx, tx, matchResult.Taker.Market, lastTradePrice(matchResult.Trades), levels)
+		if err != nil {
+			return err
+		}
+		if len(activated) > 0 {
+			out.ReloadBook = true
+		}
+		deltas, err := refreshBookProjection(ctx, tx, matchResult.Taker.Market, levels)
+		if err != nil {
+			return err
+		}
+		if err := appendMatchEventLog(ctx, tx, sequence, matchResult.Taker, matchResult.Makers, matchResult.Trades, deltas); err != nil {
+			return err
+		}
+		bookDeltas = append(bookDeltas, newBookDelta(matchResult.Taker.Market, bookVersion(matchResult.Taker, sequence), deltas))
+		if saveSnapshot {
+			snapshot, err := s.captureMatcherSnapshot(ctx, tx, matchResult.Taker.Market, matchResult.Taker.BaseAsset, matchResult.Taker.QuoteAsset, sequence)
+			if err != nil {
+				return err
+			}
+			if err := tx.SaveMatcherSnapshot(ctx, snapshot); err != nil {
+				return err
+			}
+		}
+		out.Result = MatchResult{Order: matchResult.Taker, Trades: matchResult.Trades}
+		publishResults = append(publishResults, out.Result)
+		publishResults = append(publishResults, activated...)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, publishResult := range publishResults {
+		s.publishOrderUpdate("exchange.order_updated", publishResult.Order, publishResult.Trades)
+	}
+	for _, delta := range bookDeltas {
+		s.publishOrderBookDelta(delta)
+	}
+	return out, nil
 }
 
 func (s *Service) Markets() []market.Market {
@@ -605,6 +923,11 @@ func (s *Service) buildOrder(req PlaceRequest) (order.Order, error) {
 	if err != nil {
 		return order.Order{}, err
 	}
+	priceString := decimal.String(price)
+	quantityString := decimal.String(quantity)
+	if decimal.Cmp(decimal.Mul(priceString, quantityString), "0") <= 0 {
+		return order.Order{}, fmt.Errorf("%w: notional is below supported precision", ErrInvalidOrder)
+	}
 	tif := normalizeOrderTimeInForce(orderType, req.TimeInForce)
 	if err := tif.Validate(); err != nil {
 		return order.Order{}, fmt.Errorf("%w: %s", ErrInvalidOrder, err)
@@ -630,6 +953,7 @@ func (s *Service) buildOrder(req PlaceRequest) (order.Order, error) {
 	return order.Order{
 		ID:                order.ID(idgen.New("ord")),
 		ClientOrderID:     order.ClientOrderID(clientOrderID),
+		ReservationID:     orderReservationID(req, strings.TrimSpace(req.UserID), clientOrderID),
 		UserID:            strings.TrimSpace(req.UserID),
 		Market:            marketSymbol,
 		BaseAsset:         m.BaseAsset,
@@ -638,41 +962,45 @@ func (s *Service) buildOrder(req PlaceRequest) (order.Order, error) {
 		Type:              orderType,
 		Status:            status,
 		TimeInForce:       tif,
-		Price:             decimal.String(price),
+		Price:             priceString,
 		StopPrice:         stopPrice,
-		Quantity:          decimal.String(quantity),
+		Quantity:          quantityString,
 		FilledQuantity:    "0",
-		RemainingQuantity: decimal.String(quantity),
+		RemainingQuantity: quantityString,
 		CreatedAt:         now,
 		UpdatedAt:         now,
 	}, nil
 }
 
-func (s *Service) match(ctx context.Context, tx *postgres.ExchangeRepository, taker order.Order, levels *levelTracker) (order.Order, []trade.Trade, error) {
+func (s *Service) match(ctx context.Context, tx *postgres.ExchangeRepository, taker order.Order, levels *levelTracker) (order.Order, []order.Order, []trade.Trade, error) {
 	makerSide := oppositeSide(taker.Side)
+	makers := make([]order.Order, 0)
 	trades := make([]trade.Trade, 0)
 	levels.touch(taker)
 	for decimal.Cmp(taker.RemainingQuantity, "0") > 0 {
-		candidates, err := tx.ListMatchCandidates(ctx, taker.Market, makerSide, taker.Price, taker.ID, taker.UserID, 500)
+		matchTaker := effectiveMatchTaker(taker)
+		candidates, err := tx.ListMatchCandidates(ctx, matchTaker.Market, makerSide, matchTaker.Price, matchTaker.ID, 500)
 		if err != nil {
-			return taker, nil, err
+			return taker, nil, nil, err
 		}
 		if len(candidates) == 0 {
 			break
 		}
 
 		matchedAny := false
-		result, err := matching.MatchLimit(taker, candidates, func() trade.ID {
+		result, err := matching.MatchLimit(matchTaker, candidates, func() trade.ID {
 			return trade.ID(idgen.New("trd"))
 		}, time.Now())
 		if err != nil {
-			return taker, nil, err
+			return taker, nil, nil, err
 		}
+		result.Taker.Price = taker.Price
 		for _, maker := range result.Makers {
 			levels.touch(maker)
 			if err := tx.SaveOrder(ctx, maker); err != nil {
-				return taker, nil, err
+				return taker, nil, nil, err
 			}
+			makers = append(makers, maker)
 		}
 		if len(result.Trades) > 0 {
 			trades = append(trades, result.Trades...)
@@ -690,7 +1018,44 @@ func (s *Service) match(ctx context.Context, tx *postgres.ExchangeRepository, ta
 		taker.Status = order.StatusOpen
 	}
 	levels.touch(taker)
-	return taker, trades, nil
+	return taker, makers, trades, nil
+}
+
+func (s *Service) matchWithBook(ctx context.Context, tx *postgres.ExchangeRepository, taker order.Order, levels *levelTracker) (order.Order, []order.Order, []trade.Trade, error) {
+	levels.touch(taker)
+	active, err := tx.ListActiveOrdersForUpdate(ctx, taker.Market, taker.ID, 0)
+	if err != nil {
+		return taker, nil, nil, err
+	}
+
+	book := matching.NewMarketBook(taker.Market, taker.BaseAsset, taker.QuoteAsset)
+	if err := book.Load(active); err != nil {
+		return taker, nil, nil, err
+	}
+	result, err := book.Apply(taker, func() trade.ID {
+		return trade.ID(idgen.New("trd"))
+	}, time.Now())
+	if err != nil {
+		return taker, nil, nil, err
+	}
+	result.Taker.Price = taker.Price
+	levels.touch(result.Taker)
+	for _, maker := range result.Makers {
+		levels.touch(maker)
+	}
+	return result.Taker, result.Makers, result.Trades, nil
+}
+
+func (s *Service) captureMatcherSnapshot(ctx context.Context, tx *postgres.ExchangeRepository, marketSymbol string, baseAsset string, quoteAsset string, sequence uint64) (matching.BookStateSnapshot, error) {
+	active, err := tx.ListActiveOrdersForUpdate(ctx, marketSymbol, "", 0)
+	if err != nil {
+		return matching.BookStateSnapshot{}, err
+	}
+	book := matching.NewMarketBook(marketSymbol, baseAsset, quoteAsset)
+	if err := book.Load(active); err != nil {
+		return matching.BookStateSnapshot{}, err
+	}
+	return book.CaptureState(sequence, time.Now()), nil
 }
 
 func (s *Service) activateTriggeredStops(ctx context.Context, tx *postgres.ExchangeRepository, marketSymbol string, lastPrice string, levels *levelTracker) ([]MatchResult, error) {
@@ -711,7 +1076,7 @@ func (s *Service) activateTriggeredStops(ctx context.Context, tx *postgres.Excha
 		}
 		item.Status = order.StatusOpen
 		item.UpdatedAt = time.Now()
-		updated, trades, err := s.match(ctx, tx, item, levels)
+		updated, makers, trades, err := s.match(ctx, tx, item, levels)
 		if err != nil {
 			return nil, err
 		}
@@ -724,7 +1089,7 @@ func (s *Service) activateTriggeredStops(ctx context.Context, tx *postgres.Excha
 		if err := tx.CreateTrades(ctx, trades); err != nil {
 			return nil, err
 		}
-		if err := tx.CreateOrderEvents(ctx, terminalEvents(updated, trades)); err != nil {
+		if err := tx.CreateOrderEvents(ctx, matchEvents(updated, makers, trades)); err != nil {
 			return nil, err
 		}
 		results = append(results, MatchResult{Order: updated, Trades: trades})
@@ -738,6 +1103,20 @@ func stopTriggered(item order.Order, lastPrice string) bool {
 		return decimal.Cmp(lastPrice, item.StopPrice) >= 0
 	case order.SideSell:
 		return decimal.Cmp(lastPrice, item.StopPrice) <= 0
+	default:
+		return false
+	}
+}
+
+func stopPriceValidForLastPrice(item order.Order, lastPrice string) bool {
+	if item.Type != order.TypeStopLimit || lastPrice == "" {
+		return true
+	}
+	switch item.Side {
+	case order.SideBuy:
+		return decimal.Cmp(item.StopPrice, lastPrice) > 0
+	case order.SideSell:
+		return decimal.Cmp(item.StopPrice, lastPrice) < 0
 	default:
 		return false
 	}
@@ -759,11 +1138,27 @@ func cancelable(status order.Status) bool {
 	}
 }
 
+func cancelAlreadyTerminal(status order.Status) bool {
+	switch status {
+	case order.StatusFilled, order.StatusCanceled, order.StatusExpired:
+		return true
+	default:
+		return false
+	}
+}
+
 func oppositeSide(side order.Side) order.Side {
 	if side == order.SideBuy {
 		return order.SideSell
 	}
 	return order.SideBuy
+}
+
+func effectiveMatchTaker(item order.Order) order.Order {
+	if item.Type == order.TypeMarket && item.Side == order.SideSell {
+		item.Price = minPositiveMarketPrice
+	}
+	return item
 }
 
 func knownStatus(status order.Status) bool {
@@ -791,7 +1186,16 @@ func shouldReleaseUnfilled(item order.Order) bool {
 }
 
 func asyncMatchingEnabled() bool {
-	return strings.EqualFold(strings.TrimSpace(os.Getenv("MATCHING_MODE")), "async")
+	mode := matchingMode()
+	return mode == "async" || mode == "command_log"
+}
+
+func commandLogMatchingEnabled() bool {
+	return matchingMode() == "command_log"
+}
+
+func matchingMode() string {
+	return strings.ToLower(strings.TrimSpace(os.Getenv("MATCHING_MODE")))
 }
 
 func (s *Service) requiredMarket(value string) (string, error) {
@@ -1450,6 +1854,76 @@ func normalizeMarket(value string) string {
 	return strings.ToUpper(strings.TrimSpace(value))
 }
 
+type newOrderCommandPayload struct {
+	CommandType   string `json:"command_type"`
+	ClientOrderID string `json:"client_order_id"`
+	ReservationID string `json:"reservation_id"`
+	UserID        string `json:"user_id"`
+	Market        string `json:"market"`
+	Side          string `json:"side"`
+	Type          string `json:"type"`
+	TimeInForce   string `json:"time_in_force"`
+	Price         string `json:"price"`
+	StopPrice     string `json:"stop_price"`
+	Quantity      string `json:"quantity"`
+}
+
+func orderCommandID(req PlaceRequest, item order.Order) string {
+	if value := strings.TrimSpace(req.CommandID); value != "" {
+		return value
+	}
+	return strings.TrimSpace(string(item.ClientOrderID))
+}
+
+func orderCommandPayload(item order.Order) (string, string, error) {
+	payload := newOrderCommandPayload{
+		CommandType:   postgres.OrderCommandTypeNewOrder,
+		ClientOrderID: string(item.ClientOrderID),
+		ReservationID: item.ReservationID,
+		UserID:        item.UserID,
+		Market:        item.Market,
+		Side:          string(item.Side),
+		Type:          string(item.Type),
+		TimeInForce:   string(item.TimeInForce),
+		Price:         decimal.Trim(item.Price),
+		StopPrice:     decimal.Trim(zeroIfEmptyString(item.StopPrice)),
+		Quantity:      decimal.Trim(item.Quantity),
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return "", "", err
+	}
+	sum := sha256.Sum256(raw)
+	return string(raw), hex.EncodeToString(sum[:]), nil
+}
+
+func sameOrderCommandPayload(existing order.Order, requested order.Order) bool {
+	return existing.UserID == requested.UserID &&
+		existing.ReservationID == requested.ReservationID &&
+		existing.Market == requested.Market &&
+		existing.Side == requested.Side &&
+		existing.Type == requested.Type &&
+		existing.TimeInForce == requested.TimeInForce &&
+		decimal.Cmp(existing.Price, requested.Price) == 0 &&
+		decimal.Cmp(zeroIfEmptyString(existing.StopPrice), zeroIfEmptyString(requested.StopPrice)) == 0 &&
+		decimal.Cmp(existing.Quantity, requested.Quantity) == 0
+}
+
+func orderReservationID(req PlaceRequest, userID string, clientOrderID string) string {
+	if value := strings.TrimSpace(req.ReservationID); value != "" {
+		return value
+	}
+	sum := sha256.Sum256([]byte(strings.TrimSpace(userID) + "|" + strings.TrimSpace(clientOrderID)))
+	return "res_" + hex.EncodeToString(sum[:12])
+}
+
+func zeroIfEmptyString(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return "0"
+	}
+	return value
+}
+
 func (s *Service) knownAsset(asset string) bool {
 	markets := s.markets.All()
 	if len(markets) == 0 {
@@ -1583,6 +2057,67 @@ func (t *levelTracker) keys() []postgres.PriceLevelKey {
 	return out
 }
 
+func refreshBookProjection(ctx context.Context, tx *postgres.ExchangeRepository, marketSymbol string, levels *levelTracker) ([]orderbook.PriceLevel, error) {
+	keys := levels.keys()
+	if err := tx.RefreshPriceLevels(ctx, keys); err != nil {
+		return nil, err
+	}
+	if err := tx.PruneStalePriceLevels(ctx, marketSymbol); err != nil {
+		return nil, err
+	}
+	return tx.PriceLevelDeltas(ctx, keys)
+}
+
+func newBookDelta(marketSymbol string, version uint64, levels []orderbook.PriceLevel) bookDelta {
+	return bookDelta{
+		Market:  marketSymbol,
+		Version: version,
+		Levels:  levels,
+	}
+}
+
+func bookVersion(item order.Order, sequence uint64) uint64 {
+	if sequence > 0 {
+		return sequence
+	}
+	return item.SequenceID
+}
+
+func maxResultSequence(results []MatchResult) uint64 {
+	var max uint64
+	for _, result := range results {
+		if result.Order.SequenceID > max {
+			max = result.Order.SequenceID
+		}
+	}
+	return max
+}
+
+func appendMatchEventLog(ctx context.Context, tx *postgres.ExchangeRepository, sequence uint64, taker order.Order, makers []order.Order, trades []trade.Trade, levels []orderbook.PriceLevel) error {
+	if sequence == 0 {
+		return nil
+	}
+	payload := matchEventPayload{
+		Taker:  taker,
+		Makers: makers,
+		Trades: trades,
+		Levels: levels,
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	sum := sha256.Sum256(raw)
+	_, err = tx.AppendMatchEventLog(ctx, postgres.MatchEventLog{
+		Market:      taker.Market,
+		SequenceID:  sequence,
+		Type:        postgres.MatchEventTypeResult,
+		PayloadHash: hex.EncodeToString(sum[:]),
+		Payload:     string(raw),
+	})
+	return err
+}
+
 func newOrderEvent(item order.Order, eventType order.EventType, refID string) order.Event {
 	return order.Event{
 		ID:        order.EventID(idgen.New("evt")),
@@ -1624,27 +2159,44 @@ func eventsForTrades(items []trade.Trade) []order.Event {
 	return events
 }
 
-func terminalEvents(item order.Order, trades []trade.Trade) []order.Event {
+func matchEvents(taker order.Order, makers []order.Order, trades []trade.Trade) []order.Event {
 	events := eventsForTrades(trades)
+	for _, maker := range makers {
+		if maker.Status == order.StatusFilled {
+			events = append(events, newOrderEvent(maker, order.EventOrderFilled, ""))
+		}
+	}
+	return append(events, terminalOrderEvents(taker)...)
+}
+
+func terminalEvents(item order.Order, trades []trade.Trade) []order.Event {
+	return append(eventsForTrades(trades), terminalOrderEvents(item)...)
+}
+
+func terminalOrderEvents(item order.Order) []order.Event {
 	switch item.Status {
 	case order.StatusFilled:
-		events = append(events, newOrderEvent(item, order.EventOrderFilled, ""))
+		return []order.Event{newOrderEvent(item, order.EventOrderFilled, "")}
 	case order.StatusExpired:
-		events = append(events, newOrderEvent(item, order.EventOrderExpired, ""))
+		return []order.Event{newOrderEvent(item, order.EventOrderExpired, "")}
+	default:
+		return nil
 	}
-	return events
 }
 
 type socketEvent struct {
-	Type       string              `json:"type"`
-	Market     string              `json:"market,omitempty"`
-	UserID     string              `json:"user_id,omitempty"`
-	Order      *order.Order        `json:"order,omitempty"`
-	Trades     []trade.Trade       `json:"trades,omitempty"`
-	Balance    *balance.Balance    `json:"balance,omitempty"`
-	Withdrawal *balance.Withdrawal `json:"withdrawal,omitempty"`
-	Wallet     *balance.Wallet     `json:"wallet,omitempty"`
-	CreatedAt  time.Time           `json:"created_at"`
+	Type       string                 `json:"type"`
+	Market     string                 `json:"market,omitempty"`
+	UserID     string                 `json:"user_id,omitempty"`
+	Version    uint64                 `json:"version,omitempty"`
+	Order      *order.Order           `json:"order,omitempty"`
+	Trades     []trade.Trade          `json:"trades,omitempty"`
+	Bids       []orderbook.PriceLevel `json:"bids,omitempty"`
+	Asks       []orderbook.PriceLevel `json:"asks,omitempty"`
+	Balance    *balance.Balance       `json:"balance,omitempty"`
+	Withdrawal *balance.Withdrawal    `json:"withdrawal,omitempty"`
+	Wallet     *balance.Wallet        `json:"wallet,omitempty"`
+	CreatedAt  time.Time              `json:"created_at"`
 }
 
 func (s *Service) publishOrderUpdate(eventType string, item order.Order, trades []trade.Trade) {
@@ -1677,6 +2229,31 @@ func (s *Service) publishOrderUpdate(eventType string, item order.Order, trades 
 	s.publishJSON(socketEvent{
 		Type:      "exchange.orderbook_updated",
 		Market:    item.Market,
+		Version:   item.SequenceID,
+		CreatedAt: time.Now(),
+	})
+}
+
+func (s *Service) publishOrderBookDelta(delta bookDelta) {
+	if s.publish == nil || strings.TrimSpace(delta.Market) == "" || len(delta.Levels) == 0 {
+		return
+	}
+	bids := make([]orderbook.PriceLevel, 0)
+	asks := make([]orderbook.PriceLevel, 0)
+	for _, level := range delta.Levels {
+		switch level.Side {
+		case order.SideBuy:
+			bids = append(bids, level)
+		case order.SideSell:
+			asks = append(asks, level)
+		}
+	}
+	s.publishJSON(socketEvent{
+		Type:      "exchange.orderbook_delta",
+		Market:    delta.Market,
+		Version:   delta.Version,
+		Bids:      bids,
+		Asks:      asks,
 		CreatedAt: time.Now(),
 	})
 }
@@ -1881,6 +2458,30 @@ func (s *Service) validatePriceBand(ctx context.Context, tx *postgres.ExchangeRe
 		return fmt.Errorf("%w: price %s is outside %s-%s", ErrPriceBandExceeded, item.Price, decimal.String(min), decimal.String(max))
 	}
 	return nil
+}
+
+func (s *Service) validateStopPlacement(ctx context.Context, tx *postgres.ExchangeRepository, item order.Order) error {
+	if item.Type != order.TypeStopLimit {
+		return nil
+	}
+	last, err := tx.LastTrade(ctx, item.Market)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		return err
+	}
+	if stopPriceValidForLastPrice(item, last.Price) {
+		return nil
+	}
+	switch item.Side {
+	case order.SideBuy:
+		return fmt.Errorf("%w: buy stop_price must be above last_price", ErrInvalidOrder)
+	case order.SideSell:
+		return fmt.Errorf("%w: sell stop_price must be below last_price", ErrInvalidOrder)
+	default:
+		return fmt.Errorf("%w: stop side is invalid", ErrInvalidOrder)
+	}
 }
 
 func defaultPriceBandBps() int64 {

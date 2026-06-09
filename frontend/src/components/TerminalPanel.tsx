@@ -153,7 +153,7 @@ export default function TerminalPanel({
         
         {/* VIEW 1: OPEN ORDERS */}
         {activeTab === 'OPEN_ORDERS' && (
-          <div className="min-w-[650px] p-2">
+          <div className="min-w-[820px] p-2">
             {openOrders.length === 0 ? (
               <div className="h-44 flex flex-col items-center justify-center text-gray-400 italic font-mono gap-1">
                 <CheckCircle className="w-5 h-5 text-gray-300" />
@@ -170,6 +170,8 @@ export default function TerminalPanel({
                     <th className="text-right">Price</th>
                     <th className="text-right">Amount</th>
                     <th className="text-right">Filled</th>
+                    <th className="text-right">Remaining</th>
+                    <th className="text-right">Status</th>
                     <th className="text-right">Total</th>
                     <th className="text-center">Action</th>
                   </tr>
@@ -190,6 +192,12 @@ export default function TerminalPanel({
                       <td className="text-right font-medium">{formatPrice(ord.price)}</td>
                       <td className="text-right">{formatQuantity(ord.amount)}</td>
                       <td className="text-right text-gray-500">{formatQuantity(ord.filled)}</td>
+                      <td className="text-right font-semibold text-gray-800 dark:text-gray-200">{formatQuantity(ord.remaining)}</td>
+                      <td className="text-right">
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${orderStatusClass(ord.status)}`}>
+                          {orderStatusLabel(ord.status)}
+                        </span>
+                      </td>
                       <td className="text-right font-semibold text-gray-800 dark:text-gray-200">
                         {ord.total.toLocaleString(undefined, {minimumFractionDigits: 2})} {ord.symbol.split('/')[1] || 'USDC'}
                       </td>
@@ -211,7 +219,7 @@ export default function TerminalPanel({
 
         {/* VIEW 2: ORDER HISTORY */}
         {activeTab === 'ORDER_HISTORY' && (
-          <div className="min-w-[650px] p-2">
+          <div className="min-w-[860px] p-2">
             {orderHistory.length === 0 ? (
               <div className="h-44 flex flex-col items-center justify-center text-gray-400 italic font-mono gap-1">
                 No archived order logs.
@@ -226,6 +234,8 @@ export default function TerminalPanel({
                     <th>Type</th>
                     <th className="text-right">Price</th>
                     <th className="text-right">Amount</th>
+                    <th className="text-right">Filled</th>
+                    <th className="text-right">Remaining</th>
                     <th className="text-right">Total</th>
                     <th className="text-right pr-2">Status</th>
                   </tr>
@@ -245,12 +255,12 @@ export default function TerminalPanel({
                       <td className="text-gray-500">{ord.type}</td>
                       <td className="text-right">{formatPrice(ord.price)}</td>
                       <td className="text-right">{formatQuantity(ord.amount)}</td>
+                      <td className="text-right text-gray-500">{formatQuantity(ord.filled)}</td>
+                      <td className="text-right text-gray-500">{formatQuantity(ord.remaining)}</td>
                       <td className="text-right font-medium">{ord.total.toFixed(2)} {ord.symbol.split('/')[1] || 'USDC'}</td>
                       <td className="text-right pr-2">
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                          ord.status === 'FILLED' ? 'text-trade-green bg-[#10b981]/10' : 'text-gray-400 bg-gray-100 dark:bg-slate-800'
-                        }`}>
-                          {ord.status}
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${orderStatusClass(ord.status)}`}>
+                          {orderStatusLabel(ord.status)}
                         </span>
                       </td>
                     </tr>
@@ -293,11 +303,11 @@ export default function TerminalPanel({
                         </span>
                       </td>
                       <td className="text-right font-medium text-gray-900 dark:text-gray-100">
-                        {formatPrice(tr.price)}
+                        {formatPrice(tr.price, 8, 8)}
                       </td>
-                      <td className="text-right">{formatQuantity(tr.amount)}</td>
+                      <td className="text-right">{formatQuantity(tr.amount, 8)}</td>
                       <td className="text-right font-bold pr-2 text-accent-1">
-                        {tr.total.toLocaleString(undefined, {minimumFractionDigits: 2})} {tr.symbol.split('/')[1] || 'USDC'}
+                        {formatFixedDecimals(tr.total, 8)} {tr.symbol.split('/')[1] || 'USDC'}
                       </td>
                     </tr>
                   ))}
@@ -338,13 +348,13 @@ export default function TerminalPanel({
                         </span>
                       </td>
                       <td className={`text-right font-semibold ${trade.side === 'BUY' ? 'text-trade-green' : 'text-trade-red'}`}>
-                        {formatPrice(trade.price)}
+                        {formatPrice(trade.price, 8, 8)}
                       </td>
                       <td className="text-right text-gray-700 dark:text-gray-300">
-                        {formatQuantity(trade.amount)}
+                        {formatQuantity(trade.amount, 8)}
                       </td>
                       <td className="text-right pr-2 font-semibold text-gray-800 dark:text-gray-100">
-                        {trade.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}
+                        {formatFixedDecimals(trade.total, 8)}
                       </td>
                     </tr>
                   ))}
@@ -546,6 +556,36 @@ function AddressMetric({ label, value }: { label: string; value: string }) {
   );
 }
 
+function orderStatusLabel(status: Order['status']): string {
+  switch (status) {
+    case 'PARTIALLY_FILLED':
+      return 'PARTIAL';
+    case 'CANCELLED':
+      return 'CANCELED';
+    default:
+      return status;
+  }
+}
+
+function orderStatusClass(status: Order['status']): string {
+  switch (status) {
+    case 'OPEN':
+      return 'text-sky-600 bg-sky-500/10 dark:text-sky-300';
+    case 'PENDING':
+      return 'text-amber-600 bg-amber-500/10 dark:text-amber-300';
+    case 'PARTIALLY_FILLED':
+      return 'text-accent-1 bg-accent-1/10';
+    case 'FILLED':
+      return 'text-trade-green bg-[#10b981]/10';
+    case 'REJECTED':
+      return 'text-trade-red bg-trade-red/10';
+    case 'EXPIRED':
+    case 'CANCELLED':
+    default:
+      return 'text-gray-500 bg-gray-100 dark:bg-slate-800 dark:text-gray-300';
+  }
+}
+
 function formatVenue(value: string): string {
   return value.replace(/[_-]/g, ' ');
 }
@@ -599,6 +639,14 @@ function formatNumber(value: number, maximumFractionDigits = 6): string {
     return trimDecimal(value.toFixed(12));
   }
   return value.toLocaleString(undefined, { maximumFractionDigits });
+}
+
+function formatFixedDecimals(value: number, fractionDigits: number): string {
+  if (!Number.isFinite(value)) return Number(0).toFixed(fractionDigits);
+  return value.toLocaleString(undefined, {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  });
 }
 
 function trimDecimal(value: string): string {

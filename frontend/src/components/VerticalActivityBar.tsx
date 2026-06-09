@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { TrendingUp, Coins, Briefcase, FileCode2, Wallet, Terminal, Settings, RefreshCw, LogIn, LogOut, User } from 'lucide-react';
+import { TrendingUp, Coins, Briefcase, Wallet, Terminal, Settings, RefreshCw, LogIn, LogOut, User } from 'lucide-react';
 import { BRAND_INITIAL } from '../constants/brand';
 
 interface VerticalActivityBarProps {
@@ -47,7 +47,6 @@ export default function VerticalActivityBar({
     { id: 'PORTFOLIO', label: 'Portfolio Analytics', icon: Briefcase },
     { id: 'ORDERS', label: 'Orders Ledger', icon: Coins, badge: openOrdersCount > 0 ? openOrdersCount : undefined },
     { id: 'WALLET', label: 'Secured Wallet', icon: Wallet },
-    { id: 'STRATEGY_LAB', label: 'Dev Strategy Lab', icon: FileCode2 },
   ];
 
   return (

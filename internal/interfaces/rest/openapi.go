@@ -450,7 +450,9 @@ const openAPISpec = `{
         "type": "object",
         "required": ["client_order_id", "user_id", "market", "side", "price", "quantity"],
         "properties": {
+          "command_id": { "type": "string", "example": "cmd-1", "description": "Optional durable command idempotency key. Defaults to client_order_id when omitted." },
           "client_order_id": { "type": "string", "example": "client-1" },
+          "reservation_id": { "type": "string", "example": "res-1", "description": "Optional wallet reservation id. Generated deterministically from user_id and client_order_id when omitted." },
           "user_id": { "type": "string", "example": "user-a" },
           "market": { "type": "string", "example": "PEPPER/USD" },
           "side": { "type": "string", "enum": ["buy", "sell"] },

@@ -471,7 +471,7 @@ export default function PortfolioView({
                 className="w-full py-2.5 bg-accent-1 hover:bg-accent-1-hovered text-white text-[11px] font-mono font-bold rounded cursor-pointer transition-all uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
               >
                 {isSubmitting && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-                {actionType === 'DEPOSIT' ? 'Get Gateway Deposit Address' : 'Publish Hardware Withdrawal'}
+                {actionType === 'DEPOSIT' ? 'Get Deposit Address' : 'Submit Withdrawal'}
               </button>
           </form>
 

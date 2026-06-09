@@ -134,6 +134,9 @@ func Migrate(db *gorm.DB) error {
 		if err := backfillOrderSequences(tx); err != nil {
 			return fmt.Errorf("failed to backfill order sequences: %w", err)
 		}
+		if err := ensureExchangeOrderIndexes(tx); err != nil {
+			return fmt.Errorf("failed to ensure exchange order indexes: %w", err)
+		}
 		return nil
 	}); err != nil {
 		return err
@@ -153,7 +156,7 @@ func withMigrationLock(db *gorm.DB, fn func(*gorm.DB) error) error {
 }
 
 func autoMigrateWithRetry(db *gorm.DB) error {
-	models := []any{&Pool{}, &ExchangeOrder{}, &ExchangeOrderSequence{}, &ExchangeTrade{}, &ExchangeCandle{}, &ExchangeOrderEvent{}, &ExchangeWallet{}, &ExchangeBalance{}, &ExchangeBalanceEvent{}, &ExchangeWithdrawal{}, &ExchangePriceLevel{}, &ExchangeMarket{}, &ExchangeMatchJob{}, &ExchangeOutboxEvent{}, &ServiceLease{}}
+	models := []any{&Pool{}, &ExchangeOrder{}, &ExchangeActiveOrder{}, &ExchangeOrderSequence{}, &ExchangeOrderCommandSequence{}, &ExchangeTrade{}, &ExchangeCandle{}, &ExchangeOrderEvent{}, &ExchangeWallet{}, &ExchangeBalance{}, &ExchangeBalanceEvent{}, &ExchangeReservation{}, &ExchangeWithdrawal{}, &ExchangePriceLevel{}, &ExchangeMarket{}, &ExchangeMatchJob{}, &ExchangeOrderCommand{}, &ExchangeOrderCommandLog{}, &ExchangeMatcherSnapshot{}, &ExchangeMatchEventLog{}, &ExchangeProjectionOffset{}, &ExchangeOutboxEvent{}, &ServiceLease{}}
 	var err error
 	for attempt := 0; attempt < 3; attempt++ {
 		err = db.AutoMigrate(models...)
@@ -187,6 +190,35 @@ func autoMigrateEnabled() bool {
 	default:
 		return true
 	}
+}
+
+func ensureExchangeOrderIndexes(db *gorm.DB) error {
+	statements := []string{
+		`DROP INDEX IF EXISTS idx_orders_book`,
+		`CREATE INDEX IF NOT EXISTS idx_exchange_orders_active_bids
+			ON exchange_orders (market, price DESC, sequence_id)
+			WHERE side = 'buy'
+			  AND status IN ('open', 'partially_filled')
+			  AND remaining_quantity > 0
+			  AND type <> 'market'`,
+		`CREATE INDEX IF NOT EXISTS idx_exchange_orders_active_asks
+			ON exchange_orders (market, price ASC, sequence_id)
+			WHERE side = 'sell'
+			  AND status IN ('open', 'partially_filled')
+			  AND remaining_quantity > 0
+			  AND type <> 'market'`,
+		`CREATE INDEX IF NOT EXISTS idx_exchange_orders_user_active
+			ON exchange_orders (user_id, market, created_at DESC)
+			WHERE status IN ('open', 'partially_filled')
+			  AND remaining_quantity > 0
+			  AND type <> 'market'`,
+	}
+	for _, statement := range statements {
+		if err := db.Exec(statement).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func SyncExchangeMarkets(db *gorm.DB, markets []market.Market) error {
@@ -284,6 +316,9 @@ func backfillOrderSequences(db *gorm.DB) error {
 			if err := db.Save(&seq).Error; err != nil {
 				return err
 			}
+		}
+		if err := repo.RebuildActiveOrders(context.Background(), marketSymbol); err != nil {
+			return err
 		}
 		if err := repo.RebuildPriceLevels(context.Background(), marketSymbol); err != nil {
 			return err
