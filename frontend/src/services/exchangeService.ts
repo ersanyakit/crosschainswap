@@ -192,8 +192,21 @@ export const exchangeConfig = {
 export async function healthCheck(): Promise<boolean> {
   const response = await fetch(`${exchangeConfig.apiBaseURL}/health`, {
     credentials: 'include',
+    cache: 'no-store',
   });
   return response.ok;
+}
+
+export async function measureAPILatency(): Promise<number> {
+  const startedAt = performance.now();
+  const response = await fetch(`${exchangeConfig.apiBaseURL}/health?ts=${Date.now()}`, {
+    credentials: 'include',
+    cache: 'no-store',
+  });
+  if (!response.ok) {
+    throw new Error(`Exchange API error ${response.status}`);
+  }
+  return Math.max(1, Math.round(performance.now() - startedAt));
 }
 
 export async function listMarkets(): Promise<MarketPair[]> {

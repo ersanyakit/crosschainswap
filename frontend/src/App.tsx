@@ -44,8 +44,8 @@ import {
   fetchOrderBook,
   fetchUserOrders,
   fetchUserTrades,
-  healthCheck,
   listMarkets,
+  measureAPILatency,
   openExchangeSocket,
   openPriceSocket,
   placeOrder as placeExchangeOrder,
@@ -399,16 +399,16 @@ export default function App() {
     let cancelled = false;
 
     const refreshExchangeSnapshot = async () => {
-      const requestStartedAt = performance.now();
       setDexPricesLoading(true);
       setDexPricesError(null);
       try {
-        const healthy = await healthCheck();
-        if (!healthy) {
-          throw new Error('Exchange API health check failed');
-        }
+        const latencyPromise = measureAPILatency().catch(() => null);
         const remoteMarkets = await listMarkets();
         if (cancelled) return;
+        const nextLatency = await latencyPromise;
+        if (!cancelled && nextLatency !== null) {
+          setLatency(nextLatency);
+        }
 
         if (remoteMarkets.length === 0) {
           setMarkets([]);
@@ -422,7 +422,6 @@ export default function App() {
           setBalancesError(null);
           setConnectionStatus('connected');
           setExchangeMode('live');
-          setLatency(Math.max(1, Math.round(performance.now() - requestStartedAt)));
           setExchangeMessage(`REST/WS bound to ${exchangeConfig.apiBaseURL}; no markets returned`);
           exchangeModeRef.current = 'live';
           return;
@@ -477,15 +476,6 @@ export default function App() {
         if (candlesResult.status === 'fulfilled') {
           const nextCandles = candlesResult.value;
           setCandles(nextCandles);
-          if (nextCandles.length > 0) {
-            const lastCandle = nextCandles[nextCandles.length - 1];
-            setMarkets(prev => prev.map(m => m.symbol === activeSymbol ? {
-              ...m,
-              lastPrice: lastCandle.close,
-              high24h: Math.max(m.high24h, lastCandle.high),
-              low24h: Math.min(m.low24h, lastCandle.low),
-            } : m));
-          }
         } else {
           setCandles([]);
         }
@@ -522,7 +512,6 @@ export default function App() {
 
         setConnectionStatus('connected');
         setExchangeMode('live');
-        setLatency(Math.max(1, Math.round(performance.now() - requestStartedAt)));
         setExchangeMessage(`REST/WS bound to ${exchangeConfig.apiBaseURL}`);
         if (exchangeModeRef.current !== 'live') {
           appendLog('Exchange service connected. Limit order protocol is now REST/WS authoritative.', 'WEBSOCKET', 'SUCCESS');
@@ -568,13 +557,37 @@ export default function App() {
     const socket = openExchangeSocket((event) => {
       if (event?.market && event.market !== selectedPairSymbol) return;
       const eventType = typeof event?.type === 'string' ? event.type : '';
-      if (eventType === 'exchange.orderbook_updated') {
-        refreshOrderBookSnapshot(event.market || selectedPairSymbol, 80);
-        if (scheduleProtocolRefresh(1200)) {
-          appendLog(`Order book invalidated for ${event.market || selectedPairSymbol}. Pulling fresh depth snapshot.`, 'WEBSOCKET', 'INFO');
+      if (eventType === 'exchange.orderbook_delta') {
+        const targetMarket = event.market || selectedPairSymbol;
+        const currentBook = orderBookCacheRef.current.get(targetMarket) ?? emptyOrderBook(targetMarket);
+        const nextOrderBook = applyOrderBookDelta(currentBook, event);
+        orderBookCacheRef.current.set(targetMarket, nextOrderBook);
+        if (targetMarket === selectedPairSymbol) {
+          setActiveOrderBook(nextOrderBook);
         }
+      } else if (eventType === 'exchange.orderbook_updated') {
+        refreshOrderBookSnapshot(event.market || selectedPairSymbol, 220);
       } else if (eventType.startsWith('exchange.order_') || eventType === 'exchange.trades_created') {
-        if (scheduleProtocolRefresh(250)) {
+        const socketOrder = orderFromSocketEvent(event);
+        const socketTrades = tradesFromSocketEvent(event);
+
+        if (socketOrder && socketEventBelongsToUser(event, activeUserID)) {
+          if (isActiveOrder(socketOrder)) {
+            setOpenOrders(prev => [socketOrder, ...prev.filter(order => order.id !== socketOrder.id)]);
+            setOrderHistory(prev => prev.filter(order => order.id !== socketOrder.id));
+          } else {
+            setOpenOrders(prev => prev.filter(order => order.id !== socketOrder.id));
+            setOrderHistory(prev => insertOrReplaceOrder(prev, socketOrder));
+          }
+        }
+        if (socketTrades.length > 0) {
+          setRecentTrades(prev => mergeTrades(socketTrades, prev));
+          if (socketEventBelongsToUser(event, activeUserID)) {
+            setTradeHistory(prev => mergeTrades(socketTrades, prev));
+          }
+          setMarkets(prev => applyMarketTrades(prev, socketTrades));
+        }
+        if (scheduleProtocolRefresh(900)) {
           appendLog(`Protocol event received: ${eventType}`, 'ORDER', 'INFO');
         }
       } else if (eventType === 'exchange.deposit_pending' || eventType === 'exchange.deposit_settled') {
@@ -684,7 +697,7 @@ export default function App() {
         setTradeHistory(prev => mergeTrades(result.trades, prev));
         setRecentTrades(prev => mergeTrades(result.trades, prev));
       }
-      setProtocolRevision(rev => rev + 1);
+      scheduleProtocolRefresh(900);
       appendLog(`Exchange accepted ${result.order.id}: ${result.order.status} ${formatProtocolDecimal(result.order.filled)}/${formatProtocolDecimal(result.order.amount)}.`, 'ORDER', 'SUCCESS');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'unknown protocol error';
@@ -708,7 +721,7 @@ export default function App() {
       const cancelled = await cancelExchangeOrder(id, activeUserID);
       setOpenOrders(prev => prev.filter(o => o.id !== id));
       setOrderHistory(prev => [cancelled, ...prev.filter(o => o.id !== id)]);
-      setProtocolRevision(rev => rev + 1);
+      scheduleProtocolRefresh(900);
       appendLog(`Cancelled exchange order ${id}. Backend released reserved funds.`, 'ORDER', 'WARNING');
     } catch (err) {
       appendLog(`Cancel rejected by exchange: ${err instanceof Error ? err.message : 'unknown protocol error'}`, 'ORDER', 'ERROR');
@@ -790,7 +803,7 @@ export default function App() {
         setBalances(refreshedBalances);
         setBalancesError(null);
       }
-      setProtocolRevision(rev => rev + 1);
+      scheduleProtocolRefresh(900);
       const txId = withdrawal.id || `W-${Date.now()}`;
       setWalletTransactions(prev => [{ id: txId, type: 'WITHDRAW', asset, chainKey, amount, time: new Date() }, ...prev]);
       appendLog(`Gateway withdrawal requested. -${amount} ${asset} on ${chainKey} to ${address}.`, 'SYSTEM', 'WARNING');
@@ -1549,8 +1562,33 @@ function mergeTrades(incoming: Trade[], current: Trade[]): Trade[] {
   return sortTradesDesc(Array.from(byID.values())).slice(0, 120);
 }
 
+function insertOrReplaceOrder(current: Order[], incoming: Order): Order[] {
+  const next = [incoming, ...current.filter(order => order.id !== incoming.id)];
+  next.sort((left, right) => right.timestamp.getTime() - left.timestamp.getTime());
+  return next.slice(0, 120);
+}
+
 function sortTradesDesc(trades: Trade[]): Trade[] {
   return [...trades].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+}
+
+function applyMarketTrades(current: MarketPair[], trades: Trade[]): MarketPair[] {
+  if (trades.length === 0) return current;
+  const latestTradeByMarket = new Map<string, Trade>();
+  trades.forEach((trade) => {
+    const existing = latestTradeByMarket.get(trade.symbol);
+    if (!existing || trade.timestamp.getTime() > existing.timestamp.getTime()) {
+      latestTradeByMarket.set(trade.symbol, trade);
+    }
+  });
+  return current.map((market) => {
+    const latestTrade = latestTradeByMarket.get(market.symbol);
+    if (!latestTrade) return market;
+    return {
+      ...market,
+      lastPrice: latestTrade.price,
+    };
+  });
 }
 
 function assetMetadataBySymbol(assets: AssetInfo[]): Record<string, AssetInfo> {
@@ -1611,6 +1649,96 @@ function socketEventBelongsToUser(event: unknown, activeUserID: string): boolean
   return eventUserID === '' || eventUserID === activeUserID;
 }
 
+function orderFromSocketEvent(event: unknown): Order | null {
+  if (!isUnknownRecord(event)) return null;
+  const rawOrder = event.order || event.Order;
+  if (!isUnknownRecord(rawOrder)) return null;
+
+  const id = stringValue(rawOrder, ['id', 'ID']);
+  const symbol = stringValue(rawOrder, ['market', 'symbol', 'Market', 'Symbol']);
+  const side = stringValue(rawOrder, ['side', 'Side']).toUpperCase();
+  const type = stringValue(rawOrder, ['type', 'Type']).toUpperCase();
+  const status = stringValue(rawOrder, ['status', 'Status']).toUpperCase();
+  const price = numericValue(rawOrder, ['price', 'Price']);
+  const amount = numericValue(rawOrder, ['quantity', 'Quantity']);
+  const filled = numericValue(rawOrder, ['filled_quantity', 'filled', 'FilledQuantity']);
+  const remaining = numericValue(rawOrder, ['remaining_quantity', 'remaining', 'RemainingQuantity']);
+  if (!id || !symbol || !side || !type || !status) {
+    return null;
+  }
+
+  return {
+    id,
+    symbol,
+    side: side as OrderSide,
+    type: type === 'STOP_LIMIT' ? 'STOP_LIMIT' : (type as OrderType),
+    price,
+    amount,
+    filled,
+    remaining,
+    total: price * amount,
+    stopPrice: numericValue(rawOrder, ['stop_price', 'stopPrice', 'StopPrice']) || undefined,
+    status: mapSocketOrderStatus(status),
+    timestamp: socketEventTime(rawOrder),
+  };
+}
+
+function tradesFromSocketEvent(event: unknown): Trade[] {
+  if (!isUnknownRecord(event) || !Array.isArray(event.trades)) {
+    return [];
+  }
+  return event.trades.flatMap((item) => {
+    if (!isUnknownRecord(item)) return [];
+    const id = stringValue(item, ['id', 'ID']);
+    const symbol = stringValue(item, ['market', 'symbol', 'Market', 'Symbol']);
+    const side = stringValue(item, ['taker_side', 'side', 'Side']).toUpperCase();
+    const price = numericValue(item, ['price', 'Price']);
+    const amount = numericValue(item, ['quantity', 'amount', 'Quantity']);
+    const total = numericValue(item, ['quote_quantity', 'total', 'QuoteQuantity']) || (price * amount);
+    if (!id || !symbol || !side) {
+      return [];
+    }
+    return [{
+      id,
+      symbol,
+      side: side as OrderSide,
+      price,
+      amount,
+      total,
+      timestamp: socketEventTime(item),
+    }];
+  });
+}
+
+function mapSocketOrderStatus(status: string): Order['status'] {
+  switch (status.toLowerCase()) {
+    case 'open':
+      return 'OPEN';
+    case 'pending_match':
+    case 'pending_stop':
+      return 'PENDING';
+    case 'partially_filled':
+      return 'PARTIALLY_FILLED';
+    case 'filled':
+      return 'FILLED';
+    case 'canceled':
+      return 'CANCELLED';
+    case 'expired':
+      return 'EXPIRED';
+    case 'rejected':
+      return 'REJECTED';
+    default:
+      return 'PENDING';
+  }
+}
+
+function socketEventTime(record: Record<string, unknown>): Date {
+  const value = stringValue(record, ['created_at', 'createdAt', 'timestamp', 'Timestamp']);
+  if (!value) return new Date();
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+
 function balanceFromSocketEvent(event: unknown): AssetBalance | null {
   if (!isUnknownRecord(event)) return null;
   const rawBalance = event.balance || event.Balance;
@@ -1649,6 +1777,74 @@ function upsertBalance(current: AssetBalance[], incoming: AssetBalance): AssetBa
   }
 
   return current.map(item => item.asset.toUpperCase() === asset ? next : item);
+}
+
+function applyOrderBookDelta(current: OrderBook, event: unknown): OrderBook {
+  if (!isUnknownRecord(event)) return current;
+  const market = stringValue(event, ['market', 'Market']) || current.market;
+  const bids = mergeOrderBookSide(current.bids, Array.isArray(event.bids) ? event.bids : [], 'bid');
+  const asks = mergeOrderBookSide(current.asks, Array.isArray(event.asks) ? event.asks : [], 'ask');
+  const bestBid = bids[0]?.price || 0;
+  const bestAsk = asks[0]?.price || 0;
+  const spread = bestBid > 0 && bestAsk > 0 ? bestAsk - bestBid : 0;
+  const spreadPercent = bestAsk > 0 ? (spread / bestAsk) * 100 : 0;
+  return {
+    market,
+    bids,
+    asks,
+    spread,
+    spreadPercent,
+  };
+}
+
+function mergeOrderBookSide(current: OrderBook['bids'], deltas: unknown[], side: 'bid' | 'ask'): OrderBook['bids'] {
+  const byPrice = new Map<string, { price: number; amount: number }>();
+  current.forEach((level) => {
+    byPrice.set(orderBookPriceKey(level.price), { price: level.price, amount: level.amount });
+  });
+  deltas.forEach((item) => {
+    if (!isUnknownRecord(item)) return;
+    const price = numericValue(item, ['price', 'Price']);
+    const amount = numericValue(item, ['quantity', 'amount', 'Quantity']);
+    const key = orderBookPriceKey(price);
+    if (!Number.isFinite(price) || price <= 0) return;
+    if (!Number.isFinite(amount) || amount < ACTIVE_ORDER_REMAINING_EPSILON) {
+      byPrice.delete(key);
+      return;
+    }
+    byPrice.set(key, { price, amount });
+  });
+
+  const levels = Array.from(byPrice.values())
+    .sort((left, right) => side === 'bid' ? right.price - left.price : left.price - right.price)
+    .map(({ price, amount }) => ({
+      price,
+      amount,
+      total: price * amount,
+      cumulativeAmount: 0,
+      cumulativeTotal: 0,
+      depthPercent: 0,
+    }));
+
+  let cumulativeAmount = 0;
+  let cumulativeTotal = 0;
+  levels.forEach((level) => {
+    cumulativeAmount += level.amount;
+    cumulativeTotal += level.total;
+    level.cumulativeAmount = cumulativeAmount;
+    level.cumulativeTotal = cumulativeTotal;
+  });
+
+  const maxTotal = levels[levels.length - 1]?.cumulativeTotal || 1;
+  levels.forEach((level) => {
+    level.depthPercent = (level.cumulativeTotal / maxTotal) * 100;
+  });
+
+  return levels;
+}
+
+function orderBookPriceKey(price: number): string {
+  return Number.isFinite(price) ? price.toFixed(8) : '0.00000000';
 }
 
 function isUnknownRecord(value: unknown): value is Record<string, unknown> {

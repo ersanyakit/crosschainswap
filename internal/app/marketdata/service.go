@@ -100,6 +100,9 @@ func processMarketCandles(ctx context.Context, repo *postgres.ExchangeRepository
 		if err := tx.UpdateCandles(ctx, trades); err != nil {
 			return err
 		}
+		if err := tx.RefreshExchangeMarketStats(ctx, marketSymbol); err != nil {
+			return err
+		}
 		last := trades[len(trades)-1]
 		_, err := tx.AdvanceProjectionOffset(ctx, postgres.ProjectionOffset{
 			Projection:   candleProjectionName,

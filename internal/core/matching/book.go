@@ -119,6 +119,7 @@ func (b *MarketBook) Apply(taker order.Order, newTradeID TradeIDFactory, now tim
 			return Result{}, fmt.Errorf("%w: quote quantity is below supported precision", ErrInvalidMatch)
 		}
 
+		tradeTime := now.Add(time.Duration(len(result.Trades)) * time.Microsecond)
 		item := trade.Trade{
 			ID:            newTradeID(),
 			Market:        result.Taker.Market,
@@ -132,7 +133,7 @@ func (b *MarketBook) Apply(taker order.Order, newTradeID TradeIDFactory, now tim
 			Price:         maker.Price,
 			Quantity:      qty,
 			QuoteQuantity: quoteQuantity,
-			CreatedAt:     now,
+			CreatedAt:     tradeTime,
 		}
 		result.Trades = append(result.Trades, item)
 

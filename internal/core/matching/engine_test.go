@@ -47,6 +47,9 @@ func TestMatchLimitRespectsPriceTimePriority(t *testing.T) {
 	if result.Trades[1].MakerOrderID != "m2" || result.Trades[1].Price != "10" || result.Trades[1].Quantity != "2" {
 		t.Fatalf("unexpected second trade: %#v", result.Trades[1])
 	}
+	if !result.Trades[0].CreatedAt.Equal(now) || !result.Trades[1].CreatedAt.Equal(now.Add(time.Microsecond)) {
+		t.Fatalf("trade timestamps must preserve match order: %#v", result.Trades)
+	}
 	if result.Taker.Status != order.StatusFilled || result.Taker.RemainingQuantity != "0" {
 		t.Fatalf("unexpected taker result: %#v", result.Taker)
 	}

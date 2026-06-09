@@ -21,6 +21,11 @@ func TestCandleWorkerBuildsCandlesFromTradesIntegration(t *testing.T) {
 	marketSymbol := "MDATA/USD"
 	cleanupMarketDataIntegration(t, db, marketSymbol)
 	defer cleanupMarketDataIntegration(t, db, marketSymbol)
+	if err := storage.SyncExchangeMarkets(db, []market.Market{
+		{Symbol: marketSymbol, BaseAsset: "MDATA", QuoteAsset: "USD", Enabled: true},
+	}); err != nil {
+		t.Fatalf("sync exchange market failed: %v", err)
+	}
 
 	baseTime := time.Date(2026, 6, 9, 9, 0, 5, 0, time.UTC)
 	trades := []trade.Trade{
@@ -102,6 +107,17 @@ func TestCandleWorkerBuildsCandlesFromTradesIntegration(t *testing.T) {
 	if offset.LastSequence != 2 || offset.LastEventID != "trd_mdata_2" || !offset.LastEventAt.Equal(trades[1].CreatedAt) {
 		t.Fatalf("unexpected candle projection offset: %#v", offset)
 	}
+	var marketRow storage.ExchangeMarket
+	if err := db.First(&marketRow, "symbol = ?", marketSymbol).Error; err != nil {
+		t.Fatalf("load exchange market row failed: %v", err)
+	}
+	if decimal.Cmp(marketRow.LastPrice, "12") != 0 ||
+		decimal.Cmp(marketRow.Change24h, "20") != 0 ||
+		decimal.Cmp(marketRow.High24h, "12") != 0 ||
+		decimal.Cmp(marketRow.Low24h, "10") != 0 ||
+		decimal.Cmp(marketRow.Volume24h, "5") != 0 {
+		t.Fatalf("unexpected exchange market ticker stats: %#v", marketRow)
+	}
 
 	processed, err = RunOnce(context.Background(), repo, market.NewRegistry([]market.Market{
 		{Symbol: marketSymbol, BaseAsset: "MDATA", QuoteAsset: "USD", Enabled: true},
@@ -139,5 +155,8 @@ func cleanupMarketDataIntegration(t *testing.T, db *gorm.DB, marketSymbol string
 		if err := db.Where("market = ?", marketSymbol).Delete(model).Error; err != nil {
 			t.Fatalf("cleanup %T failed: %v", model, err)
 		}
+	}
+	if err := db.Where("symbol = ?", marketSymbol).Delete(&storage.ExchangeMarket{}).Error; err != nil {
+		t.Fatalf("cleanup exchange market failed: %v", err)
 	}
 }

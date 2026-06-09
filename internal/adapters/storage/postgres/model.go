@@ -198,6 +198,11 @@ type ExchangeMarket struct {
 	QuoteAsset string    `gorm:"index;type:varchar(64);not null"`
 	ChainKeys  string    `gorm:"type:text;not null;default:''"`
 	Enabled    bool      `gorm:"index;default:true;not null"`
+	LastPrice  string    `gorm:"column:last_price;type:numeric(78,18);not null;default:0"`
+	Change24h  string    `gorm:"column:change_24h;type:numeric(78,18);not null;default:0"`
+	High24h    string    `gorm:"column:high_24h;type:numeric(78,18);not null;default:0"`
+	Low24h     string    `gorm:"column:low_24h;type:numeric(78,18);not null;default:0"`
+	Volume24h  string    `gorm:"column:volume_24h;type:numeric(78,18);not null;default:0"`
 	CreatedAt  time.Time `gorm:"default:current_timestamp"`
 	UpdatedAt  time.Time `gorm:"default:current_timestamp"`
 }

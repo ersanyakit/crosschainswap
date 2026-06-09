@@ -230,6 +230,11 @@ func SyncExchangeMarkets(db *gorm.DB, markets []market.Market) error {
 			QuoteAsset: item.QuoteAsset,
 			ChainKeys:  "",
 			Enabled:    item.Enabled,
+			LastPrice:  "0",
+			Change24h:  "0",
+			High24h:    "0",
+			Low24h:     "0",
+			Volume24h:  "0",
 			UpdatedAt:  now,
 		}
 
@@ -240,6 +245,11 @@ func SyncExchangeMarkets(db *gorm.DB, markets []market.Market) error {
 		}
 		if result.RowsAffected > 0 {
 			model.CreatedAt = existing.CreatedAt
+			model.LastPrice = statsValue(existing.LastPrice)
+			model.Change24h = statsValue(existing.Change24h)
+			model.High24h = statsValue(existing.High24h)
+			model.Low24h = statsValue(existing.Low24h)
+			model.Volume24h = statsValue(existing.Volume24h)
 		} else {
 			model.CreatedAt = now
 		}

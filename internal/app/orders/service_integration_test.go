@@ -276,6 +276,135 @@ func TestLimitBuyAmountSweepsAsksAndRestsRemainderIntegration(t *testing.T) {
 	assertReservationState(t, repo, buy.Order.ReservationID, storage.ReservationStatusActive, "3")
 }
 
+func TestRealTradingOrderBookLifecycleIntegration(t *testing.T) {
+	repo, db := integrationRepository(t)
+	base, marketSymbol := integrationMarket("TRTL")
+	buyer := integrationUser(t, "buyer")
+	seller := integrationUser(t, "seller")
+	svc := integrationOrderService(repo, marketSymbol, base)
+	cleanupIntegrationMarket(t, db, marketSymbol, buyer, seller)
+	defer cleanupIntegrationMarket(t, db, marketSymbol, buyer, seller)
+
+	fundUser(t, repo, buyer, "USD", "1000")
+	fundUser(t, repo, seller, base, "1000")
+
+	askA := placeIntegrationOrder(t, svc, seller, marketSymbol, order.SideSell, order.TypeLimit, "1.01", "100")
+	askB := placeIntegrationOrder(t, svc, seller, marketSymbol, order.SideSell, order.TypeLimit, "1.02", "150")
+	askC := placeIntegrationOrder(t, svc, seller, marketSymbol, order.SideSell, order.TypeLimit, "1.03", "200")
+	bidA := placeIntegrationOrder(t, svc, buyer, marketSymbol, order.SideBuy, order.TypeLimit, "0.99", "100")
+	bidB := placeIntegrationOrder(t, svc, buyer, marketSymbol, order.SideBuy, order.TypeLimit, "0.98", "200")
+
+	assertBookSide(t, svc, marketSymbol, order.SideSell, []priceLevelWant{
+		{Price: "1.01", Quantity: "100", OrderCount: 1},
+		{Price: "1.02", Quantity: "150", OrderCount: 1},
+		{Price: "1.03", Quantity: "200", OrderCount: 1},
+	})
+	assertBookSide(t, svc, marketSymbol, order.SideBuy, []priceLevelWant{
+		{Price: "0.99", Quantity: "100", OrderCount: 1},
+		{Price: "0.98", Quantity: "200", OrderCount: 1},
+	})
+	assertBalance(t, db, buyer, "USD", "705", "295", "0")
+	assertBalance(t, db, seller, base, "550", "450", "0")
+
+	takerBuy := placeIntegrationOrder(t, svc, buyer, marketSymbol, order.SideBuy, order.TypeLimit, "1.02", "250")
+	assertOrderState(t, repo, askA.Order.ID, order.StatusFilled, "0")
+	assertOrderState(t, repo, askB.Order.ID, order.StatusFilled, "0")
+	assertOrderState(t, repo, askC.Order.ID, order.StatusOpen, "200")
+	assertOrderState(t, repo, takerBuy.Order.ID, order.StatusFilled, "0")
+	assertBookSide(t, svc, marketSymbol, order.SideSell, []priceLevelWant{{Price: "1.03", Quantity: "200", OrderCount: 1}})
+	assertBookSide(t, svc, marketSymbol, order.SideBuy, []priceLevelWant{
+		{Price: "0.99", Quantity: "100", OrderCount: 1},
+		{Price: "0.98", Quantity: "200", OrderCount: 1},
+	})
+	assertOpenOrders(t, repo, marketSymbol, order.SideSell, []order.ID{askC.Order.ID})
+	assertOpenOrders(t, repo, marketSymbol, order.SideBuy, []order.ID{bidA.Order.ID, bidB.Order.ID})
+	assertTradeCount(t, repo, marketSymbol, 2)
+	assertBalance(t, db, buyer, "USD", "451", "295", "0")
+	assertBalance(t, db, buyer, base, "250", "0", "0")
+	assertBalance(t, db, seller, "USD", "254", "0", "0")
+	assertBalance(t, db, seller, base, "550", "200", "0")
+	assertNoNegativeBalances(t, db, buyer, seller)
+
+	takerSell := placeIntegrationOrder(t, svc, seller, marketSymbol, order.SideSell, order.TypeLimit, "0.98", "250")
+	assertOrderState(t, repo, bidA.Order.ID, order.StatusFilled, "0")
+	assertOrderState(t, repo, bidB.Order.ID, order.StatusPartiallyFilled, "50")
+	assertOrderState(t, repo, takerSell.Order.ID, order.StatusFilled, "0")
+	assertBookSide(t, svc, marketSymbol, order.SideSell, []priceLevelWant{{Price: "1.03", Quantity: "200", OrderCount: 1}})
+	assertBookSide(t, svc, marketSymbol, order.SideBuy, []priceLevelWant{{Price: "0.98", Quantity: "50", OrderCount: 1}})
+	assertTradeCount(t, repo, marketSymbol, 4)
+	assertBalance(t, db, buyer, "USD", "451", "49", "0")
+	assertBalance(t, db, buyer, base, "500", "0", "0")
+	assertBalance(t, db, seller, "USD", "500", "0", "0")
+	assertBalance(t, db, seller, base, "300", "200", "0")
+	assertNoNegativeBalances(t, db, buyer, seller)
+
+	canceledBid, err := svc.Cancel(context.Background(), bidB.Order.ID, CancelRequest{UserID: buyer})
+	if err != nil {
+		t.Fatalf("cancel remaining bid failed: %v", err)
+	}
+	if canceledBid.Status != order.StatusCanceled {
+		t.Fatalf("remaining bid cancel status = %s, want canceled", canceledBid.Status)
+	}
+	canceledAsk, err := svc.Cancel(context.Background(), askC.Order.ID, CancelRequest{UserID: seller})
+	if err != nil {
+		t.Fatalf("cancel remaining ask failed: %v", err)
+	}
+	if canceledAsk.Status != order.StatusCanceled {
+		t.Fatalf("remaining ask cancel status = %s, want canceled", canceledAsk.Status)
+	}
+
+	assertBookSide(t, svc, marketSymbol, order.SideSell, nil)
+	assertBookSide(t, svc, marketSymbol, order.SideBuy, nil)
+	assertOpenOrders(t, repo, marketSymbol, order.SideSell, nil)
+	assertOpenOrders(t, repo, marketSymbol, order.SideBuy, nil)
+	assertBalance(t, db, buyer, "USD", "500", "0", "0")
+	assertBalance(t, db, buyer, base, "500", "0", "0")
+	assertBalance(t, db, seller, "USD", "500", "0", "0")
+	assertBalance(t, db, seller, base, "500", "0", "0")
+	assertNoNegativeBalances(t, db, buyer, seller)
+}
+
+func TestMarketSummariesReadTickerFromExchangeMarketTableIntegration(t *testing.T) {
+	repo, db := integrationRepository(t)
+	base, marketSymbol := integrationMarket("TMKT")
+	svc := integrationOrderService(repo, marketSymbol, base)
+	if err := storage.SyncExchangeMarkets(db, []market.Market{
+		{Symbol: marketSymbol, BaseAsset: base, QuoteAsset: "USD", Enabled: true},
+	}); err != nil {
+		t.Fatalf("sync exchange market failed: %v", err)
+	}
+	defer func() {
+		if err := db.Where("symbol = ?", marketSymbol).Delete(&storage.ExchangeMarket{}).Error; err != nil {
+			t.Fatalf("cleanup exchange market failed: %v", err)
+		}
+	}()
+	if err := repo.UpdateExchangeMarketStats(context.Background(), marketSymbol, storage.ExchangeMarketStats{
+		LastPrice: "1.23456789",
+		Change24h: "12.5",
+		High24h:   "1.3",
+		Low24h:    "1.1",
+		Volume24h: "987.654321",
+	}); err != nil {
+		t.Fatalf("update market stats failed: %v", err)
+	}
+
+	summaries, err := svc.MarketSummaries(context.Background())
+	if err != nil {
+		t.Fatalf("market summaries failed: %v", err)
+	}
+	if len(summaries) != 1 {
+		t.Fatalf("summaries = %#v, want one market", summaries)
+	}
+	got := summaries[0]
+	if decimal.Cmp(got.LastPrice, "1.23456789") != 0 ||
+		decimal.Cmp(got.Change24h, "12.5") != 0 ||
+		decimal.Cmp(got.High24h, "1.3") != 0 ||
+		decimal.Cmp(got.Low24h, "1.1") != 0 ||
+		decimal.Cmp(got.Volume24h, "987.654321") != 0 {
+		t.Fatalf("summary did not use exchange market ticker fields: %#v", got)
+	}
+}
+
 func TestRebuildPriceLevelsAggregatesAllBookableOrders(t *testing.T) {
 	repo, db := integrationRepository(t)
 	base, marketSymbol := integrationMarket("TRLB")
@@ -846,6 +975,17 @@ func assertLockedBalance(t *testing.T, db *gorm.DB, userID string, asset string,
 	}
 	if decimal.Cmp(item.Locked, want) != 0 {
 		t.Fatalf("locked balance %s/%s = %s, want %s: %#v", userID, asset, item.Locked, want, item)
+	}
+}
+
+func assertBalance(t *testing.T, db *gorm.DB, userID string, asset string, available string, locked string, pending string) {
+	t.Helper()
+	var item storage.ExchangeBalance
+	if err := db.Where(&storage.ExchangeBalance{UserID: userID, Asset: asset}).First(&item).Error; err != nil {
+		t.Fatalf("get balance %s/%s failed: %v", userID, asset, err)
+	}
+	if decimal.Cmp(item.Available, available) != 0 || decimal.Cmp(item.Locked, locked) != 0 || decimal.Cmp(item.Pending, pending) != 0 {
+		t.Fatalf("balance %s/%s = available %s locked %s pending %s, want %s/%s/%s: %#v", userID, asset, item.Available, item.Locked, item.Pending, available, locked, pending, item)
 	}
 }
 

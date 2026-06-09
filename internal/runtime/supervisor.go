@@ -14,6 +14,7 @@ import (
 
 	"exchange/internal/adapters/storage/postgres"
 	"exchange/internal/app/apiruntime"
+	appmarketdata "exchange/internal/app/marketdata"
 	appmatcher "exchange/internal/app/matcher"
 	"exchange/internal/app/poolscanner"
 	appworker "exchange/internal/app/worker"
@@ -70,6 +71,7 @@ func RunAllWithOptions(processName string, opts Options) error {
 		{Name: "api", Run: apiruntime.Run},
 		{Name: "indexer", Interval: 10 * time.Second, RunOnce: heartbeat("indexer")},
 		{Name: "matcher", Run: appmatcher.Run},
+		{Name: "marketdata", Run: appmarketdata.Run},
 		{Name: "executor", Interval: 3 * time.Second, RunOnce: heartbeat("executor")},
 		{Name: "settler", Interval: 5 * time.Second, RunOnce: heartbeat("settler")},
 		{Name: "scheduler", Interval: 15 * time.Second, RunOnce: heartbeat("scheduler")},

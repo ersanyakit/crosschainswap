@@ -844,9 +844,20 @@ func (s *Service) Markets() []market.Market {
 
 func (s *Service) MarketSummaries(ctx context.Context) ([]MarketSummary, error) {
 	markets := s.markets.All()
+	marketRows := make(map[string]postgres.ExchangeMarket)
+	if s.repo != nil {
+		rows, err := s.repo.ListExchangeMarkets(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			marketRows[row.Symbol] = row
+		}
+	}
 	out := make([]MarketSummary, 0, len(markets))
 	for _, item := range markets {
-		summary, err := s.marketSummary(ctx, item)
+		row, hasRow := marketRows[item.Symbol]
+		summary, err := s.marketSummary(ctx, item, row, hasRow)
 		if err != nil {
 			return nil, err
 		}
@@ -855,7 +866,7 @@ func (s *Service) MarketSummaries(ctx context.Context) ([]MarketSummary, error) 
 	return out, nil
 }
 
-func (s *Service) marketSummary(ctx context.Context, item market.Market) (MarketSummary, error) {
+func (s *Service) marketSummary(ctx context.Context, item market.Market, row postgres.ExchangeMarket, hasRow bool) (MarketSummary, error) {
 	summary := MarketSummary{
 		Symbol:     item.Symbol,
 		BaseAsset:  item.BaseAsset,
@@ -871,19 +882,16 @@ func (s *Service) marketSummary(ctx context.Context, item market.Market) (Market
 	if s.repo == nil {
 		return summary, nil
 	}
-
-	candles, err := s.repo.ListCandles(ctx, item.Symbol, "1m", 1440)
-	if err != nil {
-		return summary, err
-	}
-	if len(candles) > 0 {
-		summary = applyCandleStats(summary, candles)
-	} else if last, err := s.repo.LastTrade(ctx, item.Symbol); err == nil {
-		summary.LastPrice = last.Price
-		summary.High24h = last.Price
-		summary.Low24h = last.Price
-	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return summary, err
+	if hasRow {
+		summary.Symbol = firstNonEmptyString(row.Symbol, summary.Symbol)
+		summary.BaseAsset = firstNonEmptyString(row.BaseAsset, summary.BaseAsset)
+		summary.QuoteAsset = firstNonEmptyString(row.QuoteAsset, summary.QuoteAsset)
+		summary.Enabled = row.Enabled
+		summary.LastPrice = marketSummaryStat(row.LastPrice, "0")
+		summary.Change24h = marketSummaryStat(row.Change24h, "0")
+		summary.High24h = marketSummaryStat(row.High24h, "0")
+		summary.Low24h = marketSummaryStat(row.Low24h, "0")
+		summary.Volume24h = marketSummaryStat(row.Volume24h, "0")
 	}
 
 	liquidity, err := s.marketLiquidity(ctx, item.Symbol)
@@ -892,6 +900,14 @@ func (s *Service) marketSummary(ctx context.Context, item market.Market) (Market
 	}
 	summary.Liquidity = liquidity
 	return summary, nil
+}
+
+func marketSummaryStat(value string, fallback string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return fallback
+	}
+	return decimal.String(decimal.Parse(value))
 }
 
 func (s *Service) buildOrder(req PlaceRequest) (order.Order, error) {

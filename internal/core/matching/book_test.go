@@ -70,6 +70,9 @@ func TestMarketBookMarketBuyPartiallyConsumesSecondAsk(t *testing.T) {
 	if result.Trades[1].Price != "101" || result.Trades[1].Quantity != "2" {
 		t.Fatalf("second trade should partially consume next ask: %#v", result.Trades[1])
 	}
+	if !result.Trades[0].CreatedAt.Equal(now) || !result.Trades[1].CreatedAt.Equal(now.Add(time.Microsecond)) {
+		t.Fatalf("trade timestamps must preserve book match order: %#v", result.Trades)
+	}
 	if _, ok := book.ActiveOrder("ask-100"); ok {
 		t.Fatalf("filled 100 ask stayed active")
 	}

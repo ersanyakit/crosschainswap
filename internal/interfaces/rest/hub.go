@@ -11,6 +11,7 @@ import (
 
 type Hub struct {
 	mu      sync.RWMutex
+	writeMu sync.Mutex
 	clients map[*websocket.Conn]struct{}
 }
 
@@ -29,6 +30,9 @@ func (h *Hub) Publish(payload []byte) {
 		clients = append(clients, conn)
 	}
 	h.mu.RUnlock()
+
+	h.writeMu.Lock()
+	defer h.writeMu.Unlock()
 
 	for _, conn := range clients {
 		if err := conn.SetWriteDeadline(time.Now().Add(2 * time.Second)); err != nil {
