@@ -685,7 +685,7 @@ export default function App() {
         setRecentTrades(prev => mergeTrades(result.trades, prev));
       }
       setProtocolRevision(rev => rev + 1);
-      appendLog(`Exchange accepted ${result.order.id}: ${result.order.status} ${result.order.filled.toFixed(4)}/${result.order.amount.toFixed(4)}.`, 'ORDER', 'SUCCESS');
+      appendLog(`Exchange accepted ${result.order.id}: ${result.order.status} ${formatProtocolDecimal(result.order.filled)}/${formatProtocolDecimal(result.order.amount)}.`, 'ORDER', 'SUCCESS');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'unknown protocol error';
       setOrderSubmitError(message);
@@ -965,8 +965,6 @@ export default function App() {
       onSubmitOrder={handleOrderSubmit}
       selectedPrice={orderBookSelection?.price ?? null}
       selectedAmount={orderBookSelection?.amount ?? null}
-      selectedTotal={orderBookSelection?.total ?? null}
-      selectedBookSide={orderBookSelection?.bookSide ?? null}
       clearSelectedPrice={() => setOrderBookSelection(null)}
       submitError={orderSubmitError}
       docked={docked}
@@ -1281,9 +1279,6 @@ export default function App() {
             Exchange: {exchangeMode === 'live' ? 'LIVE REST/WS' : exchangeMode === 'connecting' ? 'CONNECTING' : 'API OFFLINE'}
           </span>
 
-          <span className="hidden md:inline">
-            Fee rate: <span className="font-semibold text-gray-700 dark:text-gray-300">Maker 0.08% / Taker 0.10%</span>
-          </span>
         </div>
 
         {/* Sync triggers right */}
@@ -1537,6 +1532,15 @@ function marketProtectionPrice(side: OrderSide, book: OrderBook, fallback: numbe
 function isActiveOrder(order: Order): boolean {
   const isOpenStatus = order.status === 'OPEN' || order.status === 'PENDING' || order.status === 'PARTIALLY_FILLED';
   return isOpenStatus && order.type !== 'MARKET' && order.remaining >= ACTIVE_ORDER_REMAINING_EPSILON;
+}
+
+function formatProtocolDecimal(value: number): string {
+  if (!Number.isFinite(value)) return '0.00000000';
+  return value.toLocaleString('en-US', {
+    useGrouping: false,
+    minimumFractionDigits: 8,
+    maximumFractionDigits: 8,
+  });
 }
 
 function mergeTrades(incoming: Trade[], current: Trade[]): Trade[] {

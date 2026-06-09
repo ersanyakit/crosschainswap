@@ -2487,11 +2487,11 @@ func (s *Service) validateStopPlacement(ctx context.Context, tx *postgres.Exchan
 func defaultPriceBandBps() int64 {
 	raw := strings.TrimSpace(os.Getenv("EXCHANGE_PRICE_BAND_BPS"))
 	if raw == "" {
-		return 2000
+		return 0
 	}
 	value, err := strconv.ParseInt(raw, 10, 64)
 	if err != nil || value < 0 {
-		return 2000
+		return 0
 	}
 	return value
 }

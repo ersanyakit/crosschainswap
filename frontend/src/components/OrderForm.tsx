@@ -8,7 +8,7 @@ import { ShieldAlert, AlertTriangle, AlertCircle, Sliders } from 'lucide-react';
 import { MarketPair, OrderType, OrderSide } from '../types/trading';
 
 const BASE_AMOUNT_DECIMALS = 8;
-const QUOTE_AMOUNT_DECIMALS = 8;
+const ORDER_INPUT_DECIMALS = 8;
 const BALANCE_EPSILON = 0.00000001;
 const DISPLAY_ROUNDING_TOLERANCE = 0.0001;
 
@@ -25,8 +25,6 @@ interface OrderFormProps {
   }) => void;
   selectedPrice: number | null;
   selectedAmount: number | null;
-  selectedTotal: number | null;
-  selectedBookSide: 'ASK' | 'BID' | null;
   clearSelectedPrice: () => void;
   submitError?: string | null;
   docked?: boolean;
@@ -39,8 +37,6 @@ export default function OrderForm({
   onSubmitOrder,
   selectedPrice,
   selectedAmount,
-  selectedTotal,
-  selectedBookSide,
   clearSelectedPrice,
   submitError,
   docked = false,
@@ -50,16 +46,10 @@ export default function OrderForm({
   const [priceInput, setPriceInput] = useState('');
   const [amountInput, setAmountInput] = useState('');
   const [stopPriceInput, setStopPriceInput] = useState('');
-  const [quoteTotalAnchor, setQuoteTotalAnchor] = useState<{
-    price: number;
-    amount: number;
-    total: number;
-  } | null>(null);
   
   // Track which input is active for the numeric terminal keyboard focus mapping
   const [activeInput, setActiveInput] = useState<'price' | 'amount' | 'stopPrice'>('amount');
   const [showKeypad, setShowKeypad] = useState(false);
-  const usesQuoteTotalInput = side === 'BUY' && type !== 'MARKET';
 
   // Confirmation Modal
   const [showConfirm, setShowConfirm] = useState(false);
@@ -68,7 +58,6 @@ export default function OrderForm({
     setPriceInput(formatOrderNumberInput(pair.lastPrice));
     setAmountInput('');
     setStopPriceInput('');
-    setQuoteTotalAnchor(null);
     setShowConfirm(false);
     setActiveInput('amount');
   }, [pair.symbol]);
@@ -102,68 +91,40 @@ export default function OrderForm({
       const currentNum = parseFloat(currentVal) || 0;
       const nextNum = Math.max(0, currentNum + inc);
       if (activeInput === 'amount') {
-        setVal(usesQuoteTotalInput
-          ? formatOrderQuoteInput(nextNum)
-          : formatOrderBaseAmountInput(nextNum)
-        );
+        setVal(formatOrderBaseAmountInput(nextNum));
       } else {
         setVal(formatOrderNumberInput(nextNum));
       }
     } else {
       if (currentVal === '0' && val === '0') return;
       if (currentVal === '0' && val !== '0') {
-        setVal(val);
+        setVal(sanitizeDecimalInput(val));
       } else {
-        setVal(currentVal + val);
+        setVal(sanitizeDecimalInput(currentVal + val));
       }
     }
   };
 
   // Sync selected price from order book click
   useEffect(() => {
-    if (selectedPrice !== null || selectedAmount !== null || selectedTotal !== null) {
-      if (type !== 'MARKET') {
+    if (selectedPrice !== null || selectedAmount !== null) {
+      if (selectedPrice !== null) {
+        setType('LIMIT');
         setPriceInput(formatOrderNumberInput(selectedPrice || 0));
       }
-      const selectedPrimaryInput = usesQuoteTotalInput
-        ? selectedTotal ?? (selectedPrice !== null && selectedAmount !== null ? selectedPrice * selectedAmount : null)
-        : selectedAmount !== null && side === 'SELL'
-          ? Math.min(selectedAmount, availableBase)
-          : selectedAmount;
+      const selectedPrimaryInput = selectedAmount !== null && side === 'SELL'
+        ? Math.min(selectedAmount, availableBase)
+        : selectedAmount;
       const formattedPrimaryInput = selectedPrimaryInput !== null
-        ? usesQuoteTotalInput
-          ? formatOrderQuoteInput(selectedPrimaryInput)
-          : formatOrderBaseAmountInput(selectedPrimaryInput)
+        ? formatOrderBaseAmountInput(selectedPrimaryInput)
         : '';
       if (selectedPrimaryInput !== null) {
         setAmountInput(formattedPrimaryInput);
         setActiveInput('amount');
       }
-      if (
-        usesQuoteTotalInput &&
-        selectedBookSide === 'ASK' &&
-        selectedPrice !== null &&
-        selectedAmount !== null &&
-        selectedTotal !== null
-      ) {
-        const anchorTotal = Number(formattedPrimaryInput);
-        setQuoteTotalAnchor({
-          price: selectedPrice,
-          amount: selectedAmount,
-          total: Number.isFinite(anchorTotal) && anchorTotal > 0 ? anchorTotal : selectedTotal,
-        });
-      } else {
-        setQuoteTotalAnchor(null);
-      }
       clearSelectedPrice();
     }
-  }, [selectedPrice, selectedAmount, selectedTotal, selectedBookSide, side, availableBase, usesQuoteTotalInput, type, clearSelectedPrice]);
-
-  useEffect(() => {
-    if (!usesQuoteTotalInput) {
-      setQuoteTotalAnchor(null);
-    }
-  }, [usesQuoteTotalInput]);
+  }, [selectedPrice, selectedAmount, side, availableBase, clearSelectedPrice]);
 
   // Set default price inputs
   useEffect(() => {
@@ -174,36 +135,20 @@ export default function OrderForm({
 
   // Derived properties
   const price = type === 'MARKET' ? pair.lastPrice : parseFloat(priceInput) || 0;
-  const primaryInputValue = parseFloat(amountInput) || 0;
-  const anchoredQuoteTotalAmount = quoteTotalAnchor &&
-    price > 0 &&
-    Math.abs(price - quoteTotalAnchor.price) < 0.000000000001 &&
-    primaryInputValue + 0.000000001 >= quoteTotalAnchor.total
-      ? quoteTotalAnchor.amount + (Math.max(0, primaryInputValue - quoteTotalAnchor.total) / price)
-      : null;
-  const amount = usesQuoteTotalInput && price > 0
-    ? anchoredQuoteTotalAmount ?? (primaryInputValue / price)
-    : primaryInputValue;
+  const amount = parseFloat(amountInput) || 0;
   const stopPrice = parseFloat(stopPriceInput) || 0;
-  const total = usesQuoteTotalInput ? primaryInputValue : price * amount;
-  const takerFeeRate = 0.001; // 0.1% fee
-  const makerFeeRate = 0.0008; // 0.08% fee
-  const usedFeeRate = type === 'MARKET' ? takerFeeRate : makerFeeRate;
-  const estimatedFee = total * usedFeeRate;
+  const total = price * amount;
 
   const currentBalance = side === 'BUY' ? availableUsdt : availableBase;
   const balanceLabel = side === 'BUY' ? pair.quoteAsset : pair.baseAsset;
-  const primaryInputLabel = usesQuoteTotalInput ? `Total (${pair.quoteAsset})` : `Amount (${pair.baseAsset})`;
-  const primaryInputSuffix = usesQuoteTotalInput ? pair.quoteAsset : pair.baseAsset;
-  const primaryInputPlaceholder = usesQuoteTotalInput ? '0.00000000' : '0.00000000';
+  const primaryInputLabel = `Amount (${pair.baseAsset})`;
+  const primaryInputSuffix = pair.baseAsset;
 
   // Percentage Calculations
   const handlePercentClick = (percent: number) => {
     if (side === 'BUY') {
       const targetSpendUsd = availableUsdt * (percent / 100);
-      if (usesQuoteTotalInput && isFinite(targetSpendUsd) && targetSpendUsd > 0) {
-        setAmountInput(formatOrderQuoteInput(targetSpendUsd));
-      } else if (!usesQuoteTotalInput && isFinite(targetSpendUsd) && targetSpendUsd > 0 && price > 0) {
+      if (isFinite(targetSpendUsd) && targetSpendUsd > 0 && price > 0) {
         const calculatedAmount = targetSpendUsd / price;
         setAmountInput(formatOrderBaseAmountInput(calculatedAmount));
       } else {
@@ -216,11 +161,11 @@ export default function OrderForm({
   };
 
   // Safe checks
-  const normalizedSubmissionAmount = normalizeSubmissionAmount(amount, side, availableBase, usesQuoteTotalInput);
+  const normalizedSubmissionAmount = normalizeSubmissionAmount(amount, side, availableBase);
   const isBalanceExceeded = side === 'BUY'
     ? total > availableUsdt + BALANCE_EPSILON
     : normalizedSubmissionAmount > floorToDecimals(availableBase, BASE_AMOUNT_DECIMALS) + BALANCE_EPSILON;
-  const isAmountZero = primaryInputValue <= 0 || amount <= 0;
+  const isAmountZero = amount <= 0;
   const isPriceZero = type !== 'MARKET' && price <= 0;
   const isStopPriceNeeded = type === 'STOP_LIMIT' && stopPrice <= 0;
   
@@ -401,7 +346,7 @@ export default function OrderForm({
             </div>
           </div>
 
-          {/* 3. INPUT: Side Amount / Quote Total */}
+          {/* 3. INPUT: Base asset amount */}
           <div className="space-y-1">
             <div className="flex justify-between items-center">
               <label className="block text-[10.5px] font-mono text-gray-400 uppercase select-none">{primaryInputLabel}</label>
@@ -412,7 +357,7 @@ export default function OrderForm({
                 type="text"
                 inputMode="decimal"
                 pattern="[0-9]*[.]?[0-9]*"
-                placeholder={primaryInputPlaceholder}
+                placeholder="0.00000000"
                 value={amountInput}
                 onChange={(e) => setAmountInput(sanitizeDecimalInput(e.target.value))}
                 onFocus={() => setActiveInput('amount')}
@@ -440,7 +385,7 @@ export default function OrderForm({
                 <Sliders className="w-3.5 h-3.5" />
                 <span>Keypad</span>
                 <span className="text-[8.5px] bg-[#ff37c7]/10 text-[#ff37c7] px-1 rounded-sm font-bold">
-                  {activeInput === 'amount' ? (usesQuoteTotalInput ? 'Total' : 'Amount') : activeInput === 'price' ? 'Limit' : 'Stop'}
+                  {activeInput === 'amount' ? 'Amount' : activeInput === 'price' ? 'Limit' : 'Stop'}
                 </span>
               </button>
               <button
@@ -543,13 +488,9 @@ export default function OrderForm({
             <span>Sub-Total:</span>
             <span className="font-semibold text-gray-700 dark:text-gray-300">{formatFixedInputDisplay(total, 8)} {pair.quoteAsset}</span>
           </div>
-          <div className="flex justify-between">
-            <span>Est. Trading Fee ({usedFeeRate * 100}%):</span>
-            <span className="font-semibold text-gray-600 dark:text-gray-400">{formatFixedInputDisplay(estimatedFee, 8)} {pair.quoteAsset}</span>
-          </div>
           <div className="flex justify-between border-t border-dashed border-[#e1e4e8] dark:border-[#21262d] pt-1 mt-1 text-xs">
             <span className="text-gray-800 dark:text-gray-200">Total Outflow:</span>
-            <span className="font-bold text-accent-1">{formatFixedInputDisplay(total + estimatedFee, 8)} {pair.quoteAsset}</span>
+            <span className="font-bold text-accent-1">{formatFixedInputDisplay(total, 8)} {pair.quoteAsset}</span>
           </div>
         </div>
 
@@ -627,7 +568,7 @@ export default function OrderForm({
             </div>
 
             <p className="text-[9px] text-rose-500 font-medium">
-              *Confirming executes immediate order placement within secondary slippage parameters. Fees are calculated automatically at taker levels.
+              *Confirming submits the order with the displayed price, amount, and notional.
             </p>
           </div>
 
@@ -656,34 +597,16 @@ export default function OrderForm({
 
 function formatOrderNumberInput(value: number): string {
   if (!Number.isFinite(value) || value <= 0) return '';
-  return value.toLocaleString('en-US', {
-    useGrouping: false,
-    maximumFractionDigits: 18,
-  });
-}
-
-function formatOrderQuoteInput(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) return '';
-  const normalized = Number(value.toFixed(QUOTE_AMOUNT_DECIMALS));
-  return normalized.toLocaleString('en-US', {
-    useGrouping: false,
-    maximumFractionDigits: QUOTE_AMOUNT_DECIMALS,
-  });
+  return trimTrailingDecimalZeros(truncateDecimalString(expandDecimalNumber(value), ORDER_INPUT_DECIMALS));
 }
 
 function formatOrderBaseAmountInput(value: number): string {
   if (!Number.isFinite(value) || value <= 0) return '';
-  const normalized = floorToDecimals(value, BASE_AMOUNT_DECIMALS);
-  return normalized.toLocaleString('en-US', {
-    useGrouping: false,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: BASE_AMOUNT_DECIMALS,
-  });
+  return trimTrailingDecimalZeros(truncateDecimalString(expandDecimalNumber(value), BASE_AMOUNT_DECIMALS));
 }
 
-function normalizeSubmissionAmount(value: number, side: OrderSide, availableBase: number, usesQuoteTotalInput: boolean): number {
+function normalizeSubmissionAmount(value: number, side: OrderSide, availableBase: number): number {
   if (!Number.isFinite(value) || value <= 0) return 0;
-  if (usesQuoteTotalInput) return value;
   const normalized = floorToDecimals(value, BASE_AMOUNT_DECIMALS);
   if (side === 'SELL' && normalized > availableBase) {
     const available = floorToDecimals(availableBase, BASE_AMOUNT_DECIMALS);
@@ -695,25 +618,26 @@ function normalizeSubmissionAmount(value: number, side: OrderSide, availableBase
 }
 
 function floorToDecimals(value: number, decimals: number): number {
-  const factor = 10 ** decimals;
-  return Math.floor((value + Number.EPSILON) * factor) / factor;
+  const truncated = truncateDecimalString(expandDecimalNumber(value), decimals);
+  const numeric = Number(truncated);
+  return Number.isFinite(numeric) ? numeric : 0;
 }
 
 function formatFixedInputDisplay(value: number, decimals: number): string {
-  if (!Number.isFinite(value)) return Number(0).toFixed(decimals);
-  return value.toLocaleString('en-US', {
-    useGrouping: false,
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
+  return padDecimalString(truncateDecimalString(expandDecimalNumber(value), decimals), decimals);
 }
 
-function sanitizeDecimalInput(value: string): string {
+function sanitizeDecimalInput(value: string, maxDecimals = ORDER_INPUT_DECIMALS): string {
   let out = '';
   let hasDecimal = false;
+  let decimalCount = 0;
 
   for (const char of value.replace(',', '.')) {
     if (char >= '0' && char <= '9') {
+      if (hasDecimal) {
+        if (decimalCount >= maxDecimals) continue;
+        decimalCount++;
+      }
       out += char;
       continue;
     }
@@ -724,4 +648,51 @@ function sanitizeDecimalInput(value: string): string {
   }
 
   return out;
+}
+
+function expandDecimalNumber(value: number): string {
+  if (!Number.isFinite(value)) return '0';
+  const raw = value.toString();
+  if (!/[eE]/.test(raw)) return raw;
+
+  const [mantissa, exponentPart] = raw.toLowerCase().split('e');
+  const exponent = Number(exponentPart);
+  if (!Number.isFinite(exponent)) return '0';
+
+  const sign = mantissa.startsWith('-') ? '-' : '';
+  const unsignedMantissa = mantissa.replace('-', '');
+  const [integerPart, fractionalPart = ''] = unsignedMantissa.split('.');
+  const digits = `${integerPart}${fractionalPart}`;
+  const decimalIndex = integerPart.length + exponent;
+
+  if (decimalIndex <= 0) {
+    return `${sign}0.${'0'.repeat(Math.abs(decimalIndex))}${digits}`;
+  }
+  if (decimalIndex >= digits.length) {
+    return `${sign}${digits}${'0'.repeat(decimalIndex - digits.length)}`;
+  }
+  return `${sign}${digits.slice(0, decimalIndex)}.${digits.slice(decimalIndex)}`;
+}
+
+function truncateDecimalString(value: string, decimals: number): string {
+  const normalized = value.replace(',', '.').trim();
+  if (!normalized) return '0';
+  const sign = normalized.startsWith('-') ? '-' : '';
+  const unsigned = normalized.replace(/^[+-]/, '');
+  const [integerPartRaw, fractionalPartRaw = ''] = unsigned.split('.');
+  const integerPart = integerPartRaw.replace(/^0+(?=\d)/, '') || '0';
+  if (decimals <= 0) return `${sign}${integerPart}`;
+  const fractionalPart = fractionalPartRaw.slice(0, decimals);
+  return fractionalPart.length > 0 ? `${sign}${integerPart}.${fractionalPart}` : `${sign}${integerPart}`;
+}
+
+function trimTrailingDecimalZeros(value: string): string {
+  if (!value.includes('.')) return value;
+  return value.replace(/0+$/, '').replace(/\.$/, '');
+}
+
+function padDecimalString(value: string, decimals: number): string {
+  const [integerPart, fractionalPart = ''] = truncateDecimalString(value, decimals).split('.');
+  if (decimals <= 0) return integerPart;
+  return `${integerPart}.${fractionalPart.padEnd(decimals, '0').slice(0, decimals)}`;
 }

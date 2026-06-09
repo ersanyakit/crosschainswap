@@ -506,7 +506,7 @@ The exchange module includes an internal limit order protocol with:
 - stop-limit activation
 - price-time priority
 - decimal precision validation up to 18 places
-- last-trade price band protection
+- optional last-trade price band protection
 - deterministic core matching engine
 - required `client_order_id` idempotency per user
 - row locks while matching and canceling
@@ -515,7 +515,7 @@ The exchange module includes an internal limit order protocol with:
 
 All amounts and prices are sent as decimal strings. Do not send floats from clients. Every order must include a unique `client_order_id` for that `user_id`; retrying the same request with the same pair returns the existing order instead of creating a duplicate.
 
-By default, new limit prices and market protection prices are rejected if they are more than 20% away from the latest trade price for that market. Configure this with `EXCHANGE_PRICE_BAND_BPS`; for example `1000` means 10%, and `0` disables the band. If a market has no trades yet, the band is not applied.
+By default, limit prices are not restricted by a last-trade price band. Configure `EXCHANGE_PRICE_BAND_BPS` only when an environment needs a protective band; for example `1000` means 10%, and `0` disables the band. If a market has no trades yet, the band is not applied.
 
 ### Place Limit Order
 

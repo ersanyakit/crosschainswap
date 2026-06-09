@@ -106,6 +106,15 @@ func LoadDefaultRegistries() Registries {
 	}
 
 	assets := []asset.Asset{
+		{Symbol: "BTC", Name: "Bitcoin", Type: "native", Decimals: 8, IconURL: coinMarketCapIconURL("1"),
+			Deployments: []asset.Deployment{
+				{ChainKey: chain.ChainKey("bitcoin"), Native: true, Decimals: 8, Enabled: true},
+				{ChainKey: chain.ChainKeyEthereum, Symbol: "WBTC", Name: "Wrapped BTC", Address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", Decimals: 8, Enabled: true},
+				{ChainKey: chain.ChainKeyAvalanche, Symbol: "WBTC", Name: "Wrapped BTC", Address: "0x0555E30da8f98308EdB960aa94C0Db47230d2B9c", Decimals: 8, Enabled: true},
+				{ChainKey: chain.ChainKeyBinanceSmartChain, Symbol: "WBTC", Name: "Wrapped BTC", Address: "0x0555E30da8f98308EdB960aa94C0Db47230d2B9c", Decimals: 8, Enabled: true},
+				{ChainKey: chain.ChainKey("tron"), Symbol: "WBTC", Name: "Wrapped BTC", Address: "TYhWwKpw43ENFWBTGpzLHn3882f2au7SMi", Decimals: 8, Enabled: true},
+			},
+		},
 		{Symbol: "CHZ", Name: "Chiliz", Type: "native", Decimals: 18, IconURL: coinMarketCapIconURL("4066"),
 			Deployments: []asset.Deployment{
 				{ChainKey: chain.ChainKeySolana, Decimals: 8, Enabled: true, Address: "6eftxVbSAunVEoxUWdGhPdxg5UdsJ8Wkwy5w5YFuxouw"},
@@ -113,16 +122,42 @@ func LoadDefaultRegistries() Registries {
 				{ChainKey: chain.ChainKeyChiliz, Name: "Wrapped Chiliz", Symbol: "wCHZ", Decimals: 18, Enabled: true, Address: "0x677f7e16c7dd57be1d4c8ad1244883214953dc47"},
 			},
 		},
+		{Symbol: "CHZINU", Name: "ChilizINU", Type: "token", Decimals: 18,
+			Deployments: []asset.Deployment{
+				{ChainKey: chain.ChainKeyChiliz, Address: "0xF3928e7871eb136DD6648Ad08aEEF6B6ea893001", Decimals: 4, Enabled: true},
+			},
+		},
+		{Symbol: "BNB", Name: "BNB", Type: "native", Decimals: 18, IconURL: coinMarketCapIconURL("1839"),
+			Deployments: []asset.Deployment{
+				{ChainKey: chain.ChainKeyBinanceSmartChain, Native: true, Decimals: 18, Enabled: true},
+				{ChainKey: chain.ChainKeyBinanceSmartChain, Symbol: "WBNB", Name: "Wrapped BNB", Address: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c", Decimals: 18, Enabled: true},
+			},
+		},
 		{Symbol: "PEPPER", Name: "PEPPER", Type: "token", Decimals: 18, IconURL: coinMarketCapIconURL("33603"),
 			Deployments: []asset.Deployment{
-				{ChainKey: chain.ChainKeySolana, Mint: "GozPNCAseytzxCR3d2k8hTsTYkr4SDpuXy2RQAZFVx2g", Decimals: 3},
-				{ChainKey: chain.ChainKeyBase, Address: "0x5e985E4BCa4664E985f3FaF8140EbA25b10E28C2", Decimals: 18},
-				{ChainKey: chain.ChainKeyChiliz, Address: "0x60f397acbcfb8f4e3234c659a3e10867e6fa6b67", Decimals: 18},
+				{ChainKey: chain.ChainKeySolana, Mint: "GozPNCAseytzxCR3d2k8hTsTYkr4SDpuXy2RQAZFVx2g", Decimals: 3, Enabled: true},
+				{ChainKey: chain.ChainKeyBase, Address: "0x5e985E4BCa4664E985f3FaF8140EbA25b10E28C2", Decimals: 18, Enabled: true},
+				{ChainKey: chain.ChainKeyChiliz, Address: "0x60f397acbcfb8f4e3234c659a3e10867e6fa6b67", Decimals: 18, Enabled: true},
+			},
+		},
+		{Symbol: "LGBT", Name: "COOLVIBES", Type: "token", Decimals: 6,
+			Deployments: []asset.Deployment{
+				{ChainKey: chain.ChainKeySolana, Mint: "9qpnNkj8wqecEhnrKwzhNAtzSknizFqDEzxPd1Ajpump", Decimals: 6, Enabled: true},
 			},
 		},
 		{Symbol: "SOL", Name: "Solana", Type: "native", Decimals: 9, IconURL: coinMarketCapIconURL("5426"),
 			Deployments: []asset.Deployment{
 				{ChainKey: chain.ChainKeySolana, Name: "Wrapped Solana", Symbol: "WSOL", Mint: "So11111111111111111111111111111111111111112", Decimals: 9, Enabled: true},
+			},
+		},
+		{Symbol: "TBT", Name: "TBT Token", Type: "token", Decimals: 18,
+			Deployments: []asset.Deployment{
+				{ChainKey: chain.ChainKeyChiliz, Address: "0xfed7A6423cdeBb4c05552DC888de5acC657444F4", Decimals: 18, Enabled: true},
+			},
+		},
+		{Symbol: "TRX", Name: "Tron", Type: "native", Decimals: 6, IconURL: coinMarketCapIconURL("1958"),
+			Deployments: []asset.Deployment{
+				{ChainKey: chain.ChainKey("tron"), Native: true, Decimals: 6, Enabled: true},
 			},
 		},
 		{Symbol: "ETH", Name: "Ether", Type: "native", Decimals: 18, IconURL: coinMarketCapIconURL("1027"),
@@ -143,6 +178,13 @@ func LoadDefaultRegistries() Registries {
 				{ChainKey: chain.ChainKeyBase, Address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", Decimals: 6, Enabled: true},
 				{ChainKey: chain.ChainKeyAvalanche, Address: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E", Decimals: 6, Enabled: true},
 				{ChainKey: chain.ChainKeySolana, Mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", Decimals: 6, Enabled: true},
+			},
+		},
+		{Symbol: "USDT", Name: "Tether USD", Type: "token", Decimals: 6, IconURL: coinMarketCapIconURL("825"),
+			Deployments: []asset.Deployment{
+				{ChainKey: chain.ChainKeyEthereum, Address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", Decimals: 6, Enabled: true},
+				{ChainKey: chain.ChainKeySolana, Mint: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", Decimals: 6, Enabled: true},
+				{ChainKey: chain.ChainKey("tron"), Address: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", Decimals: 6, Enabled: true},
 			},
 		},
 	}

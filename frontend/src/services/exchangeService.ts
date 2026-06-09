@@ -180,6 +180,7 @@ type PlaceOrderInput = {
 };
 
 const env = import.meta.env as Record<string, string | undefined>;
+const API_DECIMAL_PLACES = 8;
 
 export const exchangeConfig = {
   apiBaseURL: stripTrailingSlash(env.VITE_EXCHANGE_API_URL || '/api'),
@@ -523,10 +524,48 @@ function mapOrderStatus(status: string): Order['status'] {
 
 function decimalString(value: number): string {
   if (!Number.isFinite(value)) return '0';
-  return value.toLocaleString('en-US', {
-    useGrouping: false,
-    maximumFractionDigits: 18,
-  });
+  return trimTrailingDecimalZeros(truncateDecimalString(expandDecimalNumber(value), API_DECIMAL_PLACES));
+}
+
+function expandDecimalNumber(value: number): string {
+  if (!Number.isFinite(value)) return '0';
+  const raw = value.toString();
+  if (!/[eE]/.test(raw)) return raw;
+
+  const [mantissa, exponentPart] = raw.toLowerCase().split('e');
+  const exponent = Number(exponentPart);
+  if (!Number.isFinite(exponent)) return '0';
+
+  const sign = mantissa.startsWith('-') ? '-' : '';
+  const unsignedMantissa = mantissa.replace('-', '');
+  const [integerPart, fractionalPart = ''] = unsignedMantissa.split('.');
+  const digits = `${integerPart}${fractionalPart}`;
+  const decimalIndex = integerPart.length + exponent;
+
+  if (decimalIndex <= 0) {
+    return `${sign}0.${'0'.repeat(Math.abs(decimalIndex))}${digits}`;
+  }
+  if (decimalIndex >= digits.length) {
+    return `${sign}${digits}${'0'.repeat(decimalIndex - digits.length)}`;
+  }
+  return `${sign}${digits.slice(0, decimalIndex)}.${digits.slice(decimalIndex)}`;
+}
+
+function truncateDecimalString(value: string, decimals: number): string {
+  const normalized = value.replace(',', '.').trim();
+  if (!normalized) return '0';
+  const sign = normalized.startsWith('-') ? '-' : '';
+  const unsigned = normalized.replace(/^[+-]/, '');
+  const [integerPartRaw, fractionalPartRaw = ''] = unsigned.split('.');
+  const integerPart = integerPartRaw.replace(/^0+(?=\d)/, '') || '0';
+  if (decimals <= 0) return `${sign}${integerPart}`;
+  const fractionalPart = fractionalPartRaw.slice(0, decimals);
+  return fractionalPart.length > 0 ? `${sign}${integerPart}.${fractionalPart}` : `${sign}${integerPart}`;
+}
+
+function trimTrailingDecimalZeros(value: string): string {
+  if (!value.includes('.')) return value;
+  return value.replace(/0+$/, '').replace(/\.$/, '');
 }
 
 function apiResourceURL(path: string): string {

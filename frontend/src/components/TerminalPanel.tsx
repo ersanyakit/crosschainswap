@@ -189,17 +189,17 @@ export default function TerminalPanel({
                         </span>
                       </td>
                       <td className="text-gray-500 font-medium">{ord.type}</td>
-                      <td className="text-right font-medium">{formatPrice(ord.price)}</td>
-                      <td className="text-right">{formatQuantity(ord.amount)}</td>
-                      <td className="text-right text-gray-500">{formatQuantity(ord.filled)}</td>
-                      <td className="text-right font-semibold text-gray-800 dark:text-gray-200">{formatQuantity(ord.remaining)}</td>
+                      <td className="text-right font-medium">{formatPrice(ord.price, 8, 8)}</td>
+                      <td className="text-right">{formatQuantity(ord.amount, 8)}</td>
+                      <td className="text-right text-gray-500">{formatQuantity(ord.filled, 8)}</td>
+                      <td className="text-right font-semibold text-gray-800 dark:text-gray-200">{formatQuantity(ord.remaining, 8)}</td>
                       <td className="text-right">
                         <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${orderStatusClass(ord.status)}`}>
                           {orderStatusLabel(ord.status)}
                         </span>
                       </td>
                       <td className="text-right font-semibold text-gray-800 dark:text-gray-200">
-                        {ord.total.toLocaleString(undefined, {minimumFractionDigits: 2})} {ord.symbol.split('/')[1] || 'USDC'}
+                        {formatFixedDecimals(ord.total, 8)} {ord.symbol.split('/')[1] || 'USDC'}
                       </td>
                       <td className="text-center">
                         <button
@@ -253,11 +253,11 @@ export default function TerminalPanel({
                         </span>
                       </td>
                       <td className="text-gray-500">{ord.type}</td>
-                      <td className="text-right">{formatPrice(ord.price)}</td>
-                      <td className="text-right">{formatQuantity(ord.amount)}</td>
-                      <td className="text-right text-gray-500">{formatQuantity(ord.filled)}</td>
-                      <td className="text-right text-gray-500">{formatQuantity(ord.remaining)}</td>
-                      <td className="text-right font-medium">{ord.total.toFixed(2)} {ord.symbol.split('/')[1] || 'USDC'}</td>
+                      <td className="text-right">{formatPrice(ord.price, 8, 8)}</td>
+                      <td className="text-right">{formatQuantity(ord.amount, 8)}</td>
+                      <td className="text-right text-gray-500">{formatQuantity(ord.filled, 8)}</td>
+                      <td className="text-right text-gray-500">{formatQuantity(ord.remaining, 8)}</td>
+                      <td className="text-right font-medium">{formatFixedDecimals(ord.total, 8)} {ord.symbol.split('/')[1] || 'USDC'}</td>
                       <td className="text-right pr-2">
                         <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${orderStatusClass(ord.status)}`}>
                           {orderStatusLabel(ord.status)}

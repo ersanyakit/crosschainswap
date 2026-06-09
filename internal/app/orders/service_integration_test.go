@@ -237,6 +237,45 @@ func TestLimitBuySweepsAsksAndRestsRemainderIntegration(t *testing.T) {
 	assertReservationState(t, repo, buy.Order.ReservationID, storage.ReservationStatusActive, decimal.Mul(expectedRemaining, limitPrice))
 }
 
+func TestLimitBuyAmountSweepsAsksAndRestsRemainderIntegration(t *testing.T) {
+	repo, db := integrationRepository(t)
+	base, marketSymbol := integrationMarket("TAMT")
+	sellerA := integrationUser(t, "seller-a")
+	sellerB := integrationUser(t, "seller-b")
+	sellerC := integrationUser(t, "seller-c")
+	buyer := integrationUser(t, "buyer")
+	svc := integrationOrderService(repo, marketSymbol, base)
+	cleanupIntegrationMarket(t, db, marketSymbol, buyer, sellerA, sellerB, sellerC)
+	defer cleanupIntegrationMarket(t, db, marketSymbol, buyer, sellerA, sellerB, sellerC)
+
+	fundUser(t, repo, sellerA, base, "1")
+	fundUser(t, repo, sellerB, base, "1")
+	fundUser(t, repo, sellerC, base, "1")
+	fundUser(t, repo, buyer, "USD", "12")
+
+	askA := placeIntegrationOrder(t, svc, sellerA, marketSymbol, order.SideSell, order.TypeLimit, "1", "1")
+	askB := placeIntegrationOrder(t, svc, sellerB, marketSymbol, order.SideSell, order.TypeLimit, "2", "1")
+	askC := placeIntegrationOrder(t, svc, sellerC, marketSymbol, order.SideSell, order.TypeLimit, "3", "1")
+
+	buy := placeIntegrationOrder(t, svc, buyer, marketSymbol, order.SideBuy, order.TypeLimit, "3", "4")
+
+	assertOrderState(t, repo, askA.Order.ID, order.StatusFilled, "0")
+	assertOrderState(t, repo, askB.Order.ID, order.StatusFilled, "0")
+	assertOrderState(t, repo, askC.Order.ID, order.StatusFilled, "0")
+	assertOrderState(t, repo, buy.Order.ID, order.StatusPartiallyFilled, "1")
+	assertBookSide(t, svc, marketSymbol, order.SideSell, nil)
+	assertBookSide(t, svc, marketSymbol, order.SideBuy, []priceLevelWant{{Price: "3", Quantity: "1", OrderCount: 1}})
+	assertOpenOrders(t, repo, marketSymbol, order.SideSell, nil)
+	assertOpenOrders(t, repo, marketSymbol, order.SideBuy, []order.ID{buy.Order.ID})
+	assertTradeCount(t, repo, marketSymbol, 3)
+	assertNoNegativeBalances(t, db, buyer, sellerA, sellerB, sellerC)
+	assertLockedBalance(t, db, buyer, "USD", "3")
+	assertLockedBalance(t, db, sellerA, base, "0")
+	assertLockedBalance(t, db, sellerB, base, "0")
+	assertLockedBalance(t, db, sellerC, base, "0")
+	assertReservationState(t, repo, buy.Order.ReservationID, storage.ReservationStatusActive, "3")
+}
+
 func TestRebuildPriceLevelsAggregatesAllBookableOrders(t *testing.T) {
 	repo, db := integrationRepository(t)
 	base, marketSymbol := integrationMarket("TRLB")

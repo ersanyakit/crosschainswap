@@ -259,6 +259,54 @@ func TestMarketBookLimitBuyRestsRemainderAfterSweepingAsks(t *testing.T) {
 	}
 }
 
+func TestMarketBookLimitBuyAmountRestsRemainderAfterSweepingAsks(t *testing.T) {
+	now := time.Unix(12, 0).UTC()
+	book := newUSDCBook(t)
+	if err := book.Load([]order.Order{
+		testBookOrder("ask-1", order.SideSell, order.TypeLimit, "1", "1", 1),
+		testBookOrder("ask-2", order.SideSell, order.TypeLimit, "2", "1", 2),
+		testBookOrder("ask-3", order.SideSell, order.TypeLimit, "3", "1", 3),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := book.Apply(testBookOrder("buy-1", order.SideBuy, order.TypeLimit, "3", "4", 4), nextBookTradeID(), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(result.Trades) != 3 {
+		t.Fatalf("trade count = %d, want 3: %#v", len(result.Trades), result.Trades)
+	}
+	for idx, expectedPrice := range []string{"1", "2", "3"} {
+		if result.Trades[idx].Price != expectedPrice || result.Trades[idx].Quantity != "1" {
+			t.Fatalf("trade %d = %s@%s, want 1@%s", idx, result.Trades[idx].Quantity, result.Trades[idx].Price, expectedPrice)
+		}
+	}
+	if result.Taker.Status != order.StatusPartiallyFilled || result.Taker.FilledQuantity != "3" || result.Taker.RemainingQuantity != "1" {
+		t.Fatalf("taker should fill 3 and rest 1: %#v", result.Taker)
+	}
+	for _, askID := range []order.ID{"ask-1", "ask-2", "ask-3"} {
+		if _, ok := book.ActiveOrder(askID); ok {
+			t.Fatalf("filled ask %s stayed active", askID)
+		}
+	}
+	resting, ok := book.ActiveOrder("buy-1")
+	if !ok {
+		t.Fatalf("remaining buy order did not rest")
+	}
+	if resting.Side != order.SideBuy || resting.Price != "3" || resting.RemainingQuantity != "1" {
+		t.Fatalf("unexpected resting buy remainder: %#v", resting)
+	}
+	bestBid, ok := book.BestBid()
+	if !ok || bestBid != "3" {
+		t.Fatalf("best bid = %s/%v, want 3/true", bestBid, ok)
+	}
+	if bestAsk, ok := book.BestAsk(); ok {
+		t.Fatalf("best ask = %s/%v, want empty", bestAsk, ok)
+	}
+}
+
 func TestMarketBookApplyResultReplaysBookMutation(t *testing.T) {
 	book := newUSDCBook(t)
 	if err := book.Load([]order.Order{
