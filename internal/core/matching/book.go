@@ -101,6 +101,11 @@ func (b *MarketBook) Apply(taker order.Order, newTradeID TradeIDFactory, now tim
 
 		maker := queue[0]
 		if !eligibleMaker(effectiveBookTaker(result.Taker), maker) {
+			if isSelfTrade(effectiveBookTaker(result.Taker), maker) && crossesPrice(effectiveBookTaker(result.Taker), maker) {
+				result.Taker.Status = order.StatusExpired
+				result.Taker.UpdatedAt = now
+				return result, nil
+			}
 			if !isBookable(maker) || maker.Market != result.Taker.Market || maker.Side == result.Taker.Side {
 				b.removeAt(makerSide, price, 0)
 				continue

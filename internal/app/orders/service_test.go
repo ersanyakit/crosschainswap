@@ -42,6 +42,188 @@ func TestBuildOrderValidatesAndNormalizes(t *testing.T) {
 	}
 }
 
+func TestBuildOrderRejectsInvalidInputs(t *testing.T) {
+	service := NewService(market.NewRegistry([]market.Market{
+		{Symbol: "PEPPER/USDC", BaseAsset: "PEPPER", QuoteAsset: "USDC", Enabled: true},
+		{Symbol: "DISABLED/USDC", BaseAsset: "DISABLED", QuoteAsset: "USDC", Enabled: false},
+	}), nil)
+
+	cases := []struct {
+		name string
+		req  PlaceRequest
+	}{
+		{
+			name: "empty user id",
+			req: PlaceRequest{
+				ClientOrderID: "client-1",
+				UserID:        "",
+				Market:        "PEPPER/USDC",
+				Side:          "buy",
+				Type:          "limit",
+				Price:         "1",
+				Quantity:      "1",
+			},
+		},
+		{
+			name: "empty client order id",
+			req: PlaceRequest{
+				ClientOrderID: "",
+				UserID:        "u1",
+				Market:        "PEPPER/USDC",
+				Side:          "buy",
+				Type:          "limit",
+				Price:         "1",
+				Quantity:      "1",
+			},
+		},
+		{
+			name: "invalid side",
+			req: PlaceRequest{
+				ClientOrderID: "client-1",
+				UserID:        "u1",
+				Market:        "PEPPER/USDC",
+				Side:          "hold",
+				Type:          "limit",
+				Price:         "1",
+				Quantity:      "1",
+			},
+		},
+		{
+			name: "invalid type",
+			req: PlaceRequest{
+				ClientOrderID: "client-1",
+				UserID:        "u1",
+				Market:        "PEPPER/USDC",
+				Side:          "buy",
+				Type:          "iceberg",
+				Price:         "1",
+				Quantity:      "1",
+			},
+		},
+		{
+			name: "unsupported market",
+			req: PlaceRequest{
+				ClientOrderID: "client-1",
+				UserID:        "u1",
+				Market:        "UNKNOWN/USDC",
+				Side:          "buy",
+				Type:          "limit",
+				Price:         "1",
+				Quantity:      "1",
+			},
+		},
+		{
+			name: "disabled market",
+			req: PlaceRequest{
+				ClientOrderID: "client-1",
+				UserID:        "u1",
+				Market:        "DISABLED/USDC",
+				Side:          "buy",
+				Type:          "limit",
+				Price:         "1",
+				Quantity:      "1",
+			},
+		},
+		{
+			name: "price must be positive",
+			req: PlaceRequest{
+				ClientOrderID: "client-1",
+				UserID:        "u1",
+				Market:        "PEPPER/USDC",
+				Side:          "buy",
+				Type:          "limit",
+				Price:         "0",
+				Quantity:      "1",
+			},
+		},
+		{
+			name: "quantity must be positive",
+			req: PlaceRequest{
+				ClientOrderID: "client-1",
+				UserID:        "u1",
+				Market:        "PEPPER/USDC",
+				Side:          "buy",
+				Type:          "limit",
+				Price:         "1",
+				Quantity:      "0",
+			},
+		},
+		{
+			name: "price precision too high",
+			req: PlaceRequest{
+				ClientOrderID: "client-1",
+				UserID:        "u1",
+				Market:        "PEPPER/USDC",
+				Side:          "buy",
+				Type:          "limit",
+				Price:         "0.0000000000000000001",
+				Quantity:      "1",
+			},
+		},
+		{
+			name: "quantity precision too high",
+			req: PlaceRequest{
+				ClientOrderID: "client-1",
+				UserID:        "u1",
+				Market:        "PEPPER/USDC",
+				Side:          "buy",
+				Type:          "limit",
+				Price:         "1",
+				Quantity:      "0.0000000000000000001",
+			},
+		},
+		{
+			name: "market order must use ioc",
+			req: PlaceRequest{
+				ClientOrderID: "client-1",
+				UserID:        "u1",
+				Market:        "PEPPER/USDC",
+				Side:          "buy",
+				Type:          "market",
+				TimeInForce:   "gtc",
+				Price:         "1",
+				Quantity:      "1",
+			},
+		},
+		{
+			name: "market buy rejects nan like value",
+			req: PlaceRequest{
+				ClientOrderID: "client-1",
+				UserID:        "u1",
+				Market:        "PEPPER/USDC",
+				Side:          "buy",
+				Type:          "market",
+				Price:         "NaN",
+				Quantity:      "1",
+			},
+		},
+		{
+			name: "market sell rejects infinity like value",
+			req: PlaceRequest{
+				ClientOrderID: "client-1",
+				UserID:        "u1",
+				Market:        "PEPPER/USDC",
+				Side:          "sell",
+				Type:          "market",
+				Price:         "Inf",
+				Quantity:      "1",
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Arrange.
+			// Act.
+			_, err := service.buildOrder(tc.req)
+			// Assert.
+			if err == nil {
+				t.Fatalf("expected error for %s", tc.name)
+			}
+		})
+	}
+}
+
 func TestMarketSummariesReturnUSDDefaultsWithoutRepository(t *testing.T) {
 	service := NewService(market.NewRegistry([]market.Market{
 		{Symbol: "PEPPER/USD", BaseAsset: "PEPPER", QuoteAsset: "USD", Enabled: true},

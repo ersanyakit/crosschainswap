@@ -58,7 +58,7 @@ func TestMatchLimitRespectsPriceTimePriority(t *testing.T) {
 	}
 }
 
-func TestMatchLimitAllowsSelfTradeWhenNoSTPModeIsSet(t *testing.T) {
+func TestMatchLimitPreventsSelfTradeByExpiringTaker(t *testing.T) {
 	now := time.Unix(1, 0).UTC()
 	taker := order.Order{
 		ID:                "taker",
@@ -79,14 +79,14 @@ func TestMatchLimitAllowsSelfTradeWhenNoSTPModeIsSet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Trades) != 1 {
-		t.Fatalf("expected self trade to match without STP mode, got %#v", result.Trades)
+	if len(result.Trades) != 0 {
+		t.Fatalf("self-trade must not produce trades: %#v", result.Trades)
 	}
-	if result.Trades[0].MakerUserID != "u1" || result.Trades[0].TakerUserID != "u1" {
-		t.Fatalf("unexpected self-trade users: %#v", result.Trades[0])
+	if result.Taker.Status != order.StatusExpired || result.Taker.RemainingQuantity != "2" {
+		t.Fatalf("self-crossing taker should expire without fill: %#v", result.Taker)
 	}
-	if result.Taker.Status != order.StatusFilled || result.Makers[0].Status != order.StatusFilled {
-		t.Fatalf("unexpected statuses: taker=%#v maker=%#v", result.Taker, result.Makers[0])
+	if len(result.Makers) != 0 {
+		t.Fatalf("self-trade must not mutate maker orders: %#v", result.Makers)
 	}
 }
 
@@ -479,6 +479,159 @@ func TestMatchLimitMaintainsAccountingInvariantsAcrossGeneratedBooks(t *testing.
 			assertStatusMatchesRemaining(t, updated.Status, updated.RemainingQuantity, fmt.Sprintf("case %d maker status", i))
 		}
 	}
+}
+
+func FuzzMatchLimitAccountingInvariants(f *testing.F) {
+	f.Add(uint64(1_000_000), uint64(250_000), uint64(999_000), uint64(100_000), true)
+	f.Add(uint64(5_000_000), uint64(1_000_000), uint64(4_999_000), uint64(900_000), false)
+
+	f.Fuzz(func(t *testing.T, takerPriceUnits uint64, takerQtyUnits uint64, makerPriceUnits uint64, makerQtyUnits uint64, buySide bool) {
+		// Arrange.
+		now := time.Unix(1, 0).UTC()
+		takerSide := order.SideBuy
+		makerSide := order.SideSell
+		if !buySide {
+			takerSide = order.SideSell
+			makerSide = order.SideBuy
+		}
+
+		takerPriceUnits = takerPriceUnits%9_000_000 + 1_000_000
+		takerQtyUnits = takerQtyUnits%2_000_000 + 1
+		makerPriceUnits = makerPriceUnits%9_000_000 + 1_000_000
+		makerQtyUnits = makerQtyUnits%2_000_000 + 1
+
+		taker := order.Order{
+			ID:                "taker",
+			UserID:            "u-taker",
+			Market:            "PEPPER/USDC",
+			BaseAsset:         "PEPPER",
+			QuoteAsset:        "USDC",
+			Side:              takerSide,
+			Status:            order.StatusOpen,
+			Price:             fixed6(int64(takerPriceUnits)),
+			FilledQuantity:    "0",
+			RemainingQuantity: fixed6(int64(takerQtyUnits)),
+		}
+
+		makers := make([]order.Order, 0, 8)
+		originalMakers := make(map[order.ID]order.Order, 8)
+		for i := 0; i < 8; i++ {
+			priceUnits := makerPriceUnits + uint64(i*137)
+			if takerSide == order.SideBuy {
+				if i%2 == 0 {
+					priceUnits = takerPriceUnits - uint64(1+i*11)
+					if priceUnits == 0 {
+						priceUnits = 1
+					}
+				} else {
+					priceUnits = takerPriceUnits + uint64(1+i*11)
+				}
+			} else {
+				if i%2 == 0 {
+					priceUnits = takerPriceUnits + uint64(1+i*11)
+				} else {
+					priceUnits = takerPriceUnits - uint64(1+i*11)
+					if priceUnits == 0 {
+						priceUnits = 1
+					}
+				}
+			}
+
+			item := order.Order{
+				ID:                order.ID(fmt.Sprintf("maker-%d", i)),
+				UserID:            fmt.Sprintf("u-maker-%d", i),
+				Market:            "PEPPER/USDC",
+				BaseAsset:         "PEPPER",
+				QuoteAsset:        "USDC",
+				Side:              makerSide,
+				Status:            order.StatusOpen,
+				Price:             fixed6(int64(priceUnits)),
+				FilledQuantity:    "0",
+				RemainingQuantity: fixed6(int64((makerQtyUnits+uint64(i*71))%2_000_000 + 1)),
+			}
+			if i%5 == 0 {
+				item.Side = takerSide
+			}
+			if i%7 == 0 {
+				item.Status = order.StatusFilled
+			}
+			if i%11 == 0 {
+				item.Market = "OTHER/USDC"
+			}
+			makers = append(makers, item)
+			originalMakers[item.ID] = item
+		}
+
+		// Act.
+		var seq int
+		result, err := MatchLimit(taker, makers, func() trade.ID {
+			seq++
+			return trade.ID(fmt.Sprintf("trd-%d", seq))
+		}, now)
+		if err != nil {
+			t.Fatalf("match failed: %v", err)
+		}
+
+		// Assert.
+		takerTradeQty := "0"
+		makerTradeQty := make(map[order.ID]string)
+		for _, item := range result.Trades {
+			originalMaker, ok := originalMakers[item.MakerOrderID]
+			if !ok {
+				t.Fatalf("trade produced for unknown maker: %#v", item)
+			}
+			if !eligibleMaker(taker, originalMaker) {
+				t.Fatalf("trade produced for ineligible maker: maker=%#v trade=%#v", originalMaker, item)
+			}
+			assertNonNegativeDecimal(t, item.Quantity, "trade quantity")
+			assertNonNegativeDecimal(t, item.QuoteQuantity, "trade quote quantity")
+			if decimal.Cmp(item.Quantity, "0") <= 0 || decimal.Cmp(item.QuoteQuantity, "0") <= 0 {
+				t.Fatalf("trade quantity and quote quantity must be positive: %#v", item)
+			}
+			if item.QuoteQuantity != decimal.Mul(item.Quantity, item.Price) {
+				t.Fatalf("quote quantity mismatch: %#v", item)
+			}
+			if takerSide == order.SideBuy && decimal.Cmp(item.Price, taker.Price) > 0 {
+				t.Fatalf("buy crossed above limit: taker=%#v trade=%#v", taker, item)
+			}
+			if takerSide == order.SideSell && decimal.Cmp(item.Price, taker.Price) < 0 {
+				t.Fatalf("sell crossed below limit: taker=%#v trade=%#v", taker, item)
+			}
+			takerTradeQty = decimal.Add(takerTradeQty, item.Quantity)
+			makerTradeQty[item.MakerOrderID] = decimal.Add(makerTradeQty[item.MakerOrderID], item.Quantity)
+		}
+
+		if len(result.Makers) != len(makerTradeQty) {
+			t.Fatalf("maker updates = %d, want %d", len(result.Makers), len(makerTradeQty))
+		}
+		assertDecimalEqual(t, result.Taker.FilledQuantity, takerTradeQty, "taker filled")
+		assertDecimalEqual(t, result.Taker.RemainingQuantity, decimal.SubFloorZero(taker.RemainingQuantity, takerTradeQty), "taker remaining")
+		assertNonNegativeDecimal(t, result.Taker.FilledQuantity, "taker filled")
+		assertNonNegativeDecimal(t, result.Taker.RemainingQuantity, "taker remaining")
+		assertStatusMatchesRemaining(t, result.Taker.Status, result.Taker.RemainingQuantity, "taker status")
+		if decimal.Cmp(takerTradeQty, taker.RemainingQuantity) > 0 {
+			t.Fatalf("overfilled taker: filled=%s original=%s", takerTradeQty, taker.RemainingQuantity)
+		}
+
+		for _, updated := range result.Makers {
+			original, ok := originalMakers[updated.ID]
+			if !ok {
+				t.Fatalf("unknown maker update: %#v", updated)
+			}
+			if !eligibleMaker(taker, original) {
+				t.Fatalf("updated ineligible maker: original=%#v updated=%#v", original, updated)
+			}
+			filled := makerTradeQty[updated.ID]
+			if decimal.Cmp(filled, original.RemainingQuantity) > 0 {
+				t.Fatalf("overfilled maker %s: filled=%s original=%s", updated.ID, filled, original.RemainingQuantity)
+			}
+			assertDecimalEqual(t, updated.FilledQuantity, filled, "maker filled")
+			assertDecimalEqual(t, updated.RemainingQuantity, decimal.SubFloorZero(original.RemainingQuantity, filled), "maker remaining")
+			assertNonNegativeDecimal(t, updated.FilledQuantity, "maker filled")
+			assertNonNegativeDecimal(t, updated.RemainingQuantity, "maker remaining")
+			assertStatusMatchesRemaining(t, updated.Status, updated.RemainingQuantity, "maker status")
+		}
+	})
 }
 
 func assertNonNegativeDecimal(t *testing.T, value string, label string) {

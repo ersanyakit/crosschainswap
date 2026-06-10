@@ -345,46 +345,39 @@ func (r *ExchangeRepository) nextOrderCommandSequence(ctx context.Context, marke
 	if market == "" {
 		return 0, fmt.Errorf("market is required for command sequence")
 	}
-	for attempt := 0; attempt < 2; attempt++ {
-		var model ExchangeOrderCommandSequence
-		err := r.db.WithContext(ctx).
-			Clauses(clause.Locking{Strength: "UPDATE"}).
-			Where(&ExchangeOrderCommandSequence{Market: market}).
-			First(&model).Error
-		if err != nil {
-			if !errors.Is(err, gorm.ErrRecordNotFound) {
-				return 0, err
-			}
-			maxSeq, err := r.maxOrderCommandSequence(ctx, market)
-			if err != nil {
-				return 0, err
-			}
-			seq := maxSeq + 1
-			if seq == 0 {
-				seq = 1
-			}
-			model = ExchangeOrderCommandSequence{Market: market, NextSequence: seq + 1, UpdatedAt: time.Now()}
-			if createErr := r.db.WithContext(ctx).Create(&model).Error; createErr != nil {
-				if attempt == 0 {
-					continue
-				}
-				return 0, createErr
-			}
-			return seq, nil
-		}
 
-		seq := model.NextSequence
-		if seq == 0 {
-			seq = 1
-		}
-		model.NextSequence = seq + 1
-		model.UpdatedAt = time.Now()
-		if err := r.db.WithContext(ctx).Save(&model).Error; err != nil {
-			return 0, err
-		}
-		return seq, nil
+	maxSeq, err := r.maxOrderCommandSequence(ctx, market)
+	if err != nil {
+		return 0, err
 	}
-	return 0, fmt.Errorf("failed to allocate order command sequence for %s", market)
+	firstSeq := maxSeq + 1
+	if firstSeq == 0 {
+		firstSeq = 1
+	}
+	seed := ExchangeOrderCommandSequence{Market: market, NextSequence: firstSeq, UpdatedAt: time.Now()}
+	if err := r.db.WithContext(ctx).
+		Clauses(clause.OnConflict{DoNothing: true}).
+		Create(&seed).Error; err != nil {
+		return 0, err
+	}
+
+	var model ExchangeOrderCommandSequence
+	if err := r.db.WithContext(ctx).
+		Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where(&ExchangeOrderCommandSequence{Market: market}).
+		First(&model).Error; err != nil {
+		return 0, err
+	}
+	seq := model.NextSequence
+	if seq == 0 || seq <= maxSeq {
+		seq = firstSeq
+	}
+	model.NextSequence = seq + 1
+	model.UpdatedAt = time.Now()
+	if err := r.db.WithContext(ctx).Save(&model).Error; err != nil {
+		return 0, err
+	}
+	return seq, nil
 }
 
 func (r *ExchangeRepository) maxOrderCommandSequence(ctx context.Context, market string) (uint64, error) {

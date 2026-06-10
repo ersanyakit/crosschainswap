@@ -34,6 +34,11 @@ func MatchLimit(taker order.Order, makers []order.Order, newTradeID TradeIDFacto
 			break
 		}
 		if !eligibleMaker(result.Taker, maker) {
+			if isSelfTrade(result.Taker, maker) && crossesPrice(result.Taker, maker) {
+				result.Taker.Status = order.StatusExpired
+				result.Taker.UpdatedAt = now
+				break
+			}
 			continue
 		}
 
@@ -76,7 +81,7 @@ func MatchLimit(taker order.Order, makers []order.Order, newTradeID TradeIDFacto
 		result.Taker.Status = statusForRemaining(result.Taker.RemainingQuantity)
 		result.Taker.UpdatedAt = now
 	}
-	if decimal.Cmp(result.Taker.RemainingQuantity, "0") > 0 && result.Taker.Status != order.StatusPartiallyFilled {
+	if decimal.Cmp(result.Taker.RemainingQuantity, "0") > 0 && result.Taker.Status != order.StatusPartiallyFilled && result.Taker.Status != order.StatusExpired {
 		result.Taker.Status = order.StatusOpen
 	}
 	return result, nil
@@ -102,6 +107,36 @@ func validateTaker(item order.Order) error {
 }
 
 func eligibleMaker(taker order.Order, maker order.Order) bool {
+	if maker.ID == "" || maker.ID == taker.ID {
+		return false
+	}
+	if maker.Market != taker.Market || maker.Side == taker.Side {
+		return false
+	}
+	if isSelfTrade(taker, maker) {
+		return false
+	}
+	if maker.Status != order.StatusOpen && maker.Status != order.StatusPartiallyFilled {
+		return false
+	}
+	if decimal.Cmp(maker.RemainingQuantity, "0") <= 0 {
+		return false
+	}
+	switch taker.Side {
+	case order.SideBuy:
+		return maker.Side == order.SideSell && decimal.Cmp(maker.Price, taker.Price) <= 0
+	case order.SideSell:
+		return maker.Side == order.SideBuy && decimal.Cmp(maker.Price, taker.Price) >= 0
+	default:
+		return false
+	}
+}
+
+func isSelfTrade(taker order.Order, maker order.Order) bool {
+	return taker.UserID != "" && taker.UserID == maker.UserID
+}
+
+func crossesPrice(taker order.Order, maker order.Order) bool {
 	if maker.ID == "" || maker.ID == taker.ID {
 		return false
 	}

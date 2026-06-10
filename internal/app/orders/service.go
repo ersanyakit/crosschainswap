@@ -1024,13 +1024,18 @@ func (s *Service) match(ctx context.Context, tx *postgres.ExchangeRepository, ta
 			levels.touch(taker)
 			matchedAny = true
 		}
+		if len(result.Trades) == 0 && result.Taker.Status == order.StatusExpired {
+			taker = result.Taker
+			levels.touch(taker)
+			break
+		}
 		if !matchedAny {
 			break
 		}
 	}
 	if decimal.Cmp(taker.RemainingQuantity, "0") > 0 && isImmediateOnly(taker) {
 		taker.Status = order.StatusExpired
-	} else if decimal.Cmp(taker.RemainingQuantity, "0") > 0 && taker.Status != order.StatusPartiallyFilled {
+	} else if decimal.Cmp(taker.RemainingQuantity, "0") > 0 && taker.Status != order.StatusPartiallyFilled && taker.Status != order.StatusExpired {
 		taker.Status = order.StatusOpen
 	}
 	levels.touch(taker)
@@ -1198,7 +1203,7 @@ func isImmediateOnly(item order.Order) bool {
 }
 
 func shouldReleaseUnfilled(item order.Order) bool {
-	return isImmediateOnly(item) && item.Status == order.StatusExpired && decimal.Cmp(item.RemainingQuantity, "0") > 0
+	return item.Status == order.StatusExpired && decimal.Cmp(item.RemainingQuantity, "0") > 0
 }
 
 func asyncMatchingEnabled() bool {
